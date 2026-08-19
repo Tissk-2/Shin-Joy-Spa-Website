@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="app.diagrams.net" modified="2026-08-17T00:00:00.000Z" agent="Codex" version="24.7.17">
+  <diagram id="shin-joy-use-case" name="Use Case Shin Joy Spa">
+    <mxGraphModel dx="1500" dy="1200" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1500" pageHeight="1200" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <!-- Plain system boundary matching the supplied reference -->
+        <mxCell id="system" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="220" y="30" width="1080" height="1000" as="geometry"/>
+        </mxCell>
+        <mxCell id="system_title" value="&lt;b&gt;Sistem Reservasi Shin Joy Spa&lt;/b&gt;&lt;br&gt;(Website Layanan Spa dan Reservasi Online)" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontFamily=Arial;fontSize=16;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="535" y="45" width="450" height="55" as="geometry"/>
+        </mxCell>
+
+        <!-- Actors remain outside the system boundary -->
+        <mxCell id="visitor" value="Pengunjung" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;strokeColor=#000000;strokeWidth=1.4;fontSize=14;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="65" y="370" width="90" height="135" as="geometry"/>
+        </mxCell>
+        <mxCell id="user" value="Pengguna Terdaftar" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;strokeColor=#000000;strokeWidth=1.4;fontSize=14;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="1350" y="545" width="105" height="145" as="geometry"/>
+        </mxCell>
+
+        <!-- Visitor use cases: left vertical column -->
+        <mxCell id="home" value="Melihat Beranda" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;fontSize=13;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="350" y="125" width="210" height="66" as="geometry"/>
+        </mxCell>
+        <mxCell id="browse" value="Menjelajahi Layanan" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;fontSize=13;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="350" y="215" width="210" height="66" as="geometry"/>
+        </mxCell>
+        <mxCell id="about" value="Melihat Informasi Spa" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;fontSize=13;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="350" y="305" width="210" height="66" as="geometry"/>
+        </mxCell>
+        <mxCell id="register" value="Mendaftar Akun" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;fontSize=13;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="350" y="395" width="210" height="66" as="geometry"/>
+        </mxCell>
+        <mxCell id="login" value="Login" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;fontSize=13;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="350" y="485" width="210" height="66" as="geometry"/>
+        </mxCell>
+        <mxCell id="language" value="Mengubah Bahasa" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;fontSize=13;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="350" y="575" width="210" height="66" as="geometry"/>
+        </mxCell>
+        <mxCell id="booking" value="Membuat Reservasi" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;fontSize=13;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="350" y="665" width="210" height="66" as="geometry"/>
+        </mxCell>
+
+        <!-- Optional service exploration actions -->
+        <mxCell id="search" value="Mencari dan Memfilter&lt;br&gt;Layanan" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;fontSize=13;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="665" y="195" width="220" height="70" as="geometry"/>
+        </mxCell>
+        <mxCell id="detail" value="Melihat Detail Layanan" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;fontSize=13;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="665" y="295" width="220" height="66" as="geometry"/>
+        </mxCell>
+
+        <!-- Registered-user use cases: right vertical column -->
+        <mxCell id="savedBooking" value="Menyimpan Reservasi&lt;br&gt;ke Riwayat" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;fontSize=13;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="965" y="455" width="220" height="70" as="geometry"/>
+        </mxCell>
+        <mxCell id="profile" value="Melihat Profil" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;fontSize=13;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="965" y="595" width="220" height="66" as="geometry"/>
+        </mxCell>
+        <mxCell id="logout" value="Logout" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;fontSize=13;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="965" y="865" width="220" height="66" as="geometry"/>
+        </mxCell>
+
+        <!-- Profile sections -->
+        <mxCell id="upcoming" value="Melihat Reservasi&lt;br&gt;Mendatang" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;fontSize=13;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="665" y="665" width="220" height="70" as="geometry"/>
+        </mxCell>
+        <mxCell id="history" value="Melihat Riwayat Booking" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;fontSize=13;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="665" y="770" width="220" height="66" as="geometry"/>
+        </mxCell>
+
+        <!-- Straight actor associations like the reference -->
+        <mxCell id="a_home" style="edgeStyle=none;rounded=0;html=1;strokeColor=#000000;strokeWidth=1.35;endArrow=none;" edge="1" parent="1" source="visitor" target="home"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="a_browse" style="edgeStyle=none;rounded=0;html=1;strokeColor=#000000;strokeWidth=1.35;endArrow=none;" edge="1" parent="1" source="visitor" target="browse"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="a_about" style="edgeStyle=none;rounded=0;html=1;strokeColor=#000000;strokeWidth=1.35;endArrow=none;" edge="1" parent="1" source="visitor" target="about"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="a_register" style="edgeStyle=none;rounded=0;html=1;strokeColor=#000000;strokeWidth=1.35;endArrow=none;" edge="1" parent="1" source="visitor" target="register"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="a_login" style="edgeStyle=none;rounded=0;html=1;strokeColor=#000000;strokeWidth=1.35;endArrow=none;" edge="1" parent="1" source="visitor" target="login"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="a_language" style="edgeStyle=none;rounded=0;html=1;strokeColor=#000000;strokeWidth=1.35;endArrow=none;" edge="1" parent="1" source="visitor" target="language"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="a_booking" style="edgeStyle=none;rounded=0;html=1;strokeColor=#000000;strokeWidth=1.35;endArrow=none;" edge="1" parent="1" source="visitor" target="booking"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="a_saved" style="edgeStyle=none;rounded=0;html=1;strokeColor=#000000;strokeWidth=1.35;endArrow=none;" edge="1" parent="1" source="user" target="savedBooking"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="a_profile" style="edgeStyle=none;rounded=0;html=1;strokeColor=#000000;strokeWidth=1.35;endArrow=none;" edge="1" parent="1" source="user" target="profile"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="a_logout" style="edgeStyle=none;rounded=0;html=1;strokeColor=#000000;strokeWidth=1.35;endArrow=none;" edge="1" parent="1" source="user" target="logout"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <!-- UML dependencies -->
+        <mxCell id="ext_search" value="&amp;laquo;extend&amp;raquo;" style="edgeStyle=none;rounded=0;html=1;dashed=1;dashPattern=5 5;strokeColor=#000000;strokeWidth=1.25;endArrow=open;endSize=10;fontSize=12;fontColor=#000000;" edge="1" parent="1" source="search" target="browse"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="ext_detail" value="&amp;laquo;extend&amp;raquo;" style="edgeStyle=none;rounded=0;html=1;dashed=1;dashPattern=5 5;strokeColor=#000000;strokeWidth=1.25;endArrow=open;endSize=10;fontSize=12;fontColor=#000000;" edge="1" parent="1" source="detail" target="browse"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="ext_saved" value="&amp;laquo;extend&amp;raquo;" style="edgeStyle=none;rounded=0;html=1;dashed=1;dashPattern=5 5;strokeColor=#000000;strokeWidth=1.25;endArrow=open;endSize=10;fontSize=12;fontColor=#000000;" edge="1" parent="1" source="savedBooking" target="booking"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="inc_upcoming" value="&amp;laquo;include&amp;raquo;" style="edgeStyle=none;rounded=0;html=1;dashed=1;dashPattern=5 5;strokeColor=#000000;strokeWidth=1.25;endArrow=open;endSize=10;fontSize=12;fontColor=#000000;" edge="1" parent="1" source="profile" target="upcoming"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="inc_history" value="&amp;laquo;include&amp;raquo;" style="edgeStyle=none;rounded=0;html=1;dashed=1;dashPattern=5 5;strokeColor=#000000;strokeWidth=1.25;endArrow=open;endSize=10;fontSize=12;fontColor=#000000;" edge="1" parent="1" source="profile" target="history"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <!-- Registered users inherit all visitor capabilities -->
+        <mxCell id="generalization" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#000000;strokeWidth=1.25;endArrow=block;endFill=0;endSize=15;" edge="1" parent="1" source="user" target="visitor">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points"><mxPoint x="1400" y="1090"/><mxPoint x="110" y="1090"/></Array>
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

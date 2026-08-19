@@ -1,0 +1,208 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="2100" height="1500" viewBox="0 0 2100 1500" role="img" aria-labelledby="title desc">
+  <title id="title">ERD Sistem Reservasi Shin Joy Spa</title>
+  <desc id="desc">Diagram entity relationship gaya Chen untuk pengguna, reservasi, layanan, dan kategori.</desc>
+  <defs>
+    <style>
+      .bg { fill: #fffdf9; }
+      .line { fill: none; stroke: #57534e; stroke-width: 2.2; }
+      .line-optional { fill: none; stroke: #78716c; stroke-width: 2.2; stroke-dasharray: 8 7; }
+      .entity { fill: #f5e6df; stroke: #292524; stroke-width: 2.5; }
+      .relation { fill: #eee7df; stroke: #292524; stroke-width: 2.5; }
+      .attr { fill: #ffffff; stroke: #57534e; stroke-width: 2; }
+      .note { fill: #fff7ed; stroke: #b48a7a; stroke-width: 2; stroke-dasharray: 9 7; }
+      .title { font: 700 36px Georgia, serif; fill: #1c1917; letter-spacing: 1px; }
+      .subtitle { font: 400 17px Arial, sans-serif; fill: #78716c; }
+      .entity-text { font: 700 19px Arial, sans-serif; fill: #1c1917; text-anchor: middle; }
+      .relation-text { font: 600 16px Arial, sans-serif; fill: #1c1917; text-anchor: middle; }
+      .attr-text { font: 500 14px Arial, sans-serif; fill: #292524; text-anchor: middle; }
+      .small { font: 500 13px Arial, sans-serif; fill: #57534e; }
+      .card { font: 700 18px Arial, sans-serif; fill: #9f6654; text-anchor: middle; }
+      .pk { text-decoration: underline; font-weight: 700; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="2100" height="1500"/>
+  <text class="title" x="1050" y="58" text-anchor="middle">ERD SISTEM RESERVASI SHIN JOY SPA</text>
+  <text class="subtitle" x="1050" y="91" text-anchor="middle">Model database relasional · Notasi Chen (minimum, maksimum) · PK digarisbawahi · FK diberi label</text>
+
+  <!-- Relationship connectors -->
+  <path class="line-optional" d="M350 610 H450"/>
+  <path class="line" d="M650 610 H825"/>
+  <path class="line" d="M1035 610 H1170"/>
+  <path class="line" d="M1370 610 H1505"/>
+  <path class="line" d="M1600 645 V920"/>
+  <path class="line" d="M1600 1020 V1235"/>
+
+  <!-- User attribute connectors -->
+  <path class="line" d="M260 575 L155 335"/>
+  <path class="line" d="M275 575 L370 355"/>
+  <path class="line" d="M170 590 L70 490"/>
+  <path class="line" d="M350 590 L430 480"/>
+  <path class="line" d="M185 635 L90 740"/>
+  <path class="line" d="M260 645 L275 815"/>
+  <path class="line" d="M335 635 L460 755"/>
+
+  <!-- Reservation attribute connectors -->
+  <path class="line" d="M860 575 L740 285"/>
+  <path class="line-optional" d="M915 575 L930 240"/>
+  <path class="line" d="M975 575 L1120 285"/>
+  <path class="line" d="M840 585 L700 395"/>
+  <path class="line" d="M930 575 L925 375"/>
+  <path class="line" d="M1010 585 L1140 415"/>
+  <path class="line" d="M840 635 L680 775"/>
+  <path class="line" d="M880 645 L850 865"/>
+  <path class="line" d="M940 645 L1030 895"/>
+  <path class="line" d="M1020 635 L1200 795"/>
+  <path class="line" d="M910 645 L900 995"/>
+  <path class="line" d="M980 645 L1100 1000"/>
+
+  <!-- Service attribute connectors -->
+  <path class="line" d="M1535 575 L1470 285"/>
+  <path class="line" d="M1580 575 L1650 235"/>
+  <path class="line" d="M1640 575 L1830 285"/>
+  <path class="line" d="M1690 585 L1930 395"/>
+  <path class="line" d="M1695 610 L1860 500"/>
+  <path class="line" d="M1515 585 L1450 415"/>
+  <path class="line" d="M1505 610 L1450 470"/>
+  <path class="line" d="M1685 635 L1830 695"/>
+  <path class="line" d="M1540 635 L1480 725"/>
+
+  <!-- Category attribute connectors -->
+  <path class="line" d="M1530 1235 L1410 1180"/>
+  <path class="line" d="M1670 1235 L1880 1180"/>
+  <path class="line" d="M1535 1305 L1370 1360"/>
+  <path class="line" d="M1600 1305 L1590 1385"/>
+  <path class="line" d="M1680 1305 L1820 1360"/>
+
+  <!-- History derivation connector -->
+  <path class="line-optional" d="M260 645 C260 830 260 900 310 1040"/>
+
+  <!-- Main entities -->
+  <rect class="entity" x="170" y="575" width="180" height="70" rx="2"/>
+  <text class="entity-text" x="260" y="617">PENGGUNA</text>
+
+  <polygon class="relation" points="550,560 650,610 550,660 450,610"/>
+  <text class="relation-text" x="550" y="616">MEMBUAT</text>
+
+  <rect class="entity" x="825" y="575" width="210" height="70" rx="2"/>
+  <text class="entity-text" x="930" y="617">RESERVASI</text>
+
+  <polygon class="relation" points="1270,560 1370,610 1270,660 1170,610"/>
+  <text class="relation-text" x="1270" y="616">MEMILIH</text>
+
+  <rect class="entity" x="1505" y="575" width="190" height="70" rx="2"/>
+  <text class="entity-text" x="1600" y="617">LAYANAN</text>
+
+  <polygon class="relation" points="1600,920 1700,970 1600,1020 1500,970"/>
+  <text class="relation-text" x="1600" y="966">TERMASUK</text>
+  <text class="relation-text" x="1600" y="986">DALAM</text>
+
+  <rect class="entity" x="1505" y="1235" width="190" height="70" rx="2"/>
+  <text class="entity-text" x="1600" y="1277">KATEGORI</text>
+
+  <!-- Cardinalities -->
+  <text class="card" x="398" y="592">(0,N)</text>
+  <text class="card" x="752" y="592">(0,1)</text>
+  <text class="card" x="1102" y="592">(1,1)</text>
+  <text class="card" x="1437" y="592">(0,N)</text>
+  <text class="card" x="1623" y="735">(1,1)</text>
+  <text class="card" x="1623" y="1140">(0,N)</text>
+  <text class="small" x="500" y="690">id_pengguna dapat NULL untuk reservasi tamu</text>
+
+  <!-- User attributes -->
+  <ellipse class="attr" cx="155" cy="300" rx="105" ry="35"/>
+  <text class="attr-text pk" x="155" y="305">id_pengguna (PK)</text>
+  <ellipse class="attr" cx="370" cy="320" rx="90" ry="35"/>
+  <text class="attr-text" x="370" y="325">nama</text>
+  <ellipse class="attr" cx="70" cy="455" rx="70" ry="35"/>
+  <text class="attr-text" x="70" y="460">email (UK)</text>
+  <ellipse class="attr" cx="430" cy="445" rx="95" ry="35"/>
+  <text class="attr-text" x="430" y="450">no_telepon</text>
+  <ellipse class="attr" cx="90" cy="775" rx="90" ry="35"/>
+  <text class="attr-text" x="90" y="780">password_hash</text>
+  <ellipse class="attr" cx="275" cy="850" rx="90" ry="35"/>
+  <text class="attr-text" x="275" y="855">password_salt</text>
+  <ellipse class="attr" cx="460" cy="790" rx="105" ry="35"/>
+  <text class="attr-text" x="460" y="795">tanggal_daftar</text>
+
+  <!-- Reservation attributes -->
+  <ellipse class="attr" cx="740" cy="250" rx="105" ry="35"/>
+  <text class="attr-text pk" x="740" y="255">id_reservasi (PK)</text>
+  <ellipse class="attr" cx="930" cy="200" rx="130" ry="40"/>
+  <text class="attr-text" x="930" y="198">id_pengguna (FK)</text>
+  <text class="small" x="930" y="218" text-anchor="middle">opsional / NULL</text>
+  <ellipse class="attr" cx="1120" cy="250" rx="110" ry="35"/>
+  <text class="attr-text" x="1120" y="255">id_layanan (FK)</text>
+  <ellipse class="attr" cx="700" cy="360" rx="110" ry="35"/>
+  <text class="attr-text" x="700" y="365">nama_pemesan</text>
+  <ellipse class="attr" cx="925" cy="340" rx="115" ry="35"/>
+  <text class="attr-text" x="925" y="345">email_pemesan</text>
+  <ellipse class="attr" cx="1140" cy="380" rx="115" ry="35"/>
+  <text class="attr-text" x="1140" y="385">no_telepon</text>
+  <ellipse class="attr" cx="680" cy="810" rx="130" ry="35"/>
+  <text class="attr-text" x="680" y="815">tanggal_reservasi</text>
+  <ellipse class="attr" cx="850" cy="900" rx="120" ry="35"/>
+  <text class="attr-text" x="850" y="905">waktu_reservasi</text>
+  <ellipse class="attr" cx="1030" cy="930" rx="100" ry="35"/>
+  <text class="attr-text" x="1030" y="935">jumlah_tamu</text>
+  <ellipse class="attr" cx="1200" cy="830" rx="90" ry="35"/>
+  <text class="attr-text" x="1200" y="835">catatan</text>
+  <ellipse class="attr" cx="900" cy="1030" rx="80" ry="35"/>
+  <text class="attr-text" x="900" y="1035">status</text>
+  <ellipse class="attr" cx="1100" cy="1035" rx="110" ry="35"/>
+  <text class="attr-text" x="1100" y="1040">dibuat_pada</text>
+
+  <!-- Service attributes -->
+  <ellipse class="attr" cx="1470" cy="250" rx="110" ry="35"/>
+  <text class="attr-text pk" x="1470" y="255">id_layanan (PK)</text>
+  <ellipse class="attr" cx="1650" cy="200" rx="110" ry="35"/>
+  <text class="attr-text" x="1650" y="205">id_kategori (FK)</text>
+  <ellipse class="attr" cx="1830" cy="250" rx="125" ry="35"/>
+  <text class="attr-text" x="1830" y="255">nama_layanan_id</text>
+  <ellipse class="attr" cx="1930" cy="360" rx="125" ry="35"/>
+  <text class="attr-text" x="1930" y="365">nama_layanan_en</text>
+  <ellipse class="attr" cx="1860" cy="500" rx="105" ry="35"/>
+  <text class="attr-text" x="1860" y="505">deskripsi</text>
+  <ellipse class="attr" cx="1450" cy="380" rx="115" ry="35"/>
+  <text class="attr-text" x="1450" y="385">durasi_menit</text>
+  <ellipse class="attr" cx="1450" cy="470" rx="80" ry="35"/>
+  <text class="attr-text" x="1450" y="475">harga</text>
+  <ellipse class="attr" cx="1830" cy="730" rx="90" ry="35"/>
+  <text class="attr-text" x="1830" y="735">gambar</text>
+  <ellipse class="attr" cx="1480" cy="760" rx="110" ry="35"/>
+  <text class="attr-text" x="1480" y="765">popularitas</text>
+
+  <!-- Category attributes -->
+  <ellipse class="attr" cx="1410" cy="1180" rx="110" ry="35"/>
+  <text class="attr-text pk" x="1410" y="1185">id_kategori (PK)</text>
+  <ellipse class="attr" cx="1880" cy="1180" rx="80" ry="35"/>
+  <text class="attr-text" x="1880" y="1185">slug (UK)</text>
+  <ellipse class="attr" cx="1370" cy="1360" rx="130" ry="35"/>
+  <text class="attr-text" x="1370" y="1365">nama_kategori_id</text>
+  <ellipse class="attr" cx="1590" cy="1420" rx="130" ry="35"/>
+  <text class="attr-text" x="1590" y="1425">nama_kategori_en</text>
+  <ellipse class="attr" cx="1820" cy="1360" rx="105" ry="35"/>
+  <text class="attr-text" x="1820" y="1365">gambar</text>
+
+  <!-- Derived booking history note -->
+  <rect class="note" x="70" y="1040" width="480" height="150" rx="14"/>
+  <text class="relation-text" x="310" y="1080">RIWAYAT BOOKING (TURUNAN)</text>
+  <text class="small" x="100" y="1113">Bukan tabel terpisah. Ditampilkan dari RESERVASI</text>
+  <text class="small" x="100" y="1138">dengan id_pengguna yang sama dan tanggal_reservasi</text>
+  <text class="small" x="100" y="1163">lebih lama dari waktu sekarang.</text>
+
+  <!-- Legend -->
+  <g transform="translate(1765 55)">
+    <rect x="0" y="0" width="290" height="142" rx="12" fill="#ffffff" stroke="#d6d3d1" stroke-width="1.5"/>
+    <rect class="entity" x="20" y="20" width="52" height="26"/>
+    <text class="small" x="86" y="39">Entitas</text>
+    <polygon class="relation" points="46,57 72,70 46,83 20,70"/>
+    <text class="small" x="86" y="75">Relasi</text>
+    <ellipse class="attr" cx="46" cy="99" rx="26" ry="13"/>
+    <text class="small" x="86" y="104">Atribut</text>
+    <text class="small" x="20" y="130">(min,maks) = partisipasi entitas</text>
+  </g>
+
+  <text class="small" x="2040" y="1470" text-anchor="end">Shin Joy Spa · ERD konseptual/logis</text>
+</svg>

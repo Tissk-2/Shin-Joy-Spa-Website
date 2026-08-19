@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="Electron" modified="2023-10-27T10:00:00.000Z" agent="Mozilla/5.0" version="22.0.8" type="device">
+  <diagram id="activity_booking" name="Booking Activity Diagram">
+    <mxGraphModel dx="1200" dy="1200" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        
+        <!-- Swimlanes / Headers -->
+        <mxCell id="lane_pelanggan" value="Pelanggan" style="swimlane;html=1;startSize=30;horizontal=1;fontStyle=1;fontSize=14;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="40" y="40" width="360" height="1060" as="geometry" />
+        </mxCell>
+        <mxCell id="lane_sistem" value="Sistem" style="swimlane;html=1;startSize=30;horizontal=1;fontStyle=1;fontSize=14;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="400" y="40" width="360" height="1060" as="geometry" />
+        </mxCell>
+
+        <!-- Pelanggan Nodes -->
+        <mxCell id="start" value="" style="ellipse;html=1;shape=ellipse;fillColor=#000000;strokeColor=#000000;" vertex="1" parent="lane_pelanggan">
+          <mxGeometry x="165" y="60" width="30" height="30" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="a1" value="Mengakses Halaman Booking" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fillColor=#ffffff;strokeColor=#000000;" vertex="1" parent="lane_pelanggan">
+          <mxGeometry x="100" y="140" width="160" height="50" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="a2" value="Memilih Layanan &amp;amp; Mengisi Formulir" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fillColor=#ffffff;strokeColor=#000000;" vertex="1" parent="lane_pelanggan">
+          <mxGeometry x="100" y="240" width="160" height="50" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="a3" value="Mengirim Form Booking" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fillColor=#ffffff;strokeColor=#000000;" vertex="1" parent="lane_pelanggan">
+          <mxGeometry x="100" y="340" width="160" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- Sistem Nodes -->
+        <mxCell id="a4" value="Memvalidasi Input Data" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fillColor=#ffffff;strokeColor=#000000;" vertex="1" parent="lane_sistem">
+          <mxGeometry x="100" y="340" width="160" height="50" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="d1" value="Data Valid?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" vertex="1" parent="lane_sistem">
+          <mxGeometry x="140" y="440" width="80" height="80" as="geometry" />
+        </mxCell>
+        
+        <!-- Merge node is optional, but PPT says "Tutup & Validasi - Gunakan Merge untuk menyatukan jalur alternatif"
+             Wait, PPT slide 11 shows Decision mapping to two paths, and then Merge joining them back? 
+             Actually, if it's invalid, it goes back to the user. No merge needed for loopbacks. -->
+
+        <mxCell id="a5" value="Memproses Pemesanan" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fillColor=#ffffff;strokeColor=#000000;" vertex="1" parent="lane_sistem">
+          <mxGeometry x="100" y="570" width="160" height="50" as="geometry" />
+        </mxCell>
+        
+        <!-- Fork -->
+        <mxCell id="fork1" value="" style="line;strokeWidth=6;html=1;perimeter=backbonePerimeter;points=[];outlineConnect=0;" vertex="1" parent="lane_sistem">
+          <mxGeometry x="40" y="670" width="280" height="10" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="a6a" value="Kalkulasi Total Biaya" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fillColor=#ffffff;strokeColor=#000000;" vertex="1" parent="lane_sistem">
+          <mxGeometry x="20" y="730" width="140" height="50" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="a6b" value="Format Ringkasan Pesanan" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fillColor=#ffffff;strokeColor=#000000;" vertex="1" parent="lane_sistem">
+          <mxGeometry x="200" y="730" width="140" height="50" as="geometry" />
+        </mxCell>
+        
+        <!-- Join -->
+        <mxCell id="join1" value="" style="line;strokeWidth=6;html=1;perimeter=backbonePerimeter;points=[];outlineConnect=0;" vertex="1" parent="lane_sistem">
+          <mxGeometry x="40" y="830" width="280" height="10" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="a7" value="Menampilkan Konfirmasi Sukses" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fillColor=#ffffff;strokeColor=#000000;" vertex="1" parent="lane_sistem">
+          <mxGeometry x="100" y="890" width="160" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- Back to Pelanggan -->
+        <mxCell id="a8" value="Menerima Ringkasan Pemesanan" style="rounded=1;whiteSpace=wrap;html=1;arcSize=40;fillColor=#ffffff;strokeColor=#000000;" vertex="1" parent="lane_pelanggan">
+          <mxGeometry x="100" y="890" width="160" height="50" as="geometry" />
+        </mxCell>
+        
+        <!-- End Node: double circle, inner black -->
+        <mxCell id="end" value="" style="ellipse;html=1;shape=endState;fillColor=#000000;strokeColor=#000000;" vertex="1" parent="lane_pelanggan">
+          <mxGeometry x="165" y="990" width="30" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- Edges -->
+        <mxCell id="e1" edge="1" parent="lane_pelanggan" source="start" target="a1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" edge="1" parent="lane_pelanggan" source="a1" target="a2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" edge="1" parent="lane_pelanggan" source="a2" target="a3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="e4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="a3" target="a4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="lane_sistem" source="a4" target="d1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <!-- Invalid branch back to a2 -->
+        <mxCell id="e6" value="[Tidak Valid]" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="d1" target="a2">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="430" y="520" />
+              <mxPoint x="430" y="305" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="e7" value="[Valid]" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="lane_sistem" source="d1" target="a5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="e8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="lane_sistem" source="a5" target="fork1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <!-- Fork to parallel actions -->
+        <mxCell id="e9" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="lane_sistem" source="fork1" target="a6a">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="90" y="700" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e10" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="lane_sistem" source="fork1" target="a6b">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="270" y="700" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- Parallel actions to Join -->
+        <mxCell id="e11" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="lane_sistem" source="a6a" target="join1">
+          <mxGeometry relative="1" as="geometry">
+             <Array as="points">
+              <mxPoint x="90" y="800" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e12" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="lane_sistem" source="a6b" target="join1">
+          <mxGeometry relative="1" as="geometry">
+             <Array as="points">
+              <mxPoint x="270" y="800" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- Join to a7 -->
+        <mxCell id="e13" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="lane_sistem" source="join1" target="a7">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <!-- System to Pelanggan again -->
+        <mxCell id="e14" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="a7" target="a8">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="e15" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="lane_pelanggan" source="a8" target="end">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

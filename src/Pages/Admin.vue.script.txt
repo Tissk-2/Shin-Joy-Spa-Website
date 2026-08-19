@@ -1,0 +1,549 @@
+<script setup>
+import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { RouterLink, useRoute, useRouter } from 'vue-router';
+import { language, setLanguage, tr } from '../useLanguage.js';
+import initialServices from '../Data/services.js';
+import initialCategories from '../Data/categories.js';
+import initialGallery from '../Data/gallery.js';
+
+const route = useRoute();
+const router = useRouter();
+
+// Active tab view: 'overview' | 'services' | 'categories' | 'gallery' | 'bookings' | 'content'
+const currentView = ref(route.query.view || 'overview');
+const mobileSidebarOpen = ref(false);
+
+// Toast notification state
+const toastMessage = ref('');
+let toastTimer = null;
+function showToast(msg) {
+  toastMessage.value = msg;
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    toastMessage.value = '';
+  }, 3500);
+}
+
+// ----------------------------------------------------
+// DUMMY STATE: Services
+// ----------------------------------------------------
+const servicesList = ref(
+  initialServices.map((s, idx) => ({
+    id: idx + 1,
+    slug: s.slug,
+    category: s.category,
+    nameId: s.nameId,
+    nameEn: s.nameEn,
+    descId: s.descId,
+    descEn: s.descEn,
+    longId: s.longId || s.descId,
+    longEn: s.longEn || s.descEn,
+    goodId: s.goodId || '',
+    goodEn: s.goodEn || '',
+    duration: s.duration,
+    price: s.price,
+    image: s.image,
+    gallery: s.gallery && s.gallery.length ? s.gallery.map(g => (g.startsWith('/img/') ? g : `/img/${g}`)) : [s.image, '/img/oil.jpg', '/img/stilllife.jpg'],
+  }))
+);
+
+const serviceSearch = ref('');
+const serviceCategoryFilter = ref('all');
+const servicePage = ref(1);
+const servicesPerPage = 6;
+const editingService = ref(null); // null = list mode, object = add/edit mode
+
+const filteredServices = computed(() => {
+  return servicesList.value.filter((s) => {
+    const matchCat = serviceCategoryFilter.value === 'all' || s.category === serviceCategoryFilter.value;
+    const query = serviceSearch.value.toLowerCase().trim();
+    const matchQuery =
+      !query ||
+      s.nameId.toLowerCase().includes(query) ||
+      s.nameEn.toLowerCase().includes(query) ||
+      s.category.toLowerCase().includes(query);
+    return matchCat && matchQuery;
+  });
+});
+
+const paginatedServices = computed(() => {
+  const start = (servicePage.value - 1) * servicesPerPage;
+  return filteredServices.value.slice(start, start + servicesPerPage);
+});
+
+const totalServicePages = computed(() => Math.max(1, Math.ceil(filteredServices.value.length / servicesPerPage)));
+
+function openAddService() {
+  editingService.value = {
+    id: 0,
+    slug: '',
+    nameId: '',
+    nameEn: '',
+    category: categoriesList.value[0]?.slug || 'massage',
+    duration: 60,
+    price: 150000,
+    descId: '',
+    descEn: '',
+    longId: '',
+    longEn: '',
+    goodId: '',
+    goodEn: '',
+    image: '/img/massage.jpg',
+    gallery: ['/img/massage.jpg', '/img/oil.jpg', '/img/stilllife.jpg'],
+  };
+}
+
+function openEditService(service) {
+  editingService.value = JSON.parse(JSON.stringify(service));
+  if (!editingService.value.gallery || !editingService.value.gallery.length) {
+    editingService.value.gallery = [service.image, '/img/oil.jpg', '/img/stilllife.jpg'];
+  }
+}
+
+function handleServicePhotoUpload(slotIndex, event) {
+  const file = event.target.files?.[0];
+  if (file && editingService.value) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const result = e.target?.result;
+      if (typeof result === 'string') {
+        editingService.value.gallery[slotIndex] = result;
+        if (slotIndex === 0) {
+          editingService.value.image = result;
+        }
+      }
+    };
+    reader.readAsDataURL(file);
+  }
+}
+
+function saveService() {
+  if (!editingService.value.nameId || !editingService.value.nameEn || editingService.value.duration <= 0 || editingService.value.price < 0) {
+    alert(tr('ad.f.err'));
+    return;
+  }
+
+  if (editingService.value.id === 0) {
+    // Add new
+    const newId = servicesList.value.length ? Math.max(...servicesList.value.map((s) => s.id)) + 1 : 1;
+    const newSvc = {
+      ...editingService.value,
+      id: newId,
+      slug: editingService.value.nameEn.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || `service-${newId}`,
+      image: editingService.value.gallery[0] || '/img/massage.jpg',
+    };
+    servicesList.value.unshift(newSvc);
+    showToast(tr('ad.toast.added'));
+  } else {
+    // Update existing
+    const idx = servicesList.value.findIndex((s) => s.id === editingService.value.id);
+    if (idx !== -1) {
+      servicesList.value[idx] = {
+        ...editingService.value,
+        image: editingService.value.gallery[0] || servicesList.value[idx].image,
+      };
+      showToast(tr('ad.toast.updated'));
+    }
+  }
+  editingService.value = null;
+}
+
+function deleteService(id) {
+  if (confirm(tr('ad.sv.deleteConfirm'))) {
+    servicesList.value = servicesList.value.filter((s) => s.id !== id);
+    showToast(tr('ad.toast.deleted'));
+  }
+}
+
+// ----------------------------------------------------
+// DUMMY STATE: Categories
+// ----------------------------------------------------
+const categoryColors = {
+  massage: '#b87c7c',
+  facial: '#d4af37',
+  body: '#87a987',
+  package: '#7c5369',
+};
+
+const categoriesList = ref(
+  initialCategories.map((c, idx) => ({
+    id: idx + 1,
+    slug: c.slug,
+    nameId: c.nameId,
+    nameEn: c.nameEn,
+    color: categoryColors[c.slug] || '#b87c7c',
+    image: c.image || '/img/massage.jpg',
+  }))
+);
+
+const editingCategory = ref(null);
+
+function openAddCategory() {
+  editingCategory.value = {
+    id: 0,
+    slug: '',
+    nameId: '',
+    nameEn: '',
+    color: '#b87c7c',
+    image: '/img/massage.jpg',
+  };
+}
+
+function openEditCategory(cat) {
+  editingCategory.value = JSON.parse(JSON.stringify(cat));
+}
+
+function getServiceCountByCategory(slug) {
+  return servicesList.value.filter((s) => s.category === slug).length;
+}
+
+function saveCategory() {
+  if (!editingCategory.value.nameId || !editingCategory.value.nameEn) {
+    alert(tr('ad.cat.err'));
+    return;
+  }
+
+  if (editingCategory.value.id === 0) {
+    const newId = categoriesList.value.length ? Math.max(...categoriesList.value.map((c) => c.id)) + 1 : 1;
+    const slug = editingCategory.value.nameEn.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || `category-${newId}`;
+    const newCat = {
+      ...editingCategory.value,
+      id: newId,
+      slug,
+      color: editingCategory.value.color || '#b87c7c',
+      image: '/img/massage.jpg',
+    };
+    categoriesList.value.push(newCat);
+    showToast(tr('ad.cat.toastAdded'));
+  } else {
+    const idx = categoriesList.value.findIndex((c) => c.id === editingCategory.value.id);
+    if (idx !== -1) {
+      categoriesList.value[idx] = { ...editingCategory.value };
+      showToast(tr('ad.cat.toastUpdated'));
+    }
+  }
+  editingCategory.value = null;
+}
+
+function deleteCategory(cat) {
+  const inUse = getServiceCountByCategory(cat.slug);
+  if (inUse > 0) {
+    alert(tr('ad.cat.inUse'));
+    return;
+  }
+  if (confirm(tr('ad.cat.deleteConfirm'))) {
+    categoriesList.value = categoriesList.value.filter((c) => c.id !== cat.id);
+    showToast(tr('ad.cat.toastDeleted'));
+  }
+}
+
+// ----------------------------------------------------
+// DUMMY STATE: Gallery
+// ----------------------------------------------------
+const galleryList = ref([...initialGallery]);
+
+function handleAddGalleryImage(event) {
+  const file = event.target.files?.[0];
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const result = e.target?.result;
+      if (typeof result === 'string') {
+        galleryList.value.push(result);
+        showToast(tr('ad.gal.toastAdded'));
+      }
+    };
+    reader.readAsDataURL(file);
+    event.target.value = '';
+  }
+}
+
+function moveGalleryImage(index, direction) {
+  const newIndex = direction === 'up' ? index - 1 : index + 1;
+  if (newIndex < 0 || newIndex >= galleryList.value.length) return;
+  const item = galleryList.value.splice(index, 1)[0];
+  galleryList.value.splice(newIndex, 0, item);
+}
+
+function deleteGalleryImage(index) {
+  if (confirm(tr('ad.gal.deleteConfirm'))) {
+    galleryList.value.splice(index, 1);
+    showToast(tr('ad.gal.toastDeleted'));
+  }
+}
+
+// ----------------------------------------------------
+// DUMMY STATE: Bookings
+// ----------------------------------------------------
+const initialDummyBookings = [
+  {
+    id: 101,
+    customerName: 'Siti Rahmawati',
+    phone: '+62 812 3456 7891',
+    serviceNameId: 'Pijat Tradisional Jawa',
+    serviceNameEn: 'Traditional Javanese Massage',
+    category: 'massage',
+    bookingDate: '2026-08-17',
+    bookingTime: '10:00',
+    guests: 2,
+    price: 370000,
+    status: 'confirmed',
+  },
+  {
+    id: 102,
+    customerName: 'Budi Santoso',
+    phone: '+62 813 9876 5432',
+    serviceNameId: 'Pijat Batu Panas',
+    serviceNameEn: 'Hot Stone Massage',
+    category: 'massage',
+    bookingDate: '2026-08-17',
+    bookingTime: '14:00',
+    guests: 1,
+    price: 220000,
+    status: 'pending',
+  },
+  {
+    id: 103,
+    customerName: 'Clara Wijaya',
+    phone: '+62 819 8765 4321',
+    serviceNameId: 'Facial Pencerah',
+    serviceNameEn: 'Brightening Facial',
+    category: 'facial',
+    bookingDate: '2026-08-18',
+    bookingTime: '11:30',
+    guests: 1,
+    price: 175000,
+    status: 'confirmed',
+  },
+  {
+    id: 104,
+    customerName: 'Dewi Lestari',
+    phone: '+62 821 5555 1234',
+    serviceNameId: 'Ritual Rempah Jawa',
+    serviceNameEn: 'Javanese Herbal Ritual',
+    category: 'package',
+    bookingDate: '2026-08-19',
+    bookingTime: '15:00',
+    guests: 2,
+    price: 650000,
+    status: 'pending',
+  },
+  {
+    id: 105,
+    customerName: 'Ahmad Fauzi',
+    phone: '+62 812 9988 7766',
+    serviceNameId: 'Pijat Aromaterapi',
+    serviceNameEn: 'Aromatherapy Massage',
+    category: 'massage',
+    bookingDate: '2026-08-20',
+    bookingTime: '13:00',
+    guests: 1,
+    price: 150000,
+    status: 'confirmed',
+  },
+  {
+    id: 106,
+    customerName: 'Maya Indah',
+    phone: '+62 878 1122 3344',
+    serviceNameId: 'Lulur Tradisional Jawa',
+    serviceNameEn: 'Traditional Javanese Scrub',
+    category: 'body',
+    bookingDate: '2026-08-16',
+    bookingTime: '16:00',
+    guests: 1,
+    price: 165000,
+    status: 'done',
+  },
+  {
+    id: 107,
+    customerName: 'Rina Kusuma',
+    phone: '+62 856 7788 9900',
+    serviceNameId: 'Paket Relaksasi Total',
+    serviceNameEn: 'Total Relaxation Package',
+    category: 'package',
+    bookingDate: '2026-08-15',
+    bookingTime: '09:30',
+    guests: 2,
+    price: 720000,
+    status: 'done',
+  },
+];
+
+const bookingsList = ref([...initialDummyBookings]);
+const bookingSearch = ref('');
+const bookingStatusFilter = ref('all');
+const bookingPage = ref(1);
+const bookingsPerPage = 6;
+
+const filteredBookings = computed(() => {
+  return bookingsList.value.filter((b) => {
+    const matchStatus = bookingStatusFilter.value === 'all' || b.status === bookingStatusFilter.value;
+    const query = bookingSearch.value.toLowerCase().trim();
+    const matchQuery =
+      !query ||
+      b.customerName.toLowerCase().includes(query) ||
+      b.phone.toLowerCase().includes(query) ||
+      b.serviceNameId.toLowerCase().includes(query) ||
+      b.serviceNameEn.toLowerCase().includes(query);
+    return matchStatus && matchQuery;
+  });
+});
+
+const paginatedBookings = computed(() => {
+  const start = (bookingPage.value - 1) * bookingsPerPage;
+  return filteredBookings.value.slice(start, start + bookingsPerPage);
+});
+
+const totalBookingPages = computed(() => Math.max(1, Math.ceil(filteredBookings.value.length / bookingsPerPage)));
+
+function updateBookingStatus(booking, newStatus) {
+  booking.status = newStatus;
+  showToast(tr('ad.toast.status'));
+}
+
+function deleteBooking(id) {
+  if (confirm(tr('ad.bk.deleteConfirm'))) {
+    bookingsList.value = bookingsList.value.filter((b) => b.id !== id);
+    showToast(tr('ad.bk.delete'));
+  }
+}
+
+// ----------------------------------------------------
+// DUMMY STATE: Content Overrides
+// ----------------------------------------------------
+const contentFields = reactive({
+  'hero.eyebrow': { id: 'Shin Joy Spa · Malang', en: 'Shin Joy Spa · Malang' },
+  'hero.title': { id: 'Ketenangan yang dirawat dengan sepenuh hati', en: 'Calm, tended with care' },
+  'hero.sub': { id: 'Pijat tradisional, perawatan wajah, dan ritual spa dalam ruang yang hangat dan tenang.', en: 'Traditional massage, facials, and spa rituals in a warm, quiet space.' },
+  'about.eyebrow': { id: 'Tentang Shin Joy', en: 'About Shin Joy' },
+  'about.title': { id: 'Sebuah jeda kecil dari hiruk kota', en: 'A small pause from the busy city' },
+  'about.body': { id: 'Shin Joy Spa lahir dari satu keyakinan sederhana: setiap orang berhak atas waktu untuk bernapas.', en: 'Shin Joy Spa began with one simple belief: everyone deserves a moment to breathe.' },
+  'loc.address': { id: 'Jl. Ijen No. 12, Klojen, Kota Malang, Jawa Timur 65119', en: 'Jl. Ijen No. 12, Klojen, Malang City, East Java 65119' },
+  'loc.hours': { id: 'Setiap hari · 09.00 – 21.00 WIB', en: 'Every day · 9:00 AM – 9:00 PM WIB' },
+  'loc.phone': { id: '+62 812 3456 7890', en: '+62 812 3456 7890' },
+  'social.instagram': { id: 'https://instagram.com/shinjoyspa', en: 'https://instagram.com/shinjoyspa' },
+  'social.whatsapp': { id: 'https://wa.me/6281234567890', en: 'https://wa.me/6281234567890' },
+});
+
+function saveAllContent() {
+  showToast(tr('ad.ct.toastSaved'));
+}
+
+function resetAllContent() {
+  if (confirm(tr('ad.ct.resetAllConfirm'))) {
+    showToast(tr('ad.ct.toastReset'));
+  }
+}
+
+// ----------------------------------------------------
+// OVERVIEW STATS & CHARTS COMPUTATION
+// ----------------------------------------------------
+const totalRevenue = computed(() => {
+  return bookingsList.value.reduce((acc, b) => acc + (b.price || 0), 0);
+});
+
+const pendingBookingsCount = computed(() => {
+  return bookingsList.value.filter((b) => b.status === 'pending').length;
+});
+
+const todayBookingsCount = computed(() => {
+  return bookingsList.value.filter((b) => b.bookingDate === '2026-08-17').length;
+});
+
+const next7DaysBookingsCount = computed(() => {
+  return bookingsList.value.length;
+});
+
+const recentBookings = computed(() => {
+  return bookingsList.value.slice(0, 5);
+});
+
+// 14-day dummy schedule distribution for SVG bar chart
+const chartDays = computed(() => {
+  const days = [];
+  const baseDate = new Date(2026, 7, 17);
+  for (let i = 0; i < 14; i++) {
+    const d = new Date(baseDate);
+    d.setDate(d.getDate() + i);
+    const dayNum = d.getDate();
+    // Count matches in bookings or provide realistic mock distribution
+    const count = i === 0 ? 2 : i === 1 ? 1 : i === 2 ? 2 : i === 3 ? 1 : i === 5 ? 2 : i === 7 ? 1 : (i % 3 === 0 ? 1 : 0);
+    days.push({ dayNum, count, dateStr: d.toISOString().split('T')[0] });
+  }
+  return days;
+});
+
+const maxChartCount = computed(() => Math.max(3, ...chartDays.value.map((d) => d.count)));
+
+// Category distribution for SVG Donut Chart
+const categoryDistribution = computed(() => {
+  const total = servicesList.value.length || 1;
+  return categoriesList.value.map((c) => {
+    const count = getServiceCountByCategory(c.slug);
+    const pct = Math.round((count / total) * 100);
+    return {
+      nameId: c.nameId,
+      nameEn: c.nameEn,
+      color: c.color,
+      count,
+      pct,
+    };
+  });
+});
+
+// SVG Donut calculation
+const donutSegments = computed(() => {
+  let accumulatedAngle = 0;
+  const total = servicesList.value.length || 1;
+  return categoryDistribution.value.map((item) => {
+    const angle = (item.count / total) * 360;
+    const startAngle = accumulatedAngle;
+    const endAngle = accumulatedAngle + angle;
+    accumulatedAngle += angle;
+    return { ...item, startAngle, endAngle };
+  });
+});
+
+function formatRupiah(num) {
+  return 'Rp ' + Number(num || 0).toLocaleString('id-ID');
+}
+
+function getInitials(name) {
+  if (!name) return 'A';
+  return name
+    .split(' ')
+    .map((n) => n[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+}
+
+function setView(view) {
+  currentView.value = view;
+  editingService.value = null;
+  editingCategory.value = null;
+  mobileSidebarOpen.value = false;
+  router.replace({ query: { ...route.query, view } });
+}
+
+function handleLogout() {
+  if (typeof localStorage !== 'undefined') {
+    localStorage.removeItem('shinjoy-admin-session');
+  }
+  router.push('/admin-login');
+}
+
+watch(
+  () => route.query.view,
+  (newVal) => {
+    if (newVal && ['overview', 'services', 'categories', 'gallery', 'bookings', 'content'].includes(newVal)) {
+      currentView.value = newVal;
+    }
+  }
+);
+
+onMounted(() => {
+  document.body.classList.add('admin-body');
+});
+</script>
+
