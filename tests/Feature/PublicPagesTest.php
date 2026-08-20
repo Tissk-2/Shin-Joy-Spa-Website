@@ -36,6 +36,16 @@ class PublicPagesTest extends TestCase
         $this->get('/services/%3Cscript%3E')->assertNotFound();
     }
 
+    public function test_well_formed_unknown_service_is_handed_to_the_safe_page_state(): void
+    {
+        $this->get('/services/not-a-real-service')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('ServiceDetail')
+                ->where('slug', 'not-a-real-service')
+                ->missing('service'));
+    }
+
     public function test_no_unprotected_administrator_routes_are_registered(): void
     {
         $this->get('/admin')->assertNotFound();

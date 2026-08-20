@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const pageRoot = resolve(import.meta.dirname, "../../resources/js/pages");
+const resourceRoot = resolve(import.meta.dirname, "../../resources/js");
 const readPage = (name: string): string =>
   readFileSync(resolve(pageRoot, name), "utf8");
 
@@ -71,5 +72,14 @@ describe("Laravel-owned public pages", () => {
     expect(source).not.toMatch(
       /localStorage|bookingHistory|createBookingStore|useAuth/,
     );
+  });
+
+  it("does not advertise an unauthorized administrator path in the public shell", () => {
+    const layout = readFileSync(
+      resolve(resourceRoot, "layouts/MainLayout.vue"),
+      "utf8",
+    );
+
+    expect(layout).not.toMatch(/admin-login|href=["']\/admin/);
   });
 });

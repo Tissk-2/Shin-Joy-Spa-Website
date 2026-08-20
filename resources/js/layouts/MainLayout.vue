@@ -588,14 +588,7 @@ onUnmounted(() => {
           <span
             >&copy; {{ new Date().getFullYear() }} {{ tr("foot.rights") }}</span
           >
-          <span class="footer-meta">
-            {{ tr("foot.made") }} &middot;
-            <Link
-              href="/admin-login"
-              class="hover:underline opacity-80 hover:opacity-100"
-              >{{ tr("foot.admin") }}</Link
-            >
-          </span>
+          <span class="footer-meta">{{ tr("foot.made") }}</span>
         </div>
       </div>
     </footer>
