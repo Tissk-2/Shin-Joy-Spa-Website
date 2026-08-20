@@ -4,13 +4,17 @@ namespace App\Providers;
 
 use App\Actions\Fortify\CreateNewUser;
 use App\Actions\Fortify\ResetUserPassword;
+use App\Http\Responses\LoginResponse;
+use App\Models\User;
+use App\Support\CustomerIdentity;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
-use Illuminate\Support\Str;
 use Inertia\Inertia;
+use Laravel\Fortify\Contracts\LoginResponse as LoginResponseContract;
 use Laravel\Fortify\Fortify;
 
 class FortifyServiceProvider extends ServiceProvider
@@ -20,7 +24,7 @@ class FortifyServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->singleton(LoginResponseContract::class, LoginResponse::class);
     }
 
     /**
@@ -53,10 +57,20 @@ class FortifyServiceProvider extends ServiceProvider
 
         Fortify::confirmPasswordView(fn () => Inertia::render('auth/ConfirmPassword'));
 
-        RateLimiter::for('login', function (Request $request) {
-            $throttleKey = Str::transliterate(Str::lower($request->input(Fortify::username())).'|'.$request->ip());
+        Fortify::authenticateUsing(function (Request $request): ?User {
+            $user = User::query()
+                ->where('email', CustomerIdentity::email((string) $request->input('email')))
+                ->first();
 
-            return Limit::perMinute(5)->by($throttleKey);
+            return $user && Hash::check((string) $request->input('password'), $user->password)
+                ? $user
+                : null;
+        });
+
+        RateLimiter::for('login', function (Request $request) {
+            $key = CustomerIdentity::email((string) $request->input('email')).'|'.$request->ip();
+
+            return Limit::perMinute(5)->by($key);
         });
     }
 }

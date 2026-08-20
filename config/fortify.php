@@ -8,7 +8,7 @@ return [
     'username' => 'email',
     'email' => 'email',
     'lowercase_usernames' => true,
-    'home' => '/dashboard',
+    'home' => '/profile',
     'prefix' => '',
     'domain' => null,
     'middleware' => ['web'],
@@ -37,11 +37,11 @@ return [
         ],
     ],
     'redirects' => [
-        'login' => '/dashboard',
+        'login' => '/profile',
         'logout' => '/',
-        'password-confirmation' => '/dashboard',
+        'password-confirmation' => '/profile',
         'register' => '/verify-email',
-        'email-verification' => '/dashboard',
+        'email-verification' => '/profile',
         'password-reset' => '/login',
     ],
     'features' => [
