@@ -4,6 +4,7 @@ namespace Tests\Feature\Auth;
 
 use App\Models\User;
 use App\Notifications\VerifyEmail;
+use Illuminate\Contracts\Notifications\Dispatcher as NotificationDispatcher;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -62,6 +63,38 @@ class VerificationNotificationTest extends TestCase
         );
     }
 
+    public function test_hostile_request_host_cannot_poison_the_signed_verification_link(): void
+    {
+        $user = User::factory()->unverified()->create();
+        $hostileHost = 'attacker.example.test';
+        $dispatcher = new CapturingVerificationNotificationDispatcher;
+        $this->app->instance(NotificationDispatcher::class, $dispatcher);
+
+        $this->actingAs($user)
+            ->withHeader('Host', $hostileHost)
+            ->post("http://{$hostileHost}".route('verification.send', absolute: false))
+            ->assertRedirect();
+
+        $this->assertSame(VerifyEmail::class, $dispatcher->notificationClass);
+        $this->assertNotNull($dispatcher->actionUrl);
+
+        $actionUrl = $dispatcher->actionUrl;
+        $configuredOrigin = parse_url((string) config('app.url'));
+        $actionOrigin = parse_url($actionUrl);
+
+        $this->assertSame($configuredOrigin['scheme'], $actionOrigin['scheme']);
+        $this->assertSame($configuredOrigin['host'], $actionOrigin['host']);
+        $this->assertSame($configuredOrigin['port'] ?? null, $actionOrigin['port'] ?? null);
+        $this->assertStringNotContainsString($hostileHost, $actionUrl);
+
+        $this->travel(61)->seconds();
+
+        $this->get($actionUrl)
+            ->assertRedirect(route('profile', absolute: false).'?verified=1');
+
+        $this->assertTrue($user->fresh()->hasVerifiedEmail());
+    }
+
     public function test_resend_is_limited_to_once_per_minute(): void
     {
         Notification::fake();
@@ -85,5 +118,27 @@ class VerificationNotificationTest extends TestCase
         parse_str((string) parse_url($url, PHP_URL_QUERY), $parameters);
 
         return $parameters;
+    }
+}
+
+final class CapturingVerificationNotificationDispatcher implements NotificationDispatcher
+{
+    public ?string $actionUrl = null;
+
+    public ?string $notificationClass = null;
+
+    public function send($notifiables, $notification): void
+    {
+        if (! $notifiables instanceof User || ! $notification instanceof VerifyEmail) {
+            return;
+        }
+
+        $this->notificationClass = $notification::class;
+        $this->actionUrl = $notification->toMail($notifiables)->actionUrl;
+    }
+
+    public function sendNow($notifiables, $notification, ?array $channels = null): void
+    {
+        $this->send($notifiables, $notification);
     }
 }
