@@ -1,8 +1,14 @@
-import { defineConfig } from 'vitest/config';
+import { defineConfig } from "vitest/config";
+import path from "node:path";
 
 export default defineConfig({
-    test: {
-        include: ['tests/Frontend/**/*.test.{ts,tsx}'],
-        passWithNoTests: true,
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "./resources/js"),
     },
+  },
+  test: {
+    include: ["tests/Frontend/**/*.test.{ts,tsx}"],
+    passWithNoTests: true,
+  },
 });
