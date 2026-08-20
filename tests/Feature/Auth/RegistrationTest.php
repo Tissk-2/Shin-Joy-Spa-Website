@@ -8,6 +8,7 @@ use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
+use Inertia\Testing\AssertableInertia as Assert;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
@@ -18,7 +19,27 @@ class RegistrationTest extends TestCase
     public function test_registration_screen_can_be_rendered(): void
     {
         $this->get(route('register'))
-            ->assertOk();
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->component('auth/Register'));
+    }
+
+    public function test_registration_form_submits_a_phone_bound_inertia_field(): void
+    {
+        $source = file_get_contents(resource_path('js/pages/auth/Register.vue'));
+
+        $this->assertIsString($source);
+        $this->assertMatchesRegularExpression(
+            "/const\\s+form\\s*=\\s*useForm\\(\\{[\\s\\S]*phone:\\s*['\"]{2}/",
+            $source,
+        );
+        $this->assertMatchesRegularExpression(
+            '/<Input[\s\S]*?id="phone"[\s\S]*?type="tel"[\s\S]*?required[\s\S]*?autocomplete="tel"[\s\S]*?v-model="form\.phone"/',
+            $source,
+        );
+        $this->assertMatchesRegularExpression(
+            "/form\\.post\\(route\\(['\"]register['\"]\\)/",
+            $source,
+        );
     }
 
     public function test_customer_can_register_with_normalized_identity(): void
