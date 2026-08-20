@@ -59,7 +59,22 @@ class VerificationNotificationTest extends TestCase
         Notification::assertSentTo(
             $user,
             VerifyEmail::class,
-            fn (VerifyEmail $notification): bool => $notification->locale === 'en',
+            fn (VerifyEmail $notification): bool => $notification->locale === 'id',
+        );
+    }
+
+    public function test_missing_session_locale_uses_the_indonesian_application_default(): void
+    {
+        Notification::fake();
+        $user = User::factory()->unverified()->create();
+
+        $this->actingAs($user)
+            ->post(route('verification.send'));
+
+        Notification::assertSentTo(
+            $user,
+            VerifyEmail::class,
+            fn (VerifyEmail $notification): bool => $notification->locale === 'id',
         );
     }
 

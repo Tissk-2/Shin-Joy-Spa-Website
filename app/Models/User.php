@@ -55,12 +55,10 @@ class User extends Authenticatable implements MustVerifyEmail
      */
     public function sendEmailVerificationNotification(): void
     {
-        $locale = request()->hasSession()
-            ? request()->session()->get('locale')
-            : null;
+        $locale = app()->getLocale();
 
         $this->notify(
-            (new VerifyEmail)->locale(in_array($locale, ['id', 'en'], true) ? $locale : 'en'),
+            (new VerifyEmail)->locale(in_array($locale, ['id', 'en'], true) ? $locale : 'id'),
         );
     }
 
