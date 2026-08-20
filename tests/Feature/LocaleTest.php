@@ -61,7 +61,7 @@ class LocaleTest extends TestCase
             ->get(route('home'))
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
-                ->component('Welcome')
+                ->component('Home')
                 ->where('locale', 'id'));
 
         $this->assertSame('id', app()->getLocale());

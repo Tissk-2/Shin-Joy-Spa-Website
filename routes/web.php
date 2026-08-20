@@ -5,9 +5,19 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
-Route::get('/', function () {
-    return Inertia::render('Welcome');
-})->name('home');
+Route::inertia('/', 'Home')->name('home');
+
+Route::redirect('/services', '/#services');
+
+Route::get('/services/{slug}', fn (string $slug) => Inertia::render('ServiceDetail', [
+    'slug' => $slug,
+]))
+    ->where('slug', '[a-z0-9-]+')
+    ->name('services.show');
+
+Route::inertia('/booking', 'Booking')->name('booking');
+
+Route::redirect('/about', '/#about');
 
 Route::post('/locale', function (Request $request) {
     $validated = $request->validate([
@@ -19,12 +29,12 @@ Route::post('/locale', function (Request $request) {
     return back(status: 303);
 })->name('locale.update');
 
-Route::get('dashboard', function () {
-    return Inertia::render('Dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
+Route::inertia('/dashboard', 'Dashboard')
+    ->middleware(['auth', 'verified'])
+    ->name('dashboard');
 
-Route::get('profile', function () {
-    return Inertia::render('Profile');
-})->middleware(['auth', 'verified'])->name('profile');
+Route::inertia('/profile', 'Profile')
+    ->middleware(['auth', 'verified'])
+    ->name('profile');
 
 require __DIR__.'/settings.php';

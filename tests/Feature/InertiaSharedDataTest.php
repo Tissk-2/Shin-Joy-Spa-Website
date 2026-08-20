@@ -17,7 +17,7 @@ class InertiaSharedDataTest extends TestCase
         $this->get(route('home'))
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
-                ->component('Welcome')
+                ->component('Home')
                 ->where('auth.user', null)
                 ->where('locale', 'id')
                 ->where('flash.status', null));
