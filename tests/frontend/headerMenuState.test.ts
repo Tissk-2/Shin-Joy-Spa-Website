@@ -2,6 +2,9 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 import { describe, expect, it, vi } from "vitest";
+import { build } from "vite";
+
+import vitestConfig from "../../vitest.config";
 
 import {
   accountInitial,
@@ -36,13 +39,17 @@ describe("header menu state", () => {
     expect(next).not.toBe(initialHeaderMenuState);
   });
 
+  it("uses a fallback for missing and blank account names", () => {
+    expect(accountInitial(null)).toBe("?");
+    expect(accountInitial(undefined)).toBe("?");
+    expect(accountInitial("")).toBe("?");
+    expect(accountInitial("   ")).toBe("?");
+  });
+
   it.each([
-    [null, "?"],
-    [undefined, "?"],
-    ["", "?"],
-    ["   ", "?"],
     ["  ayu ", "A"],
     ["élodie", "É"],
+    ["🪷 Spa", "🪷"],
   ])("derives a safe account initial from %j", (name, expected) => {
     expect(accountInitial(name)).toBe(expected);
   });
@@ -65,4 +72,37 @@ describe("Inertia runtime boundary", () => {
     expect(layout).toMatch(/from\s+['"]@inertiajs\/vue3['"]/);
     expect(layout).toMatch(/router\.post\(\s*['"]\/logout['"]/);
   });
+
+  it("discovers the committed lowercase TypeScript test tree", () => {
+    const config = vitestConfig as { test?: { include?: string[] } };
+
+    expect(config.test?.include).toContain(
+      "tests/frontend/**/*.test.{ts,tsx}",
+    );
+  });
+
+  it("emits Tailwind before the public shell and admin overrides", async () => {
+    const result = await build({
+      configFile: resolve(import.meta.dirname, "../../vite.config.ts"),
+      build: { write: false },
+    });
+    const outputs = (Array.isArray(result) ? result : [result]).flatMap(
+      (output) => output.output,
+    );
+    const cssAsset = outputs.find(
+      (output) => output.type === "asset" && output.fileName.endsWith(".css"),
+    );
+
+    expect(cssAsset?.type).toBe("asset");
+    if (!cssAsset || cssAsset.type !== "asset") return;
+
+    const css = String(cssAsset.source);
+    const tailwindBody = css.indexOf("body{line-height:inherit;margin:0}");
+    const publicBody = css.indexOf("body{font-family:var(--font-body)");
+    const adminRules = css.indexOf(".admin-sidebar");
+
+    expect(tailwindBody).toBeGreaterThanOrEqual(0);
+    expect(publicBody).toBeGreaterThan(tailwindBody);
+    expect(adminRules).toBeGreaterThan(publicBody);
+  }, 30_000);
 });

@@ -8,7 +8,7 @@ export default defineConfig({
     },
   },
   test: {
-    include: ["tests/Frontend/**/*.test.{ts,tsx}"],
+    include: ["tests/frontend/**/*.test.{ts,tsx}"],
     passWithNoTests: true,
   },
 });
