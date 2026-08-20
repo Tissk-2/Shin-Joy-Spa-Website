@@ -2,3 +2,10 @@ node_modules/
 dist/
 .superpowers/
 .gemini/
+/.tools/
+/.scaffold/
+/vendor/
+/.env
+/public/build/
+/storage/*.key
+/.phpunit.result.cache
