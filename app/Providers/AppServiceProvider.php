@@ -2,8 +2,11 @@
 
 namespace App\Providers;
 
+use App\Http\Responses\NeutralPasswordResetLinkResponse;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
+use Laravel\Fortify\Contracts\FailedPasswordResetLinkRequestResponse;
+use Laravel\Fortify\Contracts\SuccessfulPasswordResetLinkRequestResponse;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -12,7 +15,14 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->singleton(
+            FailedPasswordResetLinkRequestResponse::class,
+            NeutralPasswordResetLinkResponse::class,
+        );
+        $this->app->singleton(
+            SuccessfulPasswordResetLinkRequestResponse::class,
+            NeutralPasswordResetLinkResponse::class,
+        );
     }
 
     /**

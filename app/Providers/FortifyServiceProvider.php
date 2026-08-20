@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Support\CustomerIdentity;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Events\RouteMatched;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
@@ -71,6 +72,15 @@ class FortifyServiceProvider extends ServiceProvider
             $key = CustomerIdentity::email((string) $request->input('email')).'|'.$request->ip();
 
             return Limit::perMinute(5)->by($key);
+        });
+
+        RateLimiter::for('password-reset', fn (Request $request): Limit => Limit::perMinute(5)
+            ->by($request->ip()));
+
+        Route::matched(function (RouteMatched $event): void {
+            if ($event->route->getName() === 'password.email') {
+                $event->route->middleware('throttle:password-reset');
+            }
         });
     }
 }
