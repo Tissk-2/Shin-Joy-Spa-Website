@@ -40,7 +40,7 @@ return [
         'login' => '/dashboard',
         'logout' => '/',
         'password-confirmation' => '/dashboard',
-        'register' => '/dashboard',
+        'register' => '/verify-email',
         'email-verification' => '/dashboard',
         'password-reset' => '/login',
     ],
