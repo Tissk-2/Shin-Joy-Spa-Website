@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Notifications\VerifyEmail;
 use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -46,5 +47,19 @@ class User extends Authenticatable implements MustVerifyEmail
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    /**
+     * Send the email verification notification in a supported locale.
+     */
+    public function sendEmailVerificationNotification(): void
+    {
+        $locale = request()->hasSession()
+            ? request()->session()->get('locale')
+            : null;
+
+        $this->notify(
+            (new VerifyEmail)->locale(in_array($locale, ['id', 'en'], true) ? $locale : 'en'),
+        );
     }
 }

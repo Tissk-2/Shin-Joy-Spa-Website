@@ -15,7 +15,7 @@ return [
     'auth_middleware' => 'auth',
     'limiters' => [
         'login' => 'login',
-        'verification' => '6,1',
+        'verification' => '1,1',
     ],
     'views' => true,
     'paths' => [
