@@ -37,9 +37,6 @@ class CreateNewUser implements CreatesNewUsers
             'email' => ['required', 'string', 'lowercase', 'email', 'max:254', Rule::unique(User::class)],
             'phone' => ['required', 'regex:/^\+?\d{8,15}$/'],
             'password' => $this->passwordRules(),
-        ], [
-            'phone.regex' => 'The phone number must contain between 8 and 15 digits.',
-            'password.regex' => 'The password must contain at least one letter and one number.',
         ])->validate();
 
         return DB::transaction(fn (): User => User::create([
