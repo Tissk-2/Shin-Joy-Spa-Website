@@ -1,53 +1,78 @@
 <script setup lang="ts">
-import InputError from '@/components/InputError.vue';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import AuthLayout from '@/layouts/AuthLayout.vue';
-import { Head, useForm } from '@inertiajs/vue3';
-import { LoaderCircle } from 'lucide-vue-next';
+import { Head, useForm } from "@inertiajs/vue3";
+import { computed, ref } from "vue";
+import { Eye, EyeOff } from "lucide-vue-next";
+import { useLanguage } from "@/composables/useLanguage";
+import AuthLayout from "@/layouts/AuthLayout.vue";
 
+const { tr } = useLanguage();
+const showPassword = ref(false);
 const form = useForm({
-    password: '',
+  password: "",
 });
+const pageTitle = computed(
+  () => `${tr("auth.confirm.title")} · ${tr("auth.brand")}`,
+);
+const passwordLabel = computed(() =>
+  showPassword.value ? tr("auth.hidePassword") : tr("auth.showPassword"),
+);
 
-const submit = () => {
-    form.post(route('password.confirm'), {
-        onFinish: () => {
-            form.reset();
-        },
-    });
-};
+function submit(): void {
+  form.post("/confirm-password", {
+    onFinish: () => form.reset("password"),
+  });
+}
 </script>
 
 <template>
-    <AuthLayout title="Confirm your password" description="This is a secure area of the application. Please confirm your password before continuing.">
-        <Head title="Confirm password" />
+  <Head :title="pageTitle" />
 
-        <form @submit.prevent="submit">
-            <div class="space-y-6">
-                <div class="grid gap-2">
-                    <Label htmlFor="password">Password</Label>
-                    <Input
-                        id="password"
-                        type="password"
-                        class="mt-1 block w-full"
-                        v-model="form.password"
-                        required
-                        autocomplete="current-password"
-                        autofocus
-                    />
+  <AuthLayout
+    :title="tr('auth.confirm.title')"
+    :description="tr('auth.confirm.sub')"
+  >
+    <form class="auth-form" novalidate @submit.prevent="submit">
+      <div class="field" :class="{ invalid: form.errors.password }">
+        <label for="password">{{ tr("auth.password") }}</label>
+        <div class="input-wrap">
+          <input
+            id="password"
+            v-model="form.password"
+            name="password"
+            :type="showPassword ? 'text' : 'password'"
+            autocomplete="current-password"
+            required
+            autofocus
+            :aria-invalid="Boolean(form.errors.password)"
+            :aria-describedby="'password-error'"
+          />
+          <button
+            type="button"
+            class="pw-toggle"
+            :aria-pressed="showPassword"
+            :aria-label="passwordLabel"
+            @click="showPassword = !showPassword"
+          >
+            <Eye v-if="!showPassword" aria-hidden="true" />
+            <EyeOff v-else aria-hidden="true" />
+          </button>
+        </div>
+        <span id="password-error" class="err" aria-live="polite">{{
+          form.errors.password || ""
+        }}</span>
+      </div>
 
-                    <InputError :message="form.errors.password" />
-                </div>
-
-                <div class="flex items-center">
-                    <Button class="w-full" :disabled="form.processing">
-                        <LoaderCircle v-if="form.processing" class="h-4 w-4 animate-spin" />
-                        Confirm Password
-                    </Button>
-                </div>
-            </div>
-        </form>
-    </AuthLayout>
+      <button
+        type="submit"
+        class="btn btn--primary btn--block"
+        :disabled="form.processing"
+      >
+        {{
+          form.processing
+            ? tr("auth.confirm.pending")
+            : tr("auth.confirm.submit")
+        }}
+      </button>
+    </form>
+  </AuthLayout>
 </template>

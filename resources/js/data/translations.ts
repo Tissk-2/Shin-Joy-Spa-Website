@@ -177,6 +177,8 @@ export default {
     "auth.login.sub": "Lanjutkan untuk mengelola reservasi Anda.",
     "auth.login.submit": "Masuk",
     "auth.login.pending": "Memproses masuk...",
+    "auth.login.forgot": "Lupa kata sandi?",
+    "auth.remember": "Ingat saya",
     "auth.register.title": "Buat akun Anda",
     "auth.register.sub": "Daftar untuk menyimpan detail reservasi Anda.",
     "auth.register.submit": "Buat akun",
@@ -192,6 +194,11 @@ export default {
     "auth.reset.sub": "Masukkan kata sandi baru untuk akun Anda.",
     "auth.reset.submit": "Atur ulang kata sandi",
     "auth.reset.pending": "Mengatur ulang kata sandi...",
+    "auth.confirm.title": "Konfirmasi kata sandi Anda",
+    "auth.confirm.sub":
+      "Ini adalah area aman. Konfirmasikan kata sandi Anda sebelum melanjutkan.",
+    "auth.confirm.submit": "Konfirmasi kata sandi",
+    "auth.confirm.pending": "Mengonfirmasi...",
     "auth.verify.title": "Verifikasi email Anda",
     "auth.verify.sub":
       "Periksa email Anda dan buka tautan verifikasi untuk mengakses akun.",
@@ -577,6 +584,8 @@ export default {
     "auth.login.sub": "Continue to manage your reservations.",
     "auth.login.submit": "Log in",
     "auth.login.pending": "Logging in...",
+    "auth.login.forgot": "Forgot password?",
+    "auth.remember": "Remember me",
     "auth.register.title": "Create your account",
     "auth.register.sub": "Register to save your reservation details.",
     "auth.register.submit": "Create account",
@@ -591,6 +600,11 @@ export default {
     "auth.reset.sub": "Enter a new password for your account.",
     "auth.reset.submit": "Reset password",
     "auth.reset.pending": "Resetting password...",
+    "auth.confirm.title": "Confirm your password",
+    "auth.confirm.sub":
+      "This is a secure area. Please confirm your password before continuing.",
+    "auth.confirm.submit": "Confirm password",
+    "auth.confirm.pending": "Confirming...",
     "auth.verify.title": "Verify your email",
     "auth.verify.sub":
       "Check your email and open the verification link to access your account.",

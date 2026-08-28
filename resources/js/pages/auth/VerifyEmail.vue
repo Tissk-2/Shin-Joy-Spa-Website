@@ -1,36 +1,71 @@
 <script setup lang="ts">
-import TextLink from '@/components/TextLink.vue';
-import { Button } from '@/components/ui/button';
-import AuthLayout from '@/layouts/AuthLayout.vue';
-import { Head, useForm } from '@inertiajs/vue3';
-import { LoaderCircle } from 'lucide-vue-next';
+import { Head, router, useForm } from "@inertiajs/vue3";
+import { computed } from "vue";
+import { useLanguage } from "@/composables/useLanguage";
+import AuthLayout from "@/layouts/AuthLayout.vue";
 
-defineProps<{
-    status?: string;
+const props = defineProps<{
+  status?: string;
 }>();
 
+const { tr } = useLanguage();
 const form = useForm({});
+const pageTitle = computed(
+  () => `${tr("auth.verify.title")} · ${tr("auth.brand")}`,
+);
+const statusMessage = computed(() =>
+  props.status === "verification-link-sent"
+    ? tr("auth.verify.sent")
+    : props.status,
+);
 
-const submit = () => {
-    form.post(route('verification.send'));
-};
+function submit(): void {
+  form.post("/email/verification-notification");
+}
+
+function logout(): void {
+  router.post("/logout");
+}
 </script>
 
 <template>
-    <AuthLayout title="Verify email" description="Please verify your email address by clicking on the link we just emailed to you.">
-        <Head title="Email verification" />
+  <Head :title="pageTitle" />
 
-        <div v-if="status === 'verification-link-sent'" class="mb-4 text-center text-sm font-medium text-green-600">
-            A new verification link has been sent to the email address you provided during registration.
-        </div>
+  <AuthLayout
+    :title="tr('auth.verify.title')"
+    :description="tr('auth.verify.sub')"
+  >
+    <p
+      v-if="statusMessage"
+      class="auth-notice"
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
+    >
+      {{ statusMessage }}
+    </p>
 
-        <form @submit.prevent="submit" class="space-y-6 text-center">
-            <Button :disabled="form.processing" variant="secondary">
-                <LoaderCircle v-if="form.processing" class="h-4 w-4 animate-spin" />
-                Resend verification email
-            </Button>
+    <form class="auth-form" @submit.prevent="submit">
+      <button
+        type="submit"
+        class="btn btn--primary btn--block"
+        :disabled="form.processing"
+      >
+        {{
+          form.processing
+            ? tr("auth.verify.resending")
+            : tr("auth.verify.resend")
+        }}
+      </button>
 
-            <TextLink :href="route('logout')" method="post" as="button" class="mx-auto block text-sm"> Log out </TextLink>
-        </form>
-    </AuthLayout>
+      <button
+        type="button"
+        class="auth-forgot"
+        :disabled="form.processing"
+        @click="logout"
+      >
+        {{ tr("auth.verify.logout") }}
+      </button>
+    </form>
+  </AuthLayout>
 </template>

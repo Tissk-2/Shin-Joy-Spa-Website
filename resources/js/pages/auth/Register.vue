@@ -1,98 +1,178 @@
 <script setup lang="ts">
-import InputError from '@/components/InputError.vue';
-import TextLink from '@/components/TextLink.vue';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import AuthBase from '@/layouts/AuthLayout.vue';
-import { Head, useForm } from '@inertiajs/vue3';
-import { LoaderCircle } from 'lucide-vue-next';
+import { Head, Link, useForm } from "@inertiajs/vue3";
+import { computed, ref } from "vue";
+import { Eye, EyeOff } from "lucide-vue-next";
+import { useLanguage } from "@/composables/useLanguage";
+import AuthLayout from "@/layouts/AuthLayout.vue";
 
+const { tr } = useLanguage();
+const showPassword = ref(false);
+const showPasswordConfirmation = ref(false);
 const form = useForm({
-    name: '',
-    email: '',
-    phone: '',
-    password: '',
-    password_confirmation: '',
+  name: "",
+  email: "",
+  phone: "",
+  password: "",
+  password_confirmation: "",
 });
+const pageTitle = computed(
+  () => `${tr("auth.register.title")} · ${tr("auth.brand")}`,
+);
+const passwordLabel = computed(() =>
+  showPassword.value ? tr("auth.hidePassword") : tr("auth.showPassword"),
+);
+const passwordConfirmationLabel = computed(() =>
+  showPasswordConfirmation.value
+    ? tr("auth.hidePassword")
+    : tr("auth.showPassword"),
+);
 
-const submit = () => {
-    form.post(route('register'), {
-        onFinish: () => form.reset('password', 'password_confirmation'),
-    });
-};
+function submit(): void {
+  form.post("/register", {
+    onFinish: () => form.reset("password", "password_confirmation"),
+  });
+}
 </script>
 
 <template>
-    <AuthBase title="Create an account" description="Enter your details below to create your account">
-        <Head title="Register" />
+  <Head :title="pageTitle" />
 
-        <form @submit.prevent="submit" class="flex flex-col gap-6">
-            <div class="grid gap-6">
-                <div class="grid gap-2">
-                    <Label for="name">Name</Label>
-                    <Input id="name" type="text" required autofocus tabindex="1" autocomplete="name" v-model="form.name" placeholder="Full name" />
-                    <InputError :message="form.errors.name" />
-                </div>
+  <AuthLayout
+    :title="tr('auth.register.title')"
+    :description="tr('auth.register.sub')"
+  >
+    <form class="auth-form" novalidate @submit.prevent="submit">
+      <div class="field" :class="{ invalid: form.errors.name }">
+        <label for="name">{{ tr("auth.name") }}</label>
+        <input
+          id="name"
+          v-model="form.name"
+          name="name"
+          type="text"
+          autocomplete="name"
+          required
+          autofocus
+          :aria-invalid="Boolean(form.errors.name)"
+          :aria-describedby="'name-error'"
+        />
+        <span id="name-error" class="err" aria-live="polite">{{
+          form.errors.name || ""
+        }}</span>
+      </div>
 
-                <div class="grid gap-2">
-                    <Label for="email">Email address</Label>
-                    <Input id="email" type="email" required tabindex="2" autocomplete="email" v-model="form.email" placeholder="email@example.com" />
-                    <InputError :message="form.errors.email" />
-                </div>
+      <div class="field" :class="{ invalid: form.errors.email }">
+        <label for="email">{{ tr("auth.email") }}</label>
+        <input
+          id="email"
+          v-model="form.email"
+          name="email"
+          type="email"
+          autocomplete="email"
+          required
+          :aria-invalid="Boolean(form.errors.email)"
+          :aria-describedby="'register-email-error'"
+        />
+        <span id="register-email-error" class="err" aria-live="polite">{{
+          form.errors.email || ""
+        }}</span>
+      </div>
 
-                <div class="grid gap-2">
-                    <Label for="phone">Phone number</Label>
-                    <Input
-                        id="phone"
-                        type="tel"
-                        required
-                        tabindex="3"
-                        autocomplete="tel"
-                        v-model="form.phone"
-                        placeholder="+62 812-3456-7890"
-                    />
-                    <InputError :message="form.errors.phone" />
-                </div>
+      <div class="field" :class="{ invalid: form.errors.phone }">
+        <label for="phone">{{ tr("auth.phone") }}</label>
+        <input
+          id="phone"
+          v-model="form.phone"
+          name="phone"
+          type="tel"
+          autocomplete="tel"
+          required
+          :aria-invalid="Boolean(form.errors.phone)"
+          :aria-describedby="'phone-error'"
+        />
+        <span id="phone-error" class="err" aria-live="polite">{{
+          form.errors.phone || ""
+        }}</span>
+      </div>
 
-                <div class="grid gap-2">
-                    <Label for="password">Password</Label>
-                    <Input
-                        id="password"
-                        type="password"
-                        required
-                        tabindex="4"
-                        autocomplete="new-password"
-                        v-model="form.password"
-                        placeholder="Password"
-                    />
-                    <InputError :message="form.errors.password" />
-                </div>
+      <div class="field" :class="{ invalid: form.errors.password }">
+        <label for="password">{{ tr("auth.password") }}</label>
+        <div class="input-wrap">
+          <input
+            id="password"
+            v-model="form.password"
+            name="password"
+            :type="showPassword ? 'text' : 'password'"
+            autocomplete="new-password"
+            required
+            :aria-invalid="Boolean(form.errors.password)"
+            :aria-describedby="'password-error'"
+          />
+          <button
+            type="button"
+            class="pw-toggle"
+            :aria-pressed="showPassword"
+            :aria-label="passwordLabel"
+            @click="showPassword = !showPassword"
+          >
+            <Eye v-if="!showPassword" aria-hidden="true" />
+            <EyeOff v-else aria-hidden="true" />
+          </button>
+        </div>
+        <span id="password-error" class="err" aria-live="polite">{{
+          form.errors.password || ""
+        }}</span>
+      </div>
 
-                <div class="grid gap-2">
-                    <Label for="password_confirmation">Confirm password</Label>
-                    <Input
-                        id="password_confirmation"
-                        type="password"
-                        required
-                        tabindex="5"
-                        autocomplete="new-password"
-                        v-model="form.password_confirmation"
-                        placeholder="Confirm password"
-                    />
-                    <InputError :message="form.errors.password_confirmation" />
-                </div>
+      <div
+        class="field"
+        :class="{ invalid: form.errors.password_confirmation }"
+      >
+        <label for="password_confirmation">{{
+          tr("auth.confirmPassword")
+        }}</label>
+        <div class="input-wrap">
+          <input
+            id="password_confirmation"
+            v-model="form.password_confirmation"
+            name="password_confirmation"
+            :type="showPasswordConfirmation ? 'text' : 'password'"
+            autocomplete="new-password"
+            required
+            :aria-invalid="Boolean(form.errors.password_confirmation)"
+            :aria-describedby="'password-confirmation-error'"
+          />
+          <button
+            type="button"
+            class="pw-toggle"
+            :aria-pressed="showPasswordConfirmation"
+            :aria-label="passwordConfirmationLabel"
+            @click="showPasswordConfirmation = !showPasswordConfirmation"
+          >
+            <Eye v-if="!showPasswordConfirmation" aria-hidden="true" />
+            <EyeOff v-else aria-hidden="true" />
+          </button>
+        </div>
+        <span id="password-confirmation-error" class="err" aria-live="polite">{{
+          form.errors.password_confirmation || ""
+        }}</span>
+      </div>
 
-                <Button type="submit" class="mt-2 w-full" tabindex="6" :disabled="form.processing">
-                    <LoaderCircle v-if="form.processing" class="h-4 w-4 animate-spin" />
-                    Create account
-                </Button>
-            </div>
+      <button
+        type="submit"
+        class="btn btn--primary btn--block"
+        :disabled="form.processing"
+      >
+        {{
+          form.processing
+            ? tr("auth.register.pending")
+            : tr("auth.register.submit")
+        }}
+      </button>
+    </form>
 
-            <div class="text-center text-sm text-muted-foreground">
-                Already have an account?
-                <TextLink :href="route('login')" class="underline underline-offset-4" tabindex="7">Log in</TextLink>
-            </div>
-        </form>
-    </AuthBase>
+    <p class="auth-alt">
+      {{ tr("auth.existingUser") }}
+      <Link href="/login">{{ tr("auth.goLogin") }}</Link>
+    </p>
+  </AuthLayout>
 </template>

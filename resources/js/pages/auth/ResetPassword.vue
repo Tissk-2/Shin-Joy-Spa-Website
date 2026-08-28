@@ -1,81 +1,129 @@
 <script setup lang="ts">
-import InputError from '@/components/InputError.vue';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import AuthLayout from '@/layouts/AuthLayout.vue';
-import { Head, useForm } from '@inertiajs/vue3';
-import { LoaderCircle } from 'lucide-vue-next';
+import { Head, Link, useForm } from "@inertiajs/vue3";
+import { computed, ref } from "vue";
+import { Eye, EyeOff } from "lucide-vue-next";
+import { useLanguage } from "@/composables/useLanguage";
+import AuthLayout from "@/layouts/AuthLayout.vue";
 
-interface Props {
-    token: string;
-    email: string;
-}
+const props = defineProps<{
+  email: string;
+  token: string;
+}>();
 
-const props = defineProps<Props>();
-
+const { tr } = useLanguage();
+const showPassword = ref(false);
+const showPasswordConfirmation = ref(false);
 const form = useForm({
-    token: props.token,
-    email: props.email,
-    password: '',
-    password_confirmation: '',
+  email: props.email,
+  token: props.token,
+  password: "",
+  password_confirmation: "",
 });
+const pageTitle = computed(
+  () => `${tr("auth.reset.title")} · ${tr("auth.brand")}`,
+);
+const passwordLabel = computed(() =>
+  showPassword.value ? tr("auth.hidePassword") : tr("auth.showPassword"),
+);
+const passwordConfirmationLabel = computed(() =>
+  showPasswordConfirmation.value
+    ? tr("auth.hidePassword")
+    : tr("auth.showPassword"),
+);
 
-const submit = () => {
-    form.post(route('password.update'), {
-        onFinish: () => {
-            form.reset('password', 'password_confirmation');
-        },
-    });
-};
+function submit(): void {
+  form.post("/reset-password", {
+    onFinish: () => form.reset("password", "password_confirmation"),
+  });
+}
 </script>
 
 <template>
-    <AuthLayout title="Reset password" description="Please enter your new password below">
-        <Head title="Reset password" />
+  <Head :title="pageTitle" />
 
-        <form @submit.prevent="submit">
-            <div class="grid gap-6">
-                <div class="grid gap-2">
-                    <Label for="email">Email</Label>
-                    <Input id="email" type="email" name="email" autocomplete="email" v-model="form.email" class="mt-1 block w-full" readonly />
-                    <InputError :message="form.errors.email" class="mt-2" />
-                </div>
+  <AuthLayout
+    :title="tr('auth.reset.title')"
+    :description="tr('auth.reset.sub')"
+  >
+    <form class="auth-form" novalidate @submit.prevent="submit">
+      <div class="field" :class="{ invalid: form.errors.password }">
+        <label for="password">{{ tr("auth.password") }}</label>
+        <div class="input-wrap">
+          <input
+            id="password"
+            v-model="form.password"
+            name="password"
+            :type="showPassword ? 'text' : 'password'"
+            autocomplete="new-password"
+            required
+            autofocus
+            :aria-invalid="Boolean(form.errors.password)"
+            :aria-describedby="'password-error'"
+          />
+          <button
+            type="button"
+            class="pw-toggle"
+            :aria-pressed="showPassword"
+            :aria-label="passwordLabel"
+            @click="showPassword = !showPassword"
+          >
+            <Eye v-if="!showPassword" aria-hidden="true" />
+            <EyeOff v-else aria-hidden="true" />
+          </button>
+        </div>
+        <span id="password-error" class="err" aria-live="polite">{{
+          form.errors.password || ""
+        }}</span>
+      </div>
 
-                <div class="grid gap-2">
-                    <Label for="password">Password</Label>
-                    <Input
-                        id="password"
-                        type="password"
-                        name="password"
-                        autocomplete="new-password"
-                        v-model="form.password"
-                        class="mt-1 block w-full"
-                        autofocus
-                        placeholder="Password"
-                    />
-                    <InputError :message="form.errors.password" />
-                </div>
+      <div
+        class="field"
+        :class="{ invalid: form.errors.password_confirmation }"
+      >
+        <label for="password_confirmation">{{
+          tr("auth.confirmPassword")
+        }}</label>
+        <div class="input-wrap">
+          <input
+            id="password_confirmation"
+            v-model="form.password_confirmation"
+            name="password_confirmation"
+            :type="showPasswordConfirmation ? 'text' : 'password'"
+            autocomplete="new-password"
+            required
+            :aria-invalid="Boolean(form.errors.password_confirmation)"
+            :aria-describedby="'password-confirmation-error'"
+          />
+          <button
+            type="button"
+            class="pw-toggle"
+            :aria-pressed="showPasswordConfirmation"
+            :aria-label="passwordConfirmationLabel"
+            @click="showPasswordConfirmation = !showPasswordConfirmation"
+          >
+            <Eye v-if="!showPasswordConfirmation" aria-hidden="true" />
+            <EyeOff v-else aria-hidden="true" />
+          </button>
+        </div>
+        <span id="password-confirmation-error" class="err" aria-live="polite">{{
+          form.errors.password_confirmation || ""
+        }}</span>
+      </div>
 
-                <div class="grid gap-2">
-                    <Label for="password_confirmation"> Confirm Password </Label>
-                    <Input
-                        id="password_confirmation"
-                        type="password"
-                        name="password_confirmation"
-                        autocomplete="new-password"
-                        v-model="form.password_confirmation"
-                        class="mt-1 block w-full"
-                        placeholder="Confirm password"
-                    />
-                    <InputError :message="form.errors.password_confirmation" />
-                </div>
+      <button
+        type="submit"
+        class="btn btn--primary btn--block"
+        :disabled="form.processing"
+      >
+        {{
+          form.processing ? tr("auth.reset.pending") : tr("auth.reset.submit")
+        }}
+      </button>
+    </form>
 
-                <Button type="submit" class="mt-4 w-full" :disabled="form.processing">
-                    <LoaderCircle v-if="form.processing" class="h-4 w-4 animate-spin" />
-                    Reset password
-                </Button>
-            </div>
-        </form>
-    </AuthLayout>
+    <p class="auth-alt">
+      {{ tr("auth.existingUser") }}
+      <Link href="/login">{{ tr("auth.goLogin") }}</Link>
+    </p>
+  </AuthLayout>
 </template>
