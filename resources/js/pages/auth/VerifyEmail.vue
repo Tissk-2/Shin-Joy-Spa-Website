@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, router, useForm } from "@inertiajs/vue3";
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { useLanguage } from "@/composables/useLanguage";
 import AuthLayout from "@/layouts/AuthLayout.vue";
 
@@ -10,6 +10,7 @@ const props = defineProps<{
 
 const { tr } = useLanguage();
 const form = useForm({});
+const resendError = ref("");
 const pageTitle = computed(
   () => `${tr("auth.verify.title")} · ${tr("auth.brand")}`,
 );
@@ -20,7 +21,12 @@ const statusMessage = computed(() =>
 );
 
 function submit(): void {
-  form.post("/email/verification-notification");
+  resendError.value = "";
+  form.post("/email/verification-notification", {
+    onError: () => {
+      resendError.value = tr("auth.verify.error");
+    },
+  });
 }
 
 function logout(): void {
@@ -43,6 +49,15 @@ function logout(): void {
       aria-atomic="true"
     >
       {{ statusMessage }}
+    </p>
+    <p
+      v-if="resendError"
+      class="err"
+      role="alert"
+      aria-live="assertive"
+      aria-atomic="true"
+    >
+      {{ resendError }}
     </p>
 
     <form class="auth-form" @submit.prevent="submit">

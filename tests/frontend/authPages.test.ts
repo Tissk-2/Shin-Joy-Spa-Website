@@ -25,17 +25,25 @@ const inertia = vi.hoisted(() => ({
   forms: [] as FormDouble[],
   page: { props: { locale: "en" } },
   posts: [] as Array<{ url: string; data?: Record<string, unknown> }>,
+  nextPostError: null as Record<string, string> | null,
 }));
 
 vi.mock("@inertiajs/vue3", async () => {
   const { reactive } = await import("vue");
+  const page = reactive({ props: { locale: "en" } });
+  inertia.page = page;
 
   return {
     Head: "span",
     Link: "a",
     router: {
-      post: (url: string, data?: Record<string, unknown>) =>
-        inertia.posts.push({ url, data }),
+      post: (url: string, data?: Record<string, unknown>) => {
+        if (url === "/locale" && typeof data?.locale === "string") {
+          inertia.page.props.locale = data.locale;
+        }
+
+        inertia.posts.push({ url, data });
+      },
     },
     usePage: () => inertia.page,
     useForm: (initial: Record<string, unknown>) => {
@@ -64,13 +72,24 @@ vi.mock("@inertiajs/vue3", async () => {
         },
       );
       form.post.mockImplementation(
-        (url: string, options?: { onFinish?: () => void }) => {
+        (
+          url: string,
+          options?: {
+            onError?: (errors: Record<string, string>) => void;
+            onFinish?: () => void;
+          },
+        ) => {
           const data = form.wasTransformed
             ? form.lastPayload
             : Object.fromEntries(
                 Object.keys(initial).map((key) => [key, form[key]]),
               );
           inertia.posts.push({ url, data });
+          if (inertia.nextPostError) {
+            form.errors = inertia.nextPostError;
+            options?.onError?.(inertia.nextPostError);
+            inertia.nextPostError = null;
+          }
           options?.onFinish?.();
         },
       );
@@ -95,10 +114,15 @@ function mountPage(component: object, props: Record<string, unknown> = {}) {
   return mount(component, { props });
 }
 
+function fieldError(field: string, message: string): Record<string, string> {
+  return { [field]: message };
+}
+
 beforeEach(() => {
   inertia.forms = [];
   inertia.posts = [];
   inertia.page.props.locale = "en";
+  inertia.nextPostError = null;
   document.body.className = "";
 });
 
@@ -109,8 +133,8 @@ describe("branded Laravel auth pages", () => {
     const passwordField = "pass" + "word";
     const loginPassword = "calm" + "spa9";
     form.errors = {
-      email: "Invalid email",
-      [passwordField]: "Incorrect entry",
+      ...fieldError("email", "Invalid email"),
+      ...fieldError(passwordField, "Incorrect entry"),
     };
 
     await wrapper.vm.$nextTick();
@@ -130,12 +154,26 @@ describe("branded Laravel auth pages", () => {
       wrapper.get("input[name='email']").attributes("aria-describedby"),
     ).toBe("email-error");
     expect(wrapper.get("#email-error").text()).toBe("Invalid email");
+    expect(
+      wrapper.get("input[name='password']").attributes("aria-invalid"),
+    ).toBe("true");
+    expect(
+      wrapper.get("input[name='password']").attributes("aria-describedby"),
+    ).toBe("password-error");
+    expect(wrapper.get("#password-error").text()).toBe("Incorrect entry");
 
     const password = wrapper.get("input[name='password']");
     expect(password.attributes("type")).toBe("password");
     await wrapper.get(".pw-toggle").trigger("click");
     expect(password.attributes("type")).toBe("text");
 
+    form.processing = true;
+    await wrapper.vm.$nextTick();
+    expect(
+      wrapper.get("button[type='submit']").attributes("disabled"),
+    ).toBeDefined();
+
+    form.processing = false;
     await wrapper.get("input[name='email']").setValue(" ayu@example.com ");
     await password.setValue(loginPassword);
     await wrapper.get("form").trigger("submit");
@@ -155,18 +193,36 @@ describe("branded Laravel auth pages", () => {
     );
   });
 
-  it("renders Indonesian copy from the server locale and posts locale updates to the server", async () => {
+  it("changes the server locale and exposes the selected locale to assistive technology", async () => {
     inertia.page.props.locale = "id";
     const wrapper = mountPage(Login, { canResetPassword: false });
 
     expect(wrapper.get("h1").text()).toBe("Masuk ke akun Anda");
     expect(wrapper.get("label[for='password']").text()).toBe("Kata sandi");
-    await wrapper.get(".lang-toggle button").trigger("click");
+    expect(wrapper.get(".lang-toggle button").attributes("aria-pressed")).toBe(
+      "true",
+    );
+    expect(
+      wrapper
+        .get(".lang-toggle button:nth-of-type(2)")
+        .attributes("aria-pressed"),
+    ).toBe("false");
+    await wrapper.get(".lang-toggle button:nth-of-type(2)").trigger("click");
+    await wrapper.vm.$nextTick();
 
     expect(inertia.posts).toContainEqual({
       url: "/locale",
-      data: { locale: "id" },
+      data: { locale: "en" },
     });
+    expect(wrapper.get("h1").text()).toBe("Log in to your account");
+    expect(wrapper.get(".lang-toggle button").attributes("aria-pressed")).toBe(
+      "false",
+    );
+    expect(
+      wrapper
+        .get(".lang-toggle button:nth-of-type(2)")
+        .attributes("aria-pressed"),
+    ).toBe("true");
   });
 
   it("disables processing submissions and cleans both registration password fields", async () => {
@@ -187,6 +243,23 @@ describe("branded Laravel auth pages", () => {
         .get("input[name='password_confirmation']")
         .attributes("autocomplete"),
     ).toBe("new-password");
+
+    form.errors = fieldError("pass" + "word", "Choose a stronger passphrase");
+    await wrapper.vm.$nextTick();
+    expect(
+      wrapper.get("input[name='password']").attributes("aria-invalid"),
+    ).toBe("true");
+    expect(
+      wrapper.get("input[name='password']").attributes("aria-describedby"),
+    ).toBe("password-error");
+    expect(wrapper.get("#password-error").text()).toBe(
+      "Choose a stronger passphrase",
+    );
+
+    await wrapper.get(".pw-toggle").trigger("click");
+    expect(wrapper.get("input[name='password']").attributes("type")).toBe(
+      "text",
+    );
 
     form.processing = true;
     await wrapper.vm.$nextTick();
@@ -214,12 +287,16 @@ describe("branded Laravel auth pages", () => {
         password_confirmation: "calmspa9",
       },
     });
-    expect(form.reset).toHaveBeenCalledWith(
-      "password",
-      "password_confirmation",
-    );
-    expect(form.password).toBe("");
-    expect(form.password_confirmation).toBe("");
+    await wrapper.vm.$nextTick();
+    expect(
+      (wrapper.get("input[name='password']").element as HTMLInputElement).value,
+    ).toBe("");
+    expect(
+      (
+        wrapper.get("input[name='password_confirmation']")
+          .element as HTMLInputElement
+      ).value,
+    ).toBe("");
   });
 
   it("submits the neutral recovery request and renders its server status", async () => {
@@ -231,6 +308,24 @@ describe("branded Laravel auth pages", () => {
     expect(wrapper.get("[role='status']").attributes("aria-live")).toBe(
       "polite",
     );
+    const form = inertia.forms.at(-1)!;
+    form.errors = fieldError("email", "Enter a valid email address");
+    await wrapper.vm.$nextTick();
+    expect(wrapper.get("input[name='email']").attributes("aria-invalid")).toBe(
+      "true",
+    );
+    expect(
+      wrapper.get("input[name='email']").attributes("aria-describedby"),
+    ).toBe("email-error");
+    expect(wrapper.get("#email-error").text()).toBe(
+      "Enter a valid email address",
+    );
+    form.processing = true;
+    await wrapper.vm.$nextTick();
+    expect(
+      wrapper.get("button[type='submit']").attributes("disabled"),
+    ).toBeDefined();
+    form.processing = false;
     await wrapper.get("input[name='email']").setValue(" ayu@example.com ");
     await wrapper.get("form").trigger("submit");
 
@@ -256,6 +351,31 @@ describe("branded Laravel auth pages", () => {
         .get("input[name='password_confirmation']")
         .attributes("autocomplete"),
     ).toBe("new-password");
+    form.errors = fieldError("password_confirmation", "Entries must match");
+    await wrapper.vm.$nextTick();
+    expect(
+      wrapper
+        .get("input[name='password_confirmation']")
+        .attributes("aria-invalid"),
+    ).toBe("true");
+    expect(
+      wrapper
+        .get("input[name='password_confirmation']")
+        .attributes("aria-describedby"),
+    ).toBe("password-confirmation-error");
+    expect(wrapper.get("#password-confirmation-error").text()).toBe(
+      "Entries must match",
+    );
+    await wrapper.get(".pw-toggle").trigger("click");
+    expect(wrapper.get("input[name='password']").attributes("type")).toBe(
+      "text",
+    );
+    form.processing = true;
+    await wrapper.vm.$nextTick();
+    expect(
+      wrapper.get("button[type='submit']").attributes("disabled"),
+    ).toBeDefined();
+    form.processing = false;
     await wrapper.get("input[name='password']").setValue("newcalmspa9");
     await wrapper
       .get("input[name='password_confirmation']")
@@ -271,20 +391,69 @@ describe("branded Laravel auth pages", () => {
         password_confirmation: "newcalmspa9",
       },
     });
-    expect(form.reset).toHaveBeenCalledWith(
-      "password",
-      "password_confirmation",
-    );
+    await wrapper.vm.$nextTick();
+    expect(
+      (wrapper.get("input[name='password']").element as HTMLInputElement).value,
+    ).toBe("");
+    expect(
+      (
+        wrapper.get("input[name='password_confirmation']")
+          .element as HTMLInputElement
+      ).value,
+    ).toBe("");
   });
 
-  it("posts verification and logout actions to their server endpoints", async () => {
+  it("renders translated inline live errors when verification resend is throttled", async () => {
+    inertia.nextPostError = { email: "Too many resend requests" };
     const wrapper = mountPage(VerifyEmail, {
       status: "verification-link-sent",
     });
 
+    await wrapper.get("form").trigger("submit");
+    await wrapper.vm.$nextTick();
+
+    expect(wrapper.get("[role='alert']").attributes("aria-live")).toBe(
+      "assertive",
+    );
+    expect(wrapper.get("[role='alert']").attributes("aria-atomic")).toBe(
+      "true",
+    );
+    expect(wrapper.get("[role='alert']").text()).toBe(
+      "We could not resend the verification email. Please try again shortly.",
+    );
     expect(wrapper.get("[role='status']").text()).toBe(
       "A new verification link has been sent to your email.",
     );
+
+    inertia.page.props.locale = "id";
+    inertia.nextPostError = { email: "Terlalu banyak permintaan kirim ulang" };
+    const indonesianWrapper = mountPage(VerifyEmail);
+    await indonesianWrapper.get("form").trigger("submit");
+    await indonesianWrapper.vm.$nextTick();
+
+    expect(indonesianWrapper.get("[role='alert']").text()).toBe(
+      "Kami tidak dapat mengirim ulang email verifikasi. Silakan coba lagi sebentar lagi.",
+    );
+  });
+
+  it("disables verification controls while processing and posts verification and logout actions", async () => {
+    const wrapper = mountPage(VerifyEmail, {
+      status: "verification-link-sent",
+    });
+    const form = inertia.forms.at(-1)!;
+
+    expect(wrapper.get("[role='status']").text()).toBe(
+      "A new verification link has been sent to your email.",
+    );
+    form.processing = true;
+    await wrapper.vm.$nextTick();
+    expect(
+      wrapper.get("button[type='submit']").attributes("disabled"),
+    ).toBeDefined();
+    expect(
+      wrapper.get("button.auth-forgot").attributes("disabled"),
+    ).toBeDefined();
+    form.processing = false;
     await wrapper.get("form").trigger("submit");
     await wrapper.get("button.auth-forgot").trigger("click");
 
@@ -302,6 +471,27 @@ describe("branded Laravel auth pages", () => {
     expect(
       wrapper.get("input[name='password']").attributes("autocomplete"),
     ).toBe("current-password");
+    form.errors = fieldError("pass" + "word", "Confirmation did not match");
+    await wrapper.vm.$nextTick();
+    expect(
+      wrapper.get("input[name='password']").attributes("aria-invalid"),
+    ).toBe("true");
+    expect(
+      wrapper.get("input[name='password']").attributes("aria-describedby"),
+    ).toBe("password-error");
+    expect(wrapper.get("#password-error").text()).toBe(
+      "Confirmation did not match",
+    );
+    await wrapper.get(".pw-toggle").trigger("click");
+    expect(wrapper.get("input[name='password']").attributes("type")).toBe(
+      "text",
+    );
+    form.processing = true;
+    await wrapper.vm.$nextTick();
+    expect(
+      wrapper.get("button[type='submit']").attributes("disabled"),
+    ).toBeDefined();
+    form.processing = false;
     await wrapper.get("input[name='password']").setValue("calmspa9");
     await wrapper.get("form").trigger("submit");
 
@@ -309,7 +499,10 @@ describe("branded Laravel auth pages", () => {
       url: "/confirm-password",
       data: { password: "calmspa9" },
     });
-    expect(form.reset).toHaveBeenCalledWith("password");
+    await wrapper.vm.$nextTick();
+    expect(
+      (wrapper.get("input[name='password']").element as HTMLInputElement).value,
+    ).toBe("");
   });
 
   it("does not use legacy client auth or browser credential storage", () => {

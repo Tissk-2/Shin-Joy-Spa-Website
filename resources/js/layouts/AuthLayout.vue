@@ -32,6 +32,7 @@ onUnmounted(() => {
           <button
             type="button"
             :class="{ active: language === 'id' }"
+            :aria-pressed="language === 'id'"
             @click="setLanguage('id')"
           >
             ID
@@ -39,6 +40,7 @@ onUnmounted(() => {
           <button
             type="button"
             :class="{ active: language === 'en' }"
+            :aria-pressed="language === 'en'"
             @click="setLanguage('en')"
           >
             EN

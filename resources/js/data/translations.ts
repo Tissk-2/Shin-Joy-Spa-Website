@@ -205,6 +205,8 @@ export default {
     "auth.verify.sent": "Tautan verifikasi baru telah dikirim ke email Anda.",
     "auth.verify.resend": "Kirim ulang email verifikasi",
     "auth.verify.resending": "Mengirim ulang...",
+    "auth.verify.error":
+      "Kami tidak dapat mengirim ulang email verifikasi. Silakan coba lagi sebentar lagi.",
     "auth.verify.logout": "Keluar",
     "auth.name": "Nama lengkap",
     "auth.email": "Email",
@@ -611,6 +613,8 @@ export default {
     "auth.verify.sent": "A new verification link has been sent to your email.",
     "auth.verify.resend": "Resend verification email",
     "auth.verify.resending": "Resending...",
+    "auth.verify.error":
+      "We could not resend the verification email. Please try again shortly.",
     "auth.verify.logout": "Log out",
     "auth.name": "Full name",
     "auth.email": "Email",
