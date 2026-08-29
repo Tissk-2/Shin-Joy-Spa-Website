@@ -5,10 +5,13 @@ namespace Tests\Feature\Auth;
 use App\Actions\Fortify\CreateNewUser;
 use App\Models\User;
 use App\Notifications\VerifyEmail;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Validation\ValidationException;
 use Inertia\Testing\AssertableInertia as Assert;
+use PDOException;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
@@ -116,6 +119,91 @@ class RegistrationTest extends TestCase
         ]))->assertSessionHasErrors('email');
 
         $this->assertDatabaseCount('users', 1);
+    }
+
+    public function test_registration_limiter_blocks_the_fourth_invalid_attempt_for_the_same_normalized_email_and_ip(): void
+    {
+        $request = fn (string $email) => $this
+            ->withServerVariables(['REMOTE_ADDR' => '198.51.100.10'])
+            ->post(route('register.store'), $this->validRegistrationData([
+                'email' => $email,
+                'phone' => '123-4567',
+            ]));
+
+        $request(' AYU@EXAMPLE.COM ')->assertSessionHasErrors('phone');
+        $request('ayu@example.com')->assertSessionHasErrors('phone');
+        $request('Ayu@Example.com')->assertSessionHasErrors('phone');
+        $request(' ayu@example.com ')->assertStatus(429);
+    }
+
+    public function test_registration_limiter_blocks_the_twenty_first_invalid_attempt_from_an_ip_without_affecting_another_ip(): void
+    {
+        foreach (range(1, 20) as $attempt) {
+            $this->withServerVariables(['REMOTE_ADDR' => '198.51.100.20'])
+                ->post(route('register.store'), $this->validRegistrationData([
+                    'email' => "guest{$attempt}@example.com",
+                    'phone' => '123-4567',
+                ]))->assertSessionHasErrors('phone');
+        }
+
+        $this->withServerVariables(['REMOTE_ADDR' => '198.51.100.20'])
+            ->post(route('register.store'), $this->validRegistrationData([
+                'email' => 'guest21@example.com',
+                'phone' => '123-4567',
+            ]))->assertStatus(429);
+
+        $this->withServerVariables(['REMOTE_ADDR' => '198.51.100.21'])
+            ->post(route('register.store'), $this->validRegistrationData([
+                'email' => 'guest21@example.com',
+                'phone' => '123-4567',
+            ]))->assertSessionHasErrors('phone');
+    }
+
+    public function test_different_emails_can_register_with_the_same_normalized_phone_number(): void
+    {
+        $creator = app(CreateNewUser::class);
+
+        $creator->create($this->validRegistrationData([
+            'email' => 'ayu@example.com',
+            'phone' => ' +62 812-3456-7890 ',
+        ]));
+        $creator->create($this->validRegistrationData([
+            'email' => 'bima@example.com',
+            'phone' => '+6281234567890',
+        ]));
+
+        $this->assertDatabaseCount('users', 2);
+        $this->assertDatabaseHas('users', ['email' => 'ayu@example.com', 'phone' => '+6281234567890']);
+        $this->assertDatabaseHas('users', ['email' => 'bima@example.com', 'phone' => '+6281234567890']);
+    }
+
+    public function test_email_collision_during_persistence_returns_a_validation_error(): void
+    {
+        $shouldThrow = true;
+
+        app('db')->connection()->beforeExecuting(function (string $query) use (&$shouldThrow): void {
+            if ($shouldThrow && str_starts_with(strtolower($query), 'insert into "users"')) {
+                $shouldThrow = false;
+
+                throw new UniqueConstraintViolationException(
+                    'sqlite',
+                    'insert into "users"',
+                    [],
+                    new PDOException('SQLSTATE[23000]: Integrity constraint violation', 23000),
+                );
+            }
+        });
+
+        try {
+            app(CreateNewUser::class)->create($this->validRegistrationData());
+            $this->fail('Expected a racing email collision to become a validation error.');
+        } catch (ValidationException $exception) {
+            $this->assertSame([
+                'email' => [trans('validation.unique', ['attribute' => trans('validation.attributes.email')])],
+            ], $exception->errors());
+        }
+
+        $this->assertDatabaseCount('users', 0);
     }
 
     #[DataProvider('validPhoneProvider')]

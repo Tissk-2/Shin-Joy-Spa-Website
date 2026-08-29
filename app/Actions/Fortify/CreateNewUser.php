@@ -4,6 +4,7 @@ namespace App\Actions\Fortify;
 
 use App\Models\User;
 use App\Support\CustomerIdentity;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
@@ -39,11 +40,17 @@ class CreateNewUser implements CreatesNewUsers
             'password' => $this->passwordRules(),
         ])->validate();
 
-        return DB::transaction(fn (): User => User::create([
-            'name' => $normalized['name'],
-            'email' => $normalized['email'],
-            'phone' => $normalized['phone'],
-            'password' => Hash::make($normalized['password']),
-        ]));
+        try {
+            return DB::transaction(fn (): User => User::create([
+                'name' => $normalized['name'],
+                'email' => $normalized['email'],
+                'phone' => $normalized['phone'],
+                'password' => Hash::make($normalized['password']),
+            ]));
+        } catch (UniqueConstraintViolationException) {
+            throw ValidationException::withMessages([
+                'email' => [trans('validation.unique', ['attribute' => trans('validation.attributes.email')])],
+            ]);
+        }
     }
 }

@@ -77,9 +77,22 @@ class FortifyServiceProvider extends ServiceProvider
         RateLimiter::for('password-reset', fn (Request $request): Limit => Limit::perMinute(5)
             ->by($request->ip()));
 
+        RateLimiter::for('registration', function (Request $request): array {
+            $key = CustomerIdentity::email((string) $request->input('email')).'|'.$request->ip();
+
+            return [
+                Limit::perMinute(3)->by($key),
+                Limit::perHour(20)->by($request->ip()),
+            ];
+        });
+
         Route::matched(function (RouteMatched $event): void {
             if ($event->route->getName() === 'password.email') {
                 $event->route->middleware('throttle:password-reset');
+            }
+
+            if ($event->route->getName() === 'register.store') {
+                $event->route->middleware('throttle:registration');
             }
         });
     }
