@@ -47,10 +47,22 @@ class CreateNewUser implements CreatesNewUsers
                 'phone' => $normalized['phone'],
                 'password' => Hash::make($normalized['password']),
             ]));
-        } catch (UniqueConstraintViolationException) {
+        } catch (UniqueConstraintViolationException $exception) {
+            if (! $this->isEmailUniqueConstraint($exception)) {
+                throw $exception;
+            }
+
             throw ValidationException::withMessages([
                 'email' => [trans('validation.unique', ['attribute' => trans('validation.attributes.email')])],
             ]);
         }
+    }
+
+    private function isEmailUniqueConstraint(UniqueConstraintViolationException $exception): bool
+    {
+        $message = strtolower($exception->getMessage());
+
+        return str_contains($message, 'users_email_unique')
+            || str_contains($message, 'unique constraint failed: users.email');
     }
 }

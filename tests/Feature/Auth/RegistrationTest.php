@@ -9,7 +9,6 @@ use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
-use Illuminate\Validation\ValidationException;
 use Inertia\Testing\AssertableInertia as Assert;
 use PDOException;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -177,11 +176,13 @@ class RegistrationTest extends TestCase
         $this->assertDatabaseHas('users', ['email' => 'bima@example.com', 'phone' => '+6281234567890']);
     }
 
-    public function test_email_collision_during_persistence_returns_a_validation_error(): void
-    {
+    #[DataProvider('emailUniqueCollisionMessageProvider')]
+    public function test_email_collision_during_registration_returns_a_normal_email_validation_response(
+        string $message,
+    ): void {
         $shouldThrow = true;
 
-        app('db')->connection()->beforeExecuting(function (string $query) use (&$shouldThrow): void {
+        app('db')->connection()->beforeExecuting(function (string $query) use (&$shouldThrow, $message): void {
             if ($shouldThrow && str_starts_with(strtolower($query), 'insert into "users"')) {
                 $shouldThrow = false;
 
@@ -189,18 +190,59 @@ class RegistrationTest extends TestCase
                     'sqlite',
                     'insert into "users"',
                     [],
-                    new PDOException('SQLSTATE[23000]: Integrity constraint violation', 23000),
+                    new PDOException($message, 23000),
                 );
+            }
+        });
+
+        $response = $this->post(route('register.store'), $this->validRegistrationData());
+
+        $response
+            ->assertStatus(302)
+            ->assertSessionHasErrors([
+                'email' => trans('validation.unique', ['attribute' => trans('validation.attributes.email')]),
+            ])
+            ->assertDontSee('SQLSTATE')
+            ->assertDontSee('users.email');
+
+        $this->assertGuest();
+        $this->assertDatabaseCount('users', 0);
+    }
+
+    /** @return array<string, array{string}> */
+    public static function emailUniqueCollisionMessageProvider(): array
+    {
+        return [
+            'SQLite users.email constraint' => ['SQLSTATE[23000]: UNIQUE constraint failed: users.email'],
+            'MySQL or MariaDB users_email_unique constraint' => [
+                "SQLSTATE[23000]: Integrity constraint violation: 1062 Duplicate entry 'ayu@example.com' for key 'users_email_unique'",
+            ],
+        ];
+    }
+
+    public function test_non_email_unique_constraint_violation_is_rethrown(): void
+    {
+        $shouldThrow = true;
+        $collision = new UniqueConstraintViolationException(
+            'sqlite',
+            'insert into "users"',
+            [],
+            new PDOException('SQLSTATE[23000]: UNIQUE constraint failed: users.id', 23000),
+        );
+
+        app('db')->connection()->beforeExecuting(function (string $query) use (&$shouldThrow, $collision): void {
+            if ($shouldThrow && str_starts_with(strtolower($query), 'insert into "users"')) {
+                $shouldThrow = false;
+
+                throw $collision;
             }
         });
 
         try {
             app(CreateNewUser::class)->create($this->validRegistrationData());
-            $this->fail('Expected a racing email collision to become a validation error.');
-        } catch (ValidationException $exception) {
-            $this->assertSame([
-                'email' => [trans('validation.unique', ['attribute' => trans('validation.attributes.email')])],
-            ], $exception->errors());
+            $this->fail('Expected a non-email unique constraint violation to be rethrown.');
+        } catch (UniqueConstraintViolationException $exception) {
+            $this->assertSame($collision, $exception);
         }
 
         $this->assertDatabaseCount('users', 0);
