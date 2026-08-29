@@ -186,8 +186,10 @@ describe("branded Laravel auth pages", () => {
         remember: false,
       },
     });
-    expect(form.reset).toHaveBeenCalledWith("password");
-    expect(form.password).toBe("");
+    await wrapper.vm.$nextTick();
+    expect(
+      (wrapper.get("input[name='password']").element as HTMLInputElement).value,
+    ).toBe("");
     expect(wrapper.get("a[href='/forgot-password']").text()).toBe(
       "Forgot password?",
     );
