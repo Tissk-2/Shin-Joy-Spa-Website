@@ -7,5 +7,7 @@ dist/
 /vendor/
 /.env
 /public/build/
+/public/hot
 /storage/*.key
+/storage/framework/testing.sqlite
 /.phpunit.result.cache

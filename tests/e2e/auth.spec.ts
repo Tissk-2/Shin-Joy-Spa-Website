@@ -1,0 +1,183 @@
+import { expect, test, type Page } from "@playwright/test";
+
+const originalPassword = "calmspa9";
+
+async function registerCustomer(page: Page, email: string): Promise<void> {
+  await page.goto("/register");
+  await page.getByLabel(/nama lengkap|full name/i).fill("Ayu Lestari");
+  await page.getByLabel(/^email$/i).fill(email);
+  await page
+    .getByLabel(/nomor whatsapp|whatsapp number/i)
+    .fill("+6281234567890");
+  await page.getByLabel(/^kata sandi$|^password$/i).fill(originalPassword);
+  await page
+    .getByLabel(/konfirmasi kata sandi|confirm password/i)
+    .fill(originalPassword);
+  await page.getByRole("button", { name: /buat akun|create account/i }).click();
+  await expect(page).toHaveURL(/\/verify-email$/);
+}
+
+async function testingLink(
+  page: Page,
+  endpoint: "verification-link" | "reset-link",
+  email: string,
+): Promise<string> {
+  const response = await page.request.get(
+    `/__testing/${endpoint}?email=${encodeURIComponent(email)}`,
+  );
+
+  const payload = (await response.json()) as { url: string };
+
+  expect(response.ok()).toBe(true);
+  expect(payload).toEqual({ url: expect.any(String) });
+
+  return payload.url;
+}
+
+async function verifyCustomer(page: Page, email: string): Promise<void> {
+  await page.goto(await testingLink(page, "verification-link", email));
+  await expect(page).toHaveURL(/\/profile\?verified=1$/);
+  await expect(
+    page.getByRole("heading", { name: /profil saya|my profile/i }),
+  ).toBeVisible();
+}
+
+async function logoutFromProfile(page: Page): Promise<void> {
+  await page.locator('button[aria-controls="account-menu"]').click();
+  await page.getByRole("button", { name: /keluar|log out/i }).click();
+  await expect(page).toHaveURL("/");
+}
+
+async function login(
+  page: Page,
+  email: string,
+  password: string,
+): Promise<void> {
+  await page.goto("/login");
+  await page.getByLabel(/^email$/i).fill(email);
+  await page.getByLabel(/^kata sandi$|^password$/i).fill(password);
+  await page.getByRole("button", { name: /^masuk$|^log in$/i }).click();
+}
+
+test("customer registers, verifies, logs out, and logs back in with a normalized email", async ({
+  page,
+}) => {
+  const email = "ayu@example.com";
+
+  await registerCustomer(page, email);
+  await verifyCustomer(page, email.toUpperCase());
+  await logoutFromProfile(page);
+  await login(page, " AYU@EXAMPLE.COM ", originalPassword);
+
+  await expect(page).toHaveURL("/profile");
+  await expect(page.getByText(email, { exact: true })).toBeVisible();
+});
+
+test("invalid credentials remain on login with a generic error", async ({
+  page,
+}) => {
+  await login(page, "missing@example.com", "wrong-password");
+
+  await expect(page).toHaveURL("/login");
+  await expect(page.locator("#email-error")).toHaveText(
+    /email atau kata sandi salah|email or password is incorrect/i,
+  );
+});
+
+test("an unverified customer is denied profile access", async ({ page }) => {
+  await registerCustomer(page, "unverified@example.com");
+  await page.goto("/profile");
+
+  await expect(page).toHaveURL("/verify-email");
+  await expect(
+    page.getByRole("heading", { name: /verifikasi email|verify your email/i }),
+  ).toBeVisible();
+});
+
+test("known and unknown password requests are neutral and a customer can reset the password", async ({
+  page,
+}) => {
+  const email = "reset@example.com";
+  const newPassword = "calmspa10";
+
+  await registerCustomer(page, email);
+  await page.getByRole("button", { name: /keluar|log out/i }).click();
+  await expect(page).toHaveURL("/");
+
+  await page.goto("/forgot-password");
+  await page.getByLabel(/^email$/i).fill(email);
+  await page
+    .getByRole("button", { name: /kirim tautan|send password reset link/i })
+    .click();
+  const knownStatus = await page.getByRole("status").textContent();
+
+  await page.getByLabel(/^email$/i).fill("unknown@example.com");
+  await page
+    .getByRole("button", { name: /kirim tautan|send password reset link/i })
+    .click();
+  await expect(page.getByRole("status")).toHaveText(knownStatus ?? "");
+
+  await page.goto(await testingLink(page, "reset-link", email.toUpperCase()));
+  await page.getByLabel(/^kata sandi$|^password$/i).fill(newPassword);
+  await page
+    .getByLabel(/konfirmasi kata sandi|confirm password/i)
+    .fill(newPassword);
+  await page
+    .getByRole("button", { name: /atur ulang kata sandi|reset password/i })
+    .click();
+
+  await expect(page).toHaveURL("/login");
+  await expect(page.getByRole("status")).toBeVisible();
+
+  await login(page, email.toUpperCase(), newPassword);
+  await expect(page).toHaveURL("/verify-email");
+});
+
+test("locale switching is persisted by the server for Indonesian and English", async ({
+  page,
+}) => {
+  await page.goto("/login");
+  await expect(
+    page.getByRole("heading", { name: "Masuk ke akun Anda" }),
+  ).toBeVisible();
+
+  await page.getByRole("button", { name: "EN", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Log in to your account" }),
+  ).toBeVisible();
+  await page.reload();
+  await expect(
+    page.getByRole("heading", { name: "Log in to your account" }),
+  ).toBeVisible();
+
+  await page.getByRole("button", { name: "ID", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Masuk ke akun Anda" }),
+  ).toBeVisible();
+  await page.reload();
+  await expect(
+    page.getByRole("heading", { name: "Masuk ke akun Anda" }),
+  ).toBeVisible();
+});
+
+test("a hostile external intended redirect is rejected after login", async ({
+  page,
+}) => {
+  const email = "redirect@example.com";
+
+  await registerCustomer(page, email);
+  await verifyCustomer(page, email);
+  await logoutFromProfile(page);
+
+  const intended = await page.request.get("/profile", {
+    headers: { Host: "attacker.example" },
+    maxRedirects: 0,
+  });
+  expect(intended.status()).toBe(302);
+  expect(intended.headers().location).toMatch(/\/login$/);
+
+  await login(page, email, originalPassword);
+
+  await expect(page).toHaveURL("/profile");
+  expect(new URL(page.url()).origin).toBe("http://127.0.0.1:8000");
+});
