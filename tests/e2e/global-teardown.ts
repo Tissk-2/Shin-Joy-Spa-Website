@@ -3,6 +3,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import {
   serverRuntimeDirectory,
   serverShutdownMarkers,
+  testingConfigCache,
   testingDatabase,
   viteHotFile,
 } from "./testing-environment";
@@ -49,6 +50,7 @@ export default async function globalTeardown(): Promise<void> {
   }
 
   rmSync(viteHotFile, { force: true });
+  rmSync(testingConfigCache, { force: true });
   rmSync(testingDatabase, { force: true });
   rmSync(serverRuntimeDirectory, { force: true, recursive: true });
 }

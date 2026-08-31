@@ -5,6 +5,10 @@ export const testingDatabase = path.join(
   projectRoot,
   "storage/framework/testing.sqlite",
 );
+export const testingConfigCache = path.join(
+  projectRoot,
+  "storage/framework/testing/playwright-config.php",
+);
 export const viteHotFile = path.join(projectRoot, "public/hot");
 export const serverRuntimeDirectory = path.join(
   projectRoot,
@@ -20,6 +24,7 @@ export const testingEnvironment = {
   APP_ENV: "testing",
   APP_DEBUG: "false",
   APP_KEY: "base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+  APP_CONFIG_CACHE: "storage/framework/testing/playwright-config.php",
   APP_URL: "http://127.0.0.1:8000",
   BCRYPT_ROUNDS: "4",
   CACHE_STORE: "array",

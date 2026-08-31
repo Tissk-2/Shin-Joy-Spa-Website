@@ -4,6 +4,7 @@ import path from "node:path";
 import {
   projectRoot,
   serverShutdownMarkers,
+  testingConfigCache,
   testingDatabase,
   testingEnvironment,
   viteHotFile,
@@ -11,6 +12,7 @@ import {
 
 export default function globalSetup(): void {
   rmSync(viteHotFile, { force: true });
+  rmSync(testingConfigCache, { force: true });
   rmSync(testingDatabase, { force: true });
 
   for (const marker of Object.values(serverShutdownMarkers)) {

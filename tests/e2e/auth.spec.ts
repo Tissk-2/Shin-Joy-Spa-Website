@@ -44,8 +44,29 @@ async function verifyCustomer(page: Page, email: string): Promise<void> {
 
 async function logoutFromProfile(page: Page): Promise<void> {
   await page.locator('button[aria-controls="account-menu"]').click();
+  const logoutResponsePromise = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      new URL(response.url()).pathname === "/logout",
+  );
   await page.getByRole("button", { name: /keluar|log out/i }).click();
+  const logoutResponse = await logoutResponsePromise;
+
+  expect(logoutResponse.status()).toBeGreaterThanOrEqual(300);
+  expect(logoutResponse.status()).toBeLessThan(400);
+  expect(
+    new URL(logoutResponse.headers().location ?? "", page.url()).pathname,
+  ).toBe("/");
   await expect(page).toHaveURL("/");
+  const protectedProfile = await page.request.get("/profile", {
+    maxRedirects: 0,
+  });
+
+  expect(protectedProfile.status()).toBeGreaterThanOrEqual(300);
+  expect(protectedProfile.status()).toBeLessThan(400);
+  expect(
+    new URL(protectedProfile.headers().location ?? "", page.url()).pathname,
+  ).toBe("/login");
 }
 
 async function login(

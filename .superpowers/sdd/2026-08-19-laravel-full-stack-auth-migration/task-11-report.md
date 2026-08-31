@@ -126,3 +126,40 @@ Laravel's `LoadEnvironmentVariables` skips dotenv whenever `Application::configu
 The temporary fake environment file and controlled cache were removed after each scenario. Final probes found the normal `bootstrap/cache/config.php`, the reproduction cache, the fake environment file, and process-specific PHPUnit cache files absent. No real `.env` operation was performed. Unrelated dirty `src/**` files and the untracked plan under `docs/superpowers/plans/**` were preserved untouched; `tests/e2e/**` and `resources/js/**` were not changed. Nothing was committed.
 
 Self-review checked the failure boundary, Laravel bootstrap ordering, PHPUnit/Laravel environment adapter precedence, secret-bearing config paths, mutation behavior, syntax, schema/Composer validity, and the owned diff. No critical or high issue remains. An independent reviewer subagent was intentionally not dispatched because this fix-round assignment explicitly prohibited spawning subagents.
+
+---
+
+## Final-review fix round 2: E2E config-cache isolation
+
+Status: **DONE**
+
+### RED evidence and root cause
+
+The intermittent logout was not a dropped browser click or an Inertia cancellation. Ten isolated pre-fix replays of the first journey passed, and the retained failure trace had already been overwritten by a focused passing rerun. A controlled reproduction then supplied a deliberately conflicting production-style config cache at the disposable relative path `storage/framework/testing/e2e-config-cache-repro.php`, using SQLite and fake keys so no real database or secret was involved. The real `bootstrap/cache/config.php` remained absent.
+
+Immediately after registration and verification, the harness created the conflicting cache before logout. Playwright observed an actual `POST /logout` response, proving that the click dispatched. The server returned `302 Location: /login` instead of the authenticated logout redirect to `/`, and the regression failed at that response boundary. Laravel's PHP built-in server rebuilds the application for every request. Because the E2E environment did not own `APP_CONFIG_CACHE`, a default config cache created concurrently by another verification gate could therefore replace the testing key, database, session, and environment configuration between requests. The next logout request no longer recognized the browser's testing session and the auth middleware redirected it to login.
+
+### Minimal fix and regression contract
+
+- `tests/e2e/testing-environment.ts` gives Playwright a dedicated relative `APP_CONFIG_CACHE` path under `storage/framework/testing/` and exports its resolved filesystem path for lifecycle ownership.
+- `tests/e2e/global-setup.ts` removes a stale Playwright config cache before database creation; `tests/e2e/global-teardown.ts` removes it after both owned servers have stopped.
+- `tests/e2e/auth.spec.ts` arms a response observer before clicking logout, requires the observed request to be `POST /logout`, accepts any successful 3xx response whose destination is `/`, and then requests `/profile` without following redirects to prove the server session was invalidated and the protected page now redirects to `/login`.
+
+The regression covers the real browser/server boundary: a dropped or cancelled POST has no matching response, an unauthenticated or misconfigured POST redirects somewhere other than `/`, and a response that fails to invalidate the session leaves `/profile` accessible. It does not assert incidental Inertia headers or one exact redirect status. No production auth or `MainLayout.vue` change was needed.
+
+### GREEN and final-gate evidence
+
+| Command / scenario | Result |
+| --- | --- |
+| Controlled hostile inherited cache after the fix | PASS: the disposable conflicting cache remained selected in the parent process, while Playwright's owned `APP_CONFIG_CACHE` overrode it for setup and both servers. The first journey passed 1/1 in 14.3s, test duration 6.2s, exit 0. |
+| Repeated focused first journey after the fix | PASS: 5 isolated fresh setup/server/teardown lifecycles passed 5/5. The POST/redirect/session response contract was stable in every replay. |
+| Exact `npm run test:e2e` after the final diff | PASS: all 6/6 journeys passed in 38.4s and the command returned exit 0 naturally. |
+| `npm run types:check` | PASS, exit 0. |
+| Prettier check for the four changed E2E TypeScript files | PASS, exit 0. |
+| `git diff --check` for the owned E2E files | PASS: no whitespace errors; Git emitted only existing LF-to-CRLF working-copy warnings. |
+
+### Cleanup, scope, and self-review
+
+The controlled reproduction cache was removed in its `finally` cleanup. Final probes found `public/hot`, `storage/framework/testing.sqlite`, the Playwright config cache, the reproduction config cache, the Playwright server runtime directory, `bootstrap/cache/config.php`, `playwright-report`, and `test-results` absent. Ports 8000 and 5174 were closed, and Playwright's ignored `.last-run.json` reported `passed` with no failed tests.
+
+Self-review checked environment precedence, Laravel's relative cache-path resolution, setup/teardown ownership order, response-observer ordering, redirect flexibility, server-side session invalidation, artifact cleanup, and the complete owned diff. No critical or high issue remains. Unrelated dirty `src/**`, PHPUnit isolation files, production auth code, and the untracked controlling plan were preserved untouched. Nothing was committed, as required for this review round.
