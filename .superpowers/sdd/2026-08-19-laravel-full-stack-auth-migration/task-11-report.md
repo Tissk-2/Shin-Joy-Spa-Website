@@ -73,3 +73,56 @@ Fixed URLs, ports, and the exact `testing.sqlite` path remain intentionally seri
 ## Completion
 
 The independent cleanup re-review found no remaining blocker. The authorized Task 11 paths were committed with the required message; the immutable resulting hash is reported in the task handoff rather than embedded into its own commit.
+
+---
+
+## Final-review fix round 1: fail-closed PHP test isolation
+
+Status: **DONE**
+
+### RED evidence and root cause
+
+A controlled `.env.phpunit-cache-repro` was used only while reproducing the issue. It contained fake values, selected `production`, selected MySQL at the non-listening endpoint `127.0.0.1:1`, and wrote configuration only to `storage/framework/testing/phpunit-cache-repro.php` through a process-local `APP_CONFIG_CACHE`. The real `.env` and the normal `bootstrap/cache/config.php` were not read, edited, removed, or replaced by this harness.
+
+Before the fix, the new regression test was run with:
+
+```powershell
+$env:APP_CONFIG_CACHE='storage/framework/testing/phpunit-cache-repro.php'
+php artisan config:cache --env=phpunit-cache-repro
+php artisan test tests/Feature/TestEnvironmentIsolationTest.php --compact
+```
+
+It failed safely at the first assertion because the Laravel test application reported the cached `production` environment instead of `testing`: **1 failed, 1 assertion, exit 1**. The test does not use `RefreshDatabase`, so RED established the bootstrap defect without attempting a database connection.
+
+Laravel's `LoadEnvironmentVariables` skips dotenv whenever `Application::configurationIsCached()` is true, and `LoadConfiguration` then imports the cached array wholesale. Consequently, ordinary PHPUnit environment entries never build the application's configuration in that case. The first minimal hypothesis—adding PHPUnit `force="true"` and a separate `APP_CONFIG_CACHE` path—remained fail-closed but did not turn the controlled case green. Tracing the adapters established why: PHPUnit updates `getenv()` and `$_ENV`, while an inherited Windows environment value remains in `$_SERVER`; Laravel's dotenv repository reads `$_SERVER` before `$_ENV` and the putenv adapter. Therefore the inherited cache path still won.
+
+### Fix
+
+- `phpunit.xml` now force-declares an isolated testing runtime, redirects config-cache lookup away from the normal application cache, supplies in-memory SQLite/array/sync drivers, and blanks developer credential inputs including database URLs and credentials, Redis/Memcached credentials, SMTP/provider tokens, AWS credentials, and logging webhook endpoints.
+- `tests/TestCase.php` sets those explicit values in all three channels—`getenv()`, `$_ENV`, and `$_SERVER`—before Laravel creates the application. Its config-cache path is process-specific, preventing both the normal local cache and a stale PHPUnit-only cache from being loaded.
+- `tests/TestCase.php` then fails closed before Laravel's database test traits run unless the booted app is `testing`, uses SQLite `:memory:`, uses array/sync test services, uses the fixed non-secret test application key, and contains no credential-bearing developer configuration.
+- `tests/Feature/TestEnvironmentIsolationTest.php` records the observable isolation contract. Removing the pre-bootstrap environment synchronization or allowing the cached application config to win makes the controlled RED scenario fail.
+- `composer.json` required no change: its committed `test`, `test:coverage`, and `verify` scripts already invoke `php artisan test`, which is now protected by the shared PHPUnit/TestCase bootstrap.
+
+### Fresh verification evidence
+
+| Command / scenario | Result |
+| --- | --- |
+| Controlled cached `TestEnvironmentIsolationTest` + `SecurityConfigurationTest` after the final diff | PASS: 6 tests, 80 assertions, exit 0. The fake cache still selected production/MySQL at `127.0.0.1:1`; the PHPUnit application used only SQLite `:memory:`. |
+| Normal `php artisan test tests/Feature/TestEnvironmentIsolationTest.php tests/Feature/SecurityConfigurationTest.php --compact` | PASS: 6 tests, 80 assertions, exit 0. |
+| Normal `php artisan test --compact` after the final diff | PASS: 110 tests, 634 assertions, exit 0. |
+| Normal `php .tools/composer.phar test` | PASS: 110 tests, 621 assertions at that run, exit 0. |
+| Normal `php .tools/composer.phar test:coverage` | BLOCKED as expected, exit 1: `Code coverage driver not available. Did you install Xdebug or PCOV?` This remains an environment blocker, not a coverage pass. |
+| Normal `php .tools/composer.phar verify` | PASS: 110 tests, 621 assertions at that run, then route cache and route clear succeeded, exit 0. |
+| Controlled cached `php .tools/composer.phar test` | PASS: 110 tests, 621 assertions at that run, exit 0. |
+| Controlled cached `php .tools/composer.phar test:coverage` | BLOCKED only by the missing coverage driver, exit 1; no database attempt occurred. |
+| Controlled cached `php .tools/composer.phar verify` | PASS: 110 tests, 621 assertions at that run, route cache and route clear succeeded, exit 0. |
+| `php -l tests/TestCase.php` and `php -l tests/Feature/TestEnvironmentIsolationTest.php` | PASS: no syntax errors. |
+| `php .tools/composer.phar validate --no-check-publish` | PASS: `composer.json` is valid. |
+| `git diff --check -- phpunit.xml tests/TestCase.php tests/Feature/TestEnvironmentIsolationTest.php` | PASS: no whitespace errors; Git emitted only its existing LF-to-CRLF working-copy warnings. |
+
+### Cleanup, scope, and self-review
+
+The temporary fake environment file and controlled cache were removed after each scenario. Final probes found the normal `bootstrap/cache/config.php`, the reproduction cache, the fake environment file, and process-specific PHPUnit cache files absent. No real `.env` operation was performed. Unrelated dirty `src/**` files and the untracked plan under `docs/superpowers/plans/**` were preserved untouched; `tests/e2e/**` and `resources/js/**` were not changed. Nothing was committed.
+
+Self-review checked the failure boundary, Laravel bootstrap ordering, PHPUnit/Laravel environment adapter precedence, secret-bearing config paths, mutation behavior, syntax, schema/Composer validity, and the owned diff. No critical or high issue remains. An independent reviewer subagent was intentionally not dispatched because this fix-round assignment explicitly prohibited spawning subagents.
