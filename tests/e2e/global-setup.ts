@@ -24,7 +24,7 @@ export default function globalSetup(): void {
 
   execFileSync(
     "php",
-    ["artisan", "migrate:fresh", "--force", "--no-interaction"],
+    ["artisan", "migrate:fresh", "--seed", "--force", "--no-interaction"],
     {
       cwd: projectRoot,
       env: { ...process.env, ...testingEnvironment },
