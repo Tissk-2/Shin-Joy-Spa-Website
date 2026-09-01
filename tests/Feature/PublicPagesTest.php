@@ -2,11 +2,22 @@
 
 namespace Tests\Feature;
 
+use Database\Seeders\ServiceCatalogSeeder;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
 class PublicPagesTest extends TestCase
 {
+    use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->seed(ServiceCatalogSeeder::class);
+    }
+
     public function test_public_pages_are_served_by_inertia(): void
     {
         $this->get('/')
@@ -14,10 +25,13 @@ class PublicPagesTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page->component('Home'));
 
         $this->get('/services/balinese-massage')
+            ->assertNotFound();
+
+        $this->get('/services/javanese-massage')
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('ServiceDetail')
-                ->where('slug', 'balinese-massage'));
+                ->where('service.slug', 'javanese-massage'));
 
         $this->get('/booking')
             ->assertOk()
@@ -36,14 +50,10 @@ class PublicPagesTest extends TestCase
         $this->get('/services/%3Cscript%3E')->assertNotFound();
     }
 
-    public function test_well_formed_unknown_service_is_handed_to_the_safe_page_state(): void
+    public function test_well_formed_unknown_service_returns_not_found(): void
     {
         $this->get('/services/not-a-real-service')
-            ->assertOk()
-            ->assertInertia(fn (Assert $page) => $page
-                ->component('ServiceDetail')
-                ->where('slug', 'not-a-real-service')
-                ->missing('service'));
+            ->assertNotFound();
     }
 
     public function test_no_unprotected_administrator_routes_are_registered(): void

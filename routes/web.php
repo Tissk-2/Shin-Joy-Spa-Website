@@ -1,5 +1,8 @@
 <?php
 
+use App\Http\Controllers\BookingController;
+use App\Http\Controllers\HomeController;
+use App\Http\Controllers\ServiceController;
 use App\Models\User;
 use App\Support\CustomerIdentity;
 use Illuminate\Http\Request;
@@ -7,19 +10,16 @@ use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Validation\Rule;
-use Inertia\Inertia;
 
-Route::inertia('/', 'Home')->name('home');
+Route::get('/', [HomeController::class, 'index'])->name('home');
 
 Route::redirect('/services', '/#services');
 
-Route::get('/services/{slug}', fn (string $slug) => Inertia::render('ServiceDetail', [
-    'slug' => $slug,
-]))
+Route::get('/services/{slug}', [ServiceController::class, 'show'])
     ->where('slug', '[a-z0-9-]+')
     ->name('services.show');
 
-Route::inertia('/booking', 'Booking')->name('booking');
+Route::get('/booking', [BookingController::class, 'create'])->name('booking');
 
 Route::redirect('/about', '/#about');
 
