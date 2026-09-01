@@ -2,7 +2,6 @@
 import { Head, Link, usePage } from "@inertiajs/vue3";
 import { computed, ref } from "vue";
 import { useLanguage } from "@/composables/useLanguage";
-import services from "@/data/services";
 import {
   timeSlots,
   todayIso,
@@ -10,7 +9,7 @@ import {
   type BookingErrors,
 } from "@/lib/booking";
 import MainLayout from "@/layouts/MainLayout.vue";
-import type { AppPageProps } from "@/types";
+import type { AppPageProps, ServiceData } from "@/types";
 
 interface BookingForm {
   name: string;
@@ -23,17 +22,16 @@ interface BookingForm {
   notes: string;
 }
 
+const props = defineProps<{
+  services: ServiceData[];
+  selectedService: string;
+}>();
 const page = usePage<AppPageProps>();
 const { language, tr } = useLanguage();
-const query = page.url.includes("?")
-  ? page.url.slice(
-      page.url.indexOf("?"),
-      page.url.indexOf("#") === -1 ? undefined : page.url.indexOf("#"),
-    )
-  : "";
-const requestedService = new URLSearchParams(query).get("service") ?? "";
-const initialService = services.some(({ slug }) => slug === requestedService)
-  ? requestedService
+const initialService = props.services.some(
+  ({ slug }) => slug === props.selectedService,
+)
+  ? props.selectedService
   : "";
 const title = computed(() => tr("b.title"));
 const currentUser = page.props.auth.user;
@@ -41,7 +39,7 @@ const emptyForm = (): BookingForm => ({
   name: currentUser?.name ?? "",
   phone: currentUser?.phone ?? "",
   email: currentUser?.email ?? "",
-  service: services.some(({ slug }) => slug === initialService)
+  service: props.services.some(({ slug }) => slug === initialService)
     ? initialService
     : "",
   date: "",
@@ -53,7 +51,7 @@ const form = ref<BookingForm>(emptyForm());
 const errors = ref<BookingErrors>({});
 const submitted = ref(false);
 const selectedService = computed(() =>
-  services.find(({ slug }) => slug === form.value.service),
+  props.services.find(({ slug }) => slug === form.value.service),
 );
 const selectedServiceName = computed(() => {
   if (!selectedService.value) return tr("b.sumempty");
@@ -64,7 +62,7 @@ const selectedServiceName = computed(() => {
 const total = computed(() => selectedService.value?.price || 0);
 
 function submit(): void {
-  errors.value = validateBooking(form.value, services);
+  errors.value = validateBooking(form.value, props.services);
   if (Object.keys(errors.value).length) return;
 
   submitted.value = true;
@@ -227,7 +225,7 @@ function reset(): void {
                 >
                   <option value="">{{ tr("b.fserviceph") }}</option>
                   <option
-                    v-for="service in services"
+                    v-for="service in props.services"
                     :key="service.slug"
                     :value="service.slug"
                   >

@@ -2,6 +2,8 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\ServiceCategory;
+use App\Support\ServiceCatalogPresenter;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -36,6 +38,7 @@ class HandleInertiaRequests extends Middleware
     public function share(Request $request): array
     {
         $user = $request->user();
+        $presenter = app(ServiceCatalogPresenter::class);
 
         return [
             ...parent::share($request),
@@ -51,6 +54,14 @@ class HandleInertiaRequests extends Middleware
             'locale' => app()->getLocale(),
             'flash' => [
                 'status' => fn (): ?string => $request->session()->get('status'),
+            ],
+            'catalog' => [
+                'categories' => fn (): array => ServiceCategory::query()
+                    ->active()
+                    ->get()
+                    ->map($presenter->category(...))
+                    ->values()
+                    ->all(),
             ],
         ];
     }

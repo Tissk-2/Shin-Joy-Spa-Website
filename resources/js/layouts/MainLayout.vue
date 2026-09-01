@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { Head, Link, router, usePage } from "@inertiajs/vue3";
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
-import categories from "@/data/categories";
 import { useLanguage } from "@/composables/useLanguage";
 import {
   accountInitial as deriveAccountInitial,
@@ -38,6 +37,7 @@ const accountLabel = computed(
   () => `${tr("nav.account")}: ${currentUser.value?.name?.trim() || "?"}`,
 );
 const activeSection = ref("");
+const catalogCategories = computed(() => page.props.catalog.categories);
 
 const links = computed(() => {
   const hash = currentUrl.value.hash;
@@ -522,7 +522,7 @@ onUnmounted(() => {
           <div class="footer-col">
             <h4>{{ tr("foot.services") }}</h4>
             <ul>
-              <li v-for="category in categories" :key="category.slug">
+              <li v-for="category in catalogCategories" :key="category.slug">
                 <Link
                   :href="`/#services?cat=${category.slug}`"
                   @click="setMenu(false, false)"

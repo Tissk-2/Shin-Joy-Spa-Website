@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\ServiceCategory;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -21,6 +22,48 @@ class InertiaSharedDataTest extends TestCase
                 ->where('auth.user', null)
                 ->where('locale', 'id')
                 ->where('flash.status', null));
+    }
+
+    // Production break caught: sharing raw or unscoped categories would expose inactive records or persistence-only fields to every Inertia page.
+    public function test_shared_catalog_categories_are_active_only_and_presented_through_the_public_allow_list(): void
+    {
+        ServiceCategory::query()->create([
+            'slug' => 'later',
+            'name_id' => 'Kategori Nanti',
+            'name_en' => 'Later Category',
+            'image_path' => '/img/later.jpg',
+            'is_active' => true,
+            'display_order' => 20,
+        ]);
+        ServiceCategory::query()->create([
+            'slug' => 'first',
+            'name_id' => 'Kategori Pertama',
+            'name_en' => 'First Category',
+            'image_path' => '/img/first.jpg',
+            'is_active' => true,
+            'display_order' => 10,
+        ]);
+        ServiceCategory::query()->create([
+            'slug' => 'hidden',
+            'name_id' => 'Kategori Tersembunyi',
+            'name_en' => 'Hidden Category',
+            'image_path' => '/img/hidden.jpg',
+            'is_active' => false,
+            'display_order' => 1,
+        ]);
+
+        $response = $this->get(route('home'));
+
+        $response->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->where('catalog.categories.0.slug', 'first')
+            ->where('catalog.categories.1.slug', 'later')
+            ->has('catalog.categories', 2));
+
+        $categories = $response->inertiaProps('catalog.categories');
+
+        $this->assertSame(['slug', 'nameId', 'nameEn', 'image'], array_keys($categories[0]));
+        $this->assertSame(['first', 'later'], array_column($categories, 'slug'));
+        $this->assertSame('/img/first.jpg', $categories[0]['image']);
     }
 
     public function test_authenticated_shared_props_contain_exactly_the_approved_user_fields(): void

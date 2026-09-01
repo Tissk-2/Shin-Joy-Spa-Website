@@ -40,13 +40,16 @@ describe("Laravel-owned public pages", () => {
     expect(source).toMatch(/\.get\(["']cat["']\)/);
   });
 
-  it("reads a typed service slug and safely renders unknown services", () => {
-    const source = readPage("ServiceDetail.vue");
-
-    expect(source).toMatch(/defineProps<\{\s*slug:\s*string/);
-    expect(source).toMatch(/v-if="!service"/);
-    expect(source).toMatch(/d\.notfoundt/);
-    expect(source).toMatch(/service\.value\?/);
+  it("does not retain runtime imports for the retired client catalog modules", () => {
+    for (const name of [
+      "Home.vue",
+      "ServiceDetail.vue",
+      "Booking.vue",
+      "../components/ServiceCard.vue",
+      "../layouts/MainLayout.vue",
+    ]) {
+      expect(readPage(name)).not.toMatch(/@\/data\/(services|categories)/);
+    }
   });
 
   it("keeps guest booking validation without browser persistence or auth storage", () => {

@@ -3,14 +3,16 @@ import { Head, Link, usePage } from "@inertiajs/vue3";
 import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import ServiceCard from "@/components/ServiceCard.vue";
 import { useLanguage } from "@/composables/useLanguage";
-import categories from "@/data/categories";
 import faqs from "@/data/faq";
 import galleryImgs from "@/data/gallery";
-import services from "@/data/services";
 import testimonials from "@/data/testimonials";
 import MainLayout from "@/layouts/MainLayout.vue";
-import type { AppPageProps } from "@/types";
+import type { AppPageProps, ServiceCategoryData, ServiceData } from "@/types";
 
+const { categories, services } = defineProps<{
+  categories: ServiceCategoryData[];
+  services: ServiceData[];
+}>();
 const page = usePage<AppPageProps>();
 const { language, tr } = useLanguage();
 const activeCategory = ref("");
@@ -270,6 +272,7 @@ onBeforeUnmount(() => {
             v-for="(service, index) in filteredServices"
             :key="service.slug"
             :service="service"
+            :category="categories.find(({ slug }) => slug === service.category)"
             :delay="(index % 3) + 1"
           />
         </div>

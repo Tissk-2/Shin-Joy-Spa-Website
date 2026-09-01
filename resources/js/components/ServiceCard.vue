@@ -1,24 +1,13 @@
 <script setup lang="ts">
 import { Link } from "@inertiajs/vue3";
 import { computed } from "vue";
-import categories from "@/data/categories";
 import { useLanguage } from "@/composables/useLanguage";
-
-interface ServiceCardItem {
-  slug: string;
-  category: string;
-  nameId: string;
-  nameEn: string;
-  descId: string;
-  descEn: string;
-  duration: number;
-  price: number;
-  image: string;
-}
+import type { ServiceCategoryData, ServiceData } from "@/types";
 
 const props = withDefaults(
   defineProps<{
-    service: ServiceCardItem;
+    service: ServiceData;
+    category?: ServiceCategoryData;
     delay?: number;
     showTag?: boolean;
   }>(),
@@ -35,8 +24,8 @@ const name = computed(() =>
 const description = computed(() =>
   language.value === "id" ? props.service.descId : props.service.descEn,
 );
-const category = computed(() => {
-  const match = categories.find(({ slug }) => slug === props.service.category);
+const categoryName = computed(() => {
+  const match = props.category;
   return language.value === "id"
     ? match?.nameId || props.service.category
     : match?.nameEn || props.service.category;
@@ -55,7 +44,7 @@ const bookingUrl = computed(() => `/booking?service=${props.service.slug}`);
         width="600"
         height="450"
       />
-      <span v-if="showTag" class="svc-tag">{{ category }}</span>
+      <span v-if="showTag" class="svc-tag">{{ categoryName }}</span>
     </Link>
     <div class="svc-card__body">
       <h3>

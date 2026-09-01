@@ -3,57 +3,40 @@ import { Head, Link } from "@inertiajs/vue3";
 import { computed, ref, watch } from "vue";
 import ServiceCard from "@/components/ServiceCard.vue";
 import { useLanguage } from "@/composables/useLanguage";
-import categories from "@/data/categories";
-import services from "@/data/services";
 import MainLayout from "@/layouts/MainLayout.vue";
+import type { ServiceCategoryData, ServiceData } from "@/types";
 
-const props = defineProps<{ slug: string }>();
+const props = defineProps<{
+  service: ServiceData;
+  category: ServiceCategoryData;
+  related: ServiceData[];
+}>();
 const { language, tr } = useLanguage();
-const service = computed(() =>
-  services.find(({ slug }) => slug === props.slug),
+const selectedImage = ref(props.service.image);
+watch(
+  () => props.service,
+  (nextService) => {
+    selectedImage.value = nextService.image;
+  },
 );
-const category = computed(() =>
-  categories.find(({ slug }) => slug === service.value?.category),
-);
-const selectedImage = ref(service.value?.image || "");
-watch(service, (nextService) => {
-  selectedImage.value = nextService?.image ?? "";
-});
-const gallery = computed(() =>
-  service.value ? service.value.gallery.map((image) => `/img/${image}`) : [],
-);
-const related = computed(() =>
-  services
-    .filter(
-      (item) =>
-        item.category === service.value?.category &&
-        item.slug !== service.value?.slug,
-    )
-    .slice(0, 3),
-);
+const gallery = computed(() => props.service.gallery);
 
 const name = computed(() =>
-  language.value === "id" ? service.value?.nameId : service.value?.nameEn,
+  language.value === "id" ? props.service.nameId : props.service.nameEn,
 );
 const longDescription = computed(() =>
-  language.value === "id" ? service.value?.longId : service.value?.longEn,
+  language.value === "id" ? props.service.longId : props.service.longEn,
 );
 const goodFor = computed(() =>
-  language.value === "id" ? service.value?.goodId : service.value?.goodEn,
+  language.value === "id" ? props.service.goodId : props.service.goodEn,
 );
 const categoryName = computed(() =>
-  language.value === "id" ? category.value?.nameId : category.value?.nameEn,
+  language.value === "id" ? props.category.nameId : props.category.nameEn,
 );
-const bookingUrl = computed(() =>
-  service.value
-    ? `/booking?service=${encodeURIComponent(service.value.slug)}`
-    : "/booking",
+const bookingUrl = computed(
+  () => `/booking?service=${encodeURIComponent(props.service.slug)}`,
 );
-const pageTitle = computed(() =>
-  service.value
-    ? `${name.value} · Shin Joy Spa Malang`
-    : `${tr("d.notfoundt")} · Shin Joy Spa Malang`,
-);
+const pageTitle = computed(() => `${name.value} · Shin Joy Spa Malang`);
 </script>
 
 <template>
@@ -61,25 +44,6 @@ const pageTitle = computed(() =>
     <Head :title="pageTitle" />
 
     <section
-      v-if="!service"
-      class="section"
-      style="padding-top: calc(78px + 3rem)"
-    >
-      <div class="container">
-        <div class="empty-state">
-          <h1 class="h2">{{ tr("d.notfoundt") }}</h1>
-          <p>{{ tr("d.notfounds") }}</p>
-          <p style="margin-top: 1.5rem">
-            <Link class="btn btn--primary" href="/#services">{{
-              tr("d.back")
-            }}</Link>
-          </p>
-        </div>
-      </div>
-    </section>
-
-    <section
-      v-else
       class="section"
       style="padding-top: calc(78px + clamp(2rem, 5vw, 3.5rem))"
     >
@@ -168,7 +132,7 @@ const pageTitle = computed(() =>
         </div>
 
         <section
-          v-if="related.length"
+          v-if="props.related.length"
           class="section"
           style="padding-bottom: 0"
         >
@@ -179,9 +143,10 @@ const pageTitle = computed(() =>
           </div>
           <div class="svc-grid">
             <ServiceCard
-              v-for="(item, index) in related"
+              v-for="(item, index) in props.related"
               :key="item.slug"
               :service="item"
+              :category="props.category"
               :delay="(index % 3) + 1"
             />
           </div>

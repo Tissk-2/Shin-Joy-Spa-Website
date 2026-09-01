@@ -3,6 +3,31 @@ import type { LucideIcon } from "lucide-vue-next";
 
 export type Locale = "id" | "en";
 
+export interface ServiceCategoryData {
+  slug: string;
+  nameId: string;
+  nameEn: string;
+  image: string;
+}
+
+export interface ServiceData {
+  slug: string;
+  category: string;
+  nameId: string;
+  nameEn: string;
+  descId: string;
+  descEn: string;
+  longId: string;
+  longEn: string;
+  goodId: string;
+  goodEn: string;
+  image: string;
+  gallery: string[];
+  duration: number;
+  price: number;
+  popularity: number;
+}
+
 export interface PublicUser {
   id: number;
   name: string;
@@ -15,6 +40,7 @@ export interface AppPageProps extends PageProps {
   auth: { user: PublicUser | null };
   locale: Locale;
   flash: { status?: string };
+  catalog: { categories: ServiceCategoryData[] };
 }
 
 export interface BreadcrumbItem {
