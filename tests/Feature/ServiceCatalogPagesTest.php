@@ -126,6 +126,24 @@ class ServiceCatalogPagesTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page->where('selectedService', ''));
     }
 
+    // Production break caught: optional "good for" copy must not prevent a catalog entry from being stored or represented safely.
+    public function test_public_service_can_omit_optional_good_for_copy(): void
+    {
+        $category = $this->category('massage', 1);
+        $service = $this->service($category, 'without-good-for-copy', 1, 150000, 90);
+
+        $service->update([
+            'good_for_id' => null,
+            'good_for_en' => null,
+        ]);
+
+        $this->get('/services/without-good-for-copy')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('service.goodId', null)
+                ->where('service.goodEn', null));
+    }
+
     private function category(string $slug, int $displayOrder, bool $isActive = true): ServiceCategory
     {
         return ServiceCategory::query()->create([

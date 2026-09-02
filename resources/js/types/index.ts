@@ -19,8 +19,8 @@ export interface ServiceData {
   descEn: string;
   longId: string;
   longEn: string;
-  goodId: string;
-  goodEn: string;
+  goodId: string | null;
+  goodEn: string | null;
   image: string;
   gallery: string[];
   duration: number;

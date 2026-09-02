@@ -18,8 +18,8 @@ return new class extends Migration
             $table->text('description_en');
             $table->text('long_description_id');
             $table->text('long_description_en');
-            $table->string('good_for_id');
-            $table->string('good_for_en');
+            $table->string('good_for_id')->nullable();
+            $table->string('good_for_en')->nullable();
             $table->unsignedInteger('duration_minutes');
             $table->unsignedBigInteger('price_idr');
             $table->string('image_path');
