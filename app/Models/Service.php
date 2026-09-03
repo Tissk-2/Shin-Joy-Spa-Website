@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Service extends Model
 {
@@ -24,6 +25,7 @@ class Service extends Model
         'image_path',
         'gallery_paths',
         'popularity',
+        'is_vip',
         'is_active',
         'display_order',
     ];
@@ -32,6 +34,7 @@ class Service extends Model
     {
         return [
             'gallery_paths' => 'array',
+            'is_vip' => 'boolean',
             'is_active' => 'boolean',
             'duration_minutes' => 'integer',
             'price_idr' => 'integer',
@@ -45,6 +48,16 @@ class Service extends Model
         return $this->belongsTo(ServiceCategory::class, 'category_id');
     }
 
+    public function variants(): HasMany
+    {
+        return $this->hasMany(ServiceVariant::class)->orderBy('display_order')->orderBy('id');
+    }
+
+    public function extensions(): HasMany
+    {
+        return $this->hasMany(ServiceExtension::class)->orderBy('display_order')->orderBy('id');
+    }
+
     public function scopeActive(Builder $query): void
     {
         $query->where('is_active', true)->orderBy('display_order')->orderBy('id');
@@ -54,6 +67,7 @@ class Service extends Model
     {
         $query->where('is_active', true)
             ->whereHas('category', fn (Builder $categoryQuery) => $categoryQuery->where('is_active', true))
+            ->whereHas('variants', fn (Builder $variantQuery) => $variantQuery->where('is_active', true))
             ->orderBy('display_order')
             ->orderBy('id');
     }

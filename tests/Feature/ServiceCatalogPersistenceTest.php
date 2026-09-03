@@ -2,8 +2,11 @@
 
 namespace Tests\Feature;
 
+use App\Enums\TreatmentMode;
 use App\Models\Service;
 use App\Models\ServiceCategory;
+use App\Models\ServiceExtension;
+use App\Models\ServiceVariant;
 use Database\Seeders\ServiceCatalogSeeder;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -12,6 +15,40 @@ use Tests\TestCase;
 class ServiceCatalogPersistenceTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_package_variants_and_extensions_are_typed_ordered_and_owned(): void
+    {
+        $category = ServiceCategory::query()->create([
+            'slug' => 'package', 'name_id' => 'Paket', 'name_en' => 'Packages',
+            'image_path' => '/img/package.jpg', 'is_active' => true, 'display_order' => 1,
+        ]);
+        $service = Service::query()->create($this->packageAttributes($category, 'nezuko'));
+
+        ServiceVariant::query()->create([
+            'service_id' => $service->id, 'code' => 'nezuko-regular-90',
+            'treatment_mode' => TreatmentMode::Regular, 'duration_minutes' => 90,
+            'price_idr' => 265000, 'is_active' => true, 'display_order' => 2,
+        ]);
+        ServiceVariant::query()->create([
+            'service_id' => $service->id, 'code' => 'nezuko-regular-60',
+            'treatment_mode' => TreatmentMode::Regular, 'duration_minutes' => 60,
+            'price_idr' => 199000, 'is_active' => true, 'display_order' => 1,
+        ]);
+        ServiceExtension::query()->create([
+            'service_id' => $service->id, 'code' => 'nezuko-regular-extra-60',
+            'treatment_mode' => TreatmentMode::Regular, 'duration_minutes' => 60,
+            'price_idr' => 75000, 'is_active' => true, 'display_order' => 1,
+        ]);
+
+        $service->load(['variants' => fn ($query) => $query->active(), 'extensions' => fn ($query) => $query->active()]);
+
+        $this->assertSame([60, 90], $service->variants->pluck('duration_minutes')->all());
+        $this->assertSame(TreatmentMode::Regular, $service->variants->first()->treatment_mode);
+        $this->assertSame(75000, $service->extensions->first()->price_idr);
+        $service->delete();
+        $this->assertDatabaseMissing('service_variants', ['code' => 'nezuko-regular-60']);
+        $this->assertDatabaseMissing('service_extensions', ['code' => 'nezuko-regular-extra-60']);
+    }
 
     // Production break caught: replacing upserts with inserts would duplicate the fixed catalog when the seeder runs again.
     public function test_catalog_seeder_persists_the_exact_idempotent_catalog(): void
@@ -83,6 +120,18 @@ class ServiceCatalogPersistenceTest extends TestCase
     {
         $this->seed(ServiceCatalogSeeder::class);
 
+        Service::query()->get()->each(function (Service $service): void {
+            ServiceVariant::query()->create([
+                'service_id' => $service->id,
+                'code' => "{$service->slug}-regular",
+                'treatment_mode' => TreatmentMode::Regular,
+                'duration_minutes' => 60,
+                'price_idr' => 100000,
+                'is_active' => true,
+                'display_order' => 1,
+            ]);
+        });
+
         Service::query()->where('slug', 'aromatherapy-massage')->update(['is_active' => false]);
         ServiceCategory::query()->where('slug', 'facial')->update(['is_active' => false]);
 
@@ -99,5 +148,30 @@ class ServiceCatalogPersistenceTest extends TestCase
             'couple-package',
         ], $visibleSlugs);
         $this->assertSame(['massage', 'body', 'package'], ServiceCategory::query()->active()->pluck('slug')->all());
+    }
+
+    /** @return array<string, mixed> */
+    private function packageAttributes(ServiceCategory $category, string $slug): array
+    {
+        return [
+            'category_id' => $category->id,
+            'slug' => $slug,
+            'name_id' => 'Nezuko',
+            'name_en' => 'Nezuko',
+            'description_id' => 'Deskripsi',
+            'description_en' => 'Description',
+            'long_description_id' => 'Deskripsi lengkap',
+            'long_description_en' => 'Full description',
+            'good_for_id' => 'Relaksasi',
+            'good_for_en' => 'Relaxation',
+            'duration_minutes' => null,
+            'price_idr' => null,
+            'image_path' => '/img/massage.jpg',
+            'gallery_paths' => ['massage.jpg'],
+            'popularity' => 100,
+            'is_vip' => false,
+            'is_active' => true,
+            'display_order' => 1,
+        ];
     }
 }
