@@ -50,6 +50,55 @@ class ServiceCatalogPersistenceTest extends TestCase
         $this->assertDatabaseMissing('service_extensions', ['code' => 'nezuko-regular-extra-60']);
     }
 
+    public function test_package_choices_reject_duplicate_mode_and_duration_per_service(): void
+    {
+        $category = ServiceCategory::query()->create([
+            'slug' => 'package-duplicates', 'name_id' => 'Paket', 'name_en' => 'Packages',
+            'image_path' => '/img/package.jpg', 'is_active' => true, 'display_order' => 1,
+        ]);
+        $service = Service::query()->create($this->packageAttributes($category, 'nezuko-duplicates'));
+
+        ServiceVariant::query()->create([
+            'service_id' => $service->id, 'code' => 'nezuko-regular-60-first',
+            'treatment_mode' => TreatmentMode::Regular, 'duration_minutes' => 60,
+            'price_idr' => 199000, 'is_active' => true, 'display_order' => 1,
+        ]);
+
+        $variantException = null;
+
+        try {
+            ServiceVariant::query()->create([
+                'service_id' => $service->id, 'code' => 'nezuko-regular-60-duplicate',
+                'treatment_mode' => TreatmentMode::Regular, 'duration_minutes' => 60,
+                'price_idr' => 205000, 'is_active' => true, 'display_order' => 2,
+            ]);
+        } catch (QueryException $exception) {
+            $variantException = $exception;
+        }
+
+        $this->assertInstanceOf(QueryException::class, $variantException);
+
+        ServiceExtension::query()->create([
+            'service_id' => $service->id, 'code' => 'nezuko-extra-60-first',
+            'treatment_mode' => TreatmentMode::Regular, 'duration_minutes' => 60,
+            'price_idr' => 75000, 'is_active' => true, 'display_order' => 1,
+        ]);
+
+        $extensionException = null;
+
+        try {
+            ServiceExtension::query()->create([
+                'service_id' => $service->id, 'code' => 'nezuko-extra-60-duplicate',
+                'treatment_mode' => TreatmentMode::Regular, 'duration_minutes' => 60,
+                'price_idr' => 80000, 'is_active' => true, 'display_order' => 2,
+            ]);
+        } catch (QueryException $exception) {
+            $extensionException = $exception;
+        }
+
+        $this->assertInstanceOf(QueryException::class, $extensionException);
+    }
+
     // Production break caught: replacing upserts with inserts would duplicate the fixed catalog when the seeder runs again.
     public function test_catalog_seeder_persists_the_exact_idempotent_catalog(): void
     {
