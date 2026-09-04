@@ -1,6 +1,9 @@
 <?php
 
 use App\Http\Controllers\BookingController;
+use App\Http\Controllers\Auth\EmailVerificationNotificationController;
+use App\Http\Controllers\Auth\EmailVerificationPromptController;
+use App\Http\Controllers\Auth\VerifyEmailController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\ServiceController;
 use App\Models\User;
@@ -13,13 +16,15 @@ use Illuminate\Validation\Rule;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
 
-Route::redirect('/services', '/#services');
+Route::redirect('/services', '/#menu');
 
 Route::get('/services/{slug}', [ServiceController::class, 'show'])
     ->where('slug', '[a-z0-9-]+')
     ->name('services.show');
 
-Route::get('/booking', [BookingController::class, 'create'])->name('booking');
+Route::get('/booking', [BookingController::class, 'create'])
+    ->middleware(['auth', 'verified'])
+    ->name('booking');
 
 Route::redirect('/about', '/#about');
 
@@ -69,3 +74,16 @@ if (app()->environment('testing')) {
 }
 
 require __DIR__.'/settings.php';
+
+Route::middleware('auth')->group(function () {
+    Route::get('verify-email', EmailVerificationPromptController::class)
+        ->name('verification.notice');
+
+    Route::get('verify-email/{id}/{hash}', VerifyEmailController::class)
+        ->middleware(['signed', 'throttle:6,1'])
+        ->name('verification.verify');
+
+    Route::post('email/verification-notification', [EmailVerificationNotificationController::class, 'store'])
+        ->middleware('throttle:6,1')
+        ->name('verification.send');
+});

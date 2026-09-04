@@ -1,0 +1,21 @@
+# Task 4 — Protected configured booking handoff
+
+## TDD evidence
+
+- RED: `php artisan test tests/Feature/ServiceCatalogPagesTest.php tests/Feature/Auth/AuthenticationTest.php tests/Feature/Auth/EmailVerificationTest.php` failed as expected with five failures: booking remained public, did not expose normalized `selection` props, unverified login did not retain configured intent, and the verification prompt honored an external intended URL.
+- GREEN: `php artisan test tests/Feature/ServiceCatalogPagesTest.php tests/Feature/PublicPagesTest.php tests/Feature/Auth/AuthenticationTest.php tests/Feature/Auth/EmailVerificationTest.php` passed with 26 tests and 191 assertions.
+
+## Implementation
+
+- Added immutable `BookingSelectionResolver`, which progressively validates active package, treatment mode, duration, and matching mode-specific extension. Query duration is accepted only as a 1–3 digit scalar string.
+- Added centralized `SafeIntendedPath` policy. It retains only valid local intent for unverified users and consumes validated local intent after login or verification; external, protocol-relative, malformed, and backslash-containing values are discarded.
+- Protected the booking route with `auth` and `verified`, exposed package-shaped booking props and normalized selection, and redirected `/services` to `/#menu`.
+- Registered owned verification endpoints after Fortify’s defaults so the custom safe-redirect policy actually handles prompt, signed verification, and notification requests.
+- Removed Task 3's temporary presenter `service()` bridge after confirming it had no usages.
+
+## Security self-review
+
+- No query value is used as a price, database identifier, or authorization input. Selection is resolved only against active, eagerly loaded server records.
+- Cross-mode extensions, inactive extension codes, and array duration input resolve to empty selection fields rather than being coerced.
+- Safe redirects allow a single-slash local path or an exact configured-app origin; protocol-relative URLs, external origins, credentials, and backslashes are rejected.
+- `git diff --check` is clean; only Git line-ending notices were emitted.

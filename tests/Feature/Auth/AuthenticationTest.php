@@ -33,6 +33,24 @@ class AuthenticationTest extends TestCase
         $this->assertAuthenticatedAs($user);
     }
 
+    // Production break caught: an authenticated-but-unverified customer must retain a safe configured booking handoff for signed verification.
+    public function test_unverified_login_retains_the_safe_configured_booking_intent(): void
+    {
+        $user = User::factory()->unverified()->create([
+            'password' => Hash::make('calmspa9'),
+        ]);
+
+        $this->get('/booking?service=nezuko&mode=regular&duration=90')
+            ->assertRedirect(route('login', absolute: false));
+
+        $this->post(route('login.store'), [
+            'email' => $user->email,
+            'password' => 'calmspa9',
+        ])->assertRedirect(route('verification.notice', absolute: false));
+
+        $this->assertSame('http://localhost/booking?duration=90&mode=regular&service=nezuko', session('url.intended'));
+    }
+
     public function test_unknown_email_and_incorrect_password_return_the_same_generic_error(): void
     {
         $user = User::factory()->create([
@@ -93,6 +111,16 @@ class AuthenticationTest extends TestCase
 
         $response->assertRedirect(route('profile', absolute: false));
         $this->assertFalse(str_starts_with((string) $response->headers->get('Location'), 'https://attacker.example'));
+    }
+
+    // Production break caught: protocol-relative intended paths would turn an internal redirect into an open redirect.
+    public function test_protocol_relative_intended_url_is_discarded_after_login(): void
+    {
+        $user = User::factory()->create(['password' => Hash::make('calmspa9')]);
+
+        $this->withSession(['url.intended' => '//attacker.example/phishing'])
+            ->post(route('login.store'), ['email' => $user->email, 'password' => 'calmspa9'])
+            ->assertRedirect(route('profile', absolute: false));
     }
 
     public function test_remember_me_login_creates_the_recaller_cookie(): void

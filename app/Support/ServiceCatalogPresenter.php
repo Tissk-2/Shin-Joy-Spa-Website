@@ -8,20 +8,6 @@ use App\Models\ServiceVariant;
 
 class ServiceCatalogPresenter
 {
-    /**
-     * Temporary compatibility bridge for BookingController until Task 4 adopts package().
-     *
-     * @return array<string, mixed>
-     */
-    public function service(Service $service): array
-    {
-        $package = clone $service;
-        $package->setRelation('variants', $service->variants()->active()->get());
-        $package->setRelation('extensions', $service->extensions()->active()->get());
-
-        return $this->package($package);
-    }
-
     /** @return array{slug: string, nameId: string, nameEn: string, isVip: bool} */
     public function link(Service $service): array
     {

@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Service;
 use App\Models\ServiceExtension;
 use App\Models\ServiceVariant;
+use App\Models\User;
 use Database\Seeders\ServiceCatalogSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -98,5 +99,58 @@ class ServiceCatalogPagesTest extends TestCase
 
         $this->get('/services/missing-service')->assertNotFound();
         $this->get('/services/not_valid')->assertNotFound();
+    }
+
+    // Production break caught: booking must resolve only active, internally consistent server-side choices after account verification.
+    public function test_verified_customer_receives_a_normalized_configured_booking_selection(): void
+    {
+        $verified = User::factory()->create(['email_verified_at' => now()]);
+
+        $this->actingAs($verified)
+            ->get('/booking?service=nezuko&mode=regular&duration=90&extension=nezuko-regular-extra-60')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Booking')
+                ->where('selection.service', 'nezuko')
+                ->where('selection.mode', 'regular')
+                ->where('selection.duration', 90)
+                ->where('selection.extension', 'nezuko-regular-extra-60'));
+    }
+
+    // Production break caught: a mode-specific extension must never be accepted for a different treatment mode.
+    public function test_booking_selection_rejects_a_regular_extension_for_double_therapist_treatment(): void
+    {
+        $verified = User::factory()->create(['email_verified_at' => now()]);
+
+        $this->actingAs($verified)
+            ->get('/booking?service=nezuko&mode=double_therapist&duration=60&extension=nezuko-regular-extra-60')
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('selection.service', 'nezuko')
+                ->where('selection.mode', 'double_therapist')
+                ->where('selection.duration', 60)
+                ->where('selection.extension', ''));
+    }
+
+    // Production break caught: stale inactive catalog codes and non-scalar duration input must clear rather than being trusted.
+    public function test_booking_selection_clears_inactive_codes_and_array_duration_input(): void
+    {
+        $verified = User::factory()->create(['email_verified_at' => now()]);
+        ServiceExtension::query()->where('code', 'nezuko-regular-extra-60')->update(['is_active' => false]);
+
+        $this->actingAs($verified)
+            ->get('/booking?service=nezuko&mode=regular&duration=90&extension=nezuko-regular-extra-60')
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('selection.service', 'nezuko')
+                ->where('selection.mode', 'regular')
+                ->where('selection.duration', 90)
+                ->where('selection.extension', ''));
+
+        $this->actingAs($verified)
+            ->get('/booking?service=nezuko&mode=regular&duration[]=90&extension=nezuko-regular-extra-60')
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('selection.service', 'nezuko')
+                ->where('selection.mode', 'regular')
+                ->where('selection.duration', null)
+                ->where('selection.extension', ''));
     }
 }

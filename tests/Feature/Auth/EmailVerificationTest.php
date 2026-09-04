@@ -61,6 +61,28 @@ class EmailVerificationTest extends TestCase
         Event::assertDispatchedTimes(Verified::class, 1);
     }
 
+    // Production break caught: signed verification must complete the preserved local booking journey, not discard it.
+    public function test_signed_verification_redirects_to_the_safe_configured_booking_intent(): void
+    {
+        $user = User::factory()->unverified()->create();
+
+        $this->actingAs($user)
+            ->withSession(['url.intended' => '/booking?service=nezuko&mode=regular&duration=90'])
+            ->get($this->verificationUrlFor($user))
+            ->assertRedirect('/booking?service=nezuko&mode=regular&duration=90');
+    }
+
+    // Production break caught: verification-only endpoints must not provide an open-redirect bypass for hostile intended URLs.
+    public function test_verified_customer_cannot_use_a_hostile_intended_url_at_the_verification_prompt(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->withSession(['url.intended' => 'https://attacker.example/phishing'])
+            ->get(route('verification.notice'))
+            ->assertRedirect(route('dashboard', absolute: false));
+    }
+
     public function test_tampered_signed_url_is_rejected_without_verifying_email(): void
     {
         $user = User::factory()->unverified()->create();

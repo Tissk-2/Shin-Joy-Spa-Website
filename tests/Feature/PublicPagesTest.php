@@ -33,14 +33,13 @@ class PublicPagesTest extends TestCase
                 ->component('ServiceDetail')
                 ->where('service.slug', 'nezuko'));
 
-        $this->get('/booking')
-            ->assertOk()
-            ->assertInertia(fn (Assert $page) => $page->component('Booking'));
+        $this->get('/booking?service=nezuko&mode=regular&duration=90')
+            ->assertRedirect(route('login', absolute: false));
     }
 
     public function test_section_aliases_redirect_to_home_fragments(): void
     {
-        $this->get('/services')->assertRedirect('/#services');
+        $this->get('/services')->assertRedirect('/#menu');
         $this->get('/about')->assertRedirect('/#about');
     }
 
