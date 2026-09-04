@@ -9,10 +9,17 @@ import testimonials from "@/data/testimonials";
 import MainLayout from "@/layouts/MainLayout.vue";
 import type { PackageData } from "@/types";
 
-defineProps<{
+const { packages } = defineProps<{
   packages: PackageData[];
 }>();
 const { language, tr } = useLanguage();
+function packageName(index: number): string {
+  const servicePackage = packages[index];
+  if (!servicePackage) return "";
+  return language.value === "id"
+    ? servicePackage.nameId
+    : servicePackage.nameEn;
+}
 const gallerySpans = ["tall", "", "", "wide", "", "tall", "", "wide"];
 const title = computed(() => tr("meta.tagline"));
 
@@ -124,8 +131,8 @@ onBeforeUnmount(() => {
     <section class="menu-comparison section">
       <div class="container menu-comparison__inner">
         <h2>{{ tr("menu.comparison.title") }}</h2>
-        <p><strong>Nezuko</strong> {{ tr("menu.comparison.standard") }}</p>
-        <p><strong>Nezuko VIP</strong> {{ tr("menu.comparison.vip") }}</p>
+        <p><strong>{{ packageName(0) }}</strong> {{ tr("menu.comparison.standard") }}</p>
+        <p><strong>{{ packageName(1) }}</strong> {{ tr("menu.comparison.vip") }}</p>
       </div>
     </section>
 

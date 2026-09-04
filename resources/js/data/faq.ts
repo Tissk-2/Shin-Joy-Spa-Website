@@ -36,9 +36,9 @@ export default [
     aEn: "Call or WhatsApp us a few hours ahead and we will reschedule for you.",
   },
   {
-    qId: "Apakah tersedia perawatan untuk pasangan?",
-    qEn: "Do you offer treatments for couples?",
-    aId: "Ya, kami punya Paket Spa Berdua di ruang privat.",
-    aEn: "Yes, we have a Couple Retreat package in a private room.",
+    qId: "Bisakah saya datang bersama teman atau pasangan?",
+    qEn: "Can I come with a friend or partner?",
+    aId: "Silakan hubungi kami sebelum memesan agar kami dapat mengonfirmasi ketersediaan waktu dan terapis untuk kunjungan Anda.",
+    aEn: "Please contact us before booking so we can confirm time and therapist availability for your visit.",
   },
 ];

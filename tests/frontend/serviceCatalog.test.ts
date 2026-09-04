@@ -1,4 +1,5 @@
 import { mount } from "@vue/test-utils";
+import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import MainLayout from "@/layouts/MainLayout.vue";
@@ -29,6 +30,12 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 describe("official menu homepage", () => {
+  it("keeps package CTAs as full-size anchors, including the mobile action", () => {
+    const styles = readFileSync("resources/css/menu.css", "utf8");
+    expect(styles).toMatch(/\.package-configurator__cta\s*\{[\s\S]*display:\s*(?:inline-)?flex[\s\S]*min-height:\s*44px/);
+    expect(styles).toMatch(/\.package-configurator__mobile-cta\s+\.package-configurator__cta\s*\{[\s\S]*width:\s*100%/);
+  });
+
   it("renders exactly the two official package articles at the canonical menu anchor", async () => {
     const wrapper = mount(Home, { props: { packages } });
     expect(wrapper.get("#menu")).toBeTruthy();
