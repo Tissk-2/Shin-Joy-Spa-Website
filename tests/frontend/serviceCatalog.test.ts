@@ -181,6 +181,61 @@ describe("package detail", () => {
     ],
   };
 
+  const nezukoVip: PackageData = {
+    slug: "nezuko-vip",
+    nameId: "Nezuko VIP",
+    nameEn: "Nezuko VIP",
+    isVip: true,
+    descId: "Pijat sesuai kebutuhan.",
+    descEn: "A tailored treatment.",
+    longId: "Pijatan yang disesuaikan dengan kebutuhan klien.",
+    longEn: "A tailored blend adjusted to the client's needs.",
+    benefitId: "Membantu sirkulasi darah.",
+    benefitEn: "Helps support healthy circulation.",
+    image: "/img/about.jpg",
+    gallery: ["/img/about.jpg", "/img/oil.jpg"],
+    variants: [
+      {
+        code: "nezuko-vip-regular-60",
+        mode: "regular",
+        duration: 60,
+        price: 299000,
+      },
+      {
+        code: "nezuko-vip-regular-90",
+        mode: "regular",
+        duration: 90,
+        price: 349000,
+      },
+      {
+        code: "nezuko-vip-regular-120",
+        mode: "regular",
+        duration: 120,
+        price: 499000,
+      },
+      {
+        code: "nezuko-vip-double-60",
+        mode: "double_therapist",
+        duration: 60,
+        price: 350000,
+      },
+    ],
+    extensions: [
+      {
+        code: "nezuko-vip-regular-extra-60",
+        mode: "regular",
+        duration: 60,
+        price: 100000,
+      },
+      {
+        code: "nezuko-vip-double-extra-30",
+        mode: "double_therapist",
+        duration: 30,
+        price: 100000,
+      },
+    ],
+  };
+
   it("renders an accessible package configurator, gallery, and one opposite-package comparison", async () => {
     const wrapper = mount(ServiceDetail, {
       props: {
@@ -224,6 +279,16 @@ describe("package detail", () => {
     expect(wrapper.get(".detail-media > img").attributes("src")).toBe(
       "/img/oil.jpg",
     );
+    const mainImage = wrapper.get(".detail-media > img");
+    await mainImage.trigger("error");
+    expect(mainImage.attributes("src")).toBe("/img/massage.jpg");
+    await mainImage.trigger("error");
+    expect(mainImage.attributes("src")).toBe("/img/massage.jpg");
+    const thumbnailImages = wrapper.findAll(".detail-thumbs img");
+    await thumbnailImages[0].trigger("error");
+    await thumbnailImages[1].trigger("error");
+    expect(thumbnailImages[0].attributes("src")).toBe("/img/massage.jpg");
+    expect(thumbnailImages[1].attributes("src")).toBe("/img/massage.jpg");
     expect(
       wrapper.findAll('.package-detail a[href="/services/nezuko-vip"]'),
     ).toHaveLength(1);
@@ -232,19 +297,11 @@ describe("package detail", () => {
     expect(wrapper.find(".svc-grid").exists()).toBe(false);
   });
 
-  it("marks VIP packages without changing localized copy", () => {
+  it("renders the complete VIP choices, configured total, and reverse comparison", async () => {
     inertia.page.props.locale = "id";
     const vip = mount(ServiceDetail, {
       props: {
-        service: {
-          ...nezuko,
-          slug: "nezuko-vip",
-          nameId: "Nezuko VIP",
-          nameEn: "Nezuko VIP",
-          isVip: true,
-          descId: "Pijat sesuai kebutuhan.",
-          benefitId: "Membantu sirkulasi darah.",
-        },
+        service: nezukoVip,
         comparison: {
           slug: "nezuko",
           nameId: "Nezuko",
@@ -256,5 +313,31 @@ describe("package detail", () => {
     expect(vip.text()).toContain("VIP");
     expect(vip.text()).toContain("Pijat sesuai kebutuhan.");
     expect(vip.text()).toContain("Membantu sirkulasi darah.");
+    await vip.get('button[data-mode="regular"]').trigger("click");
+    expect(
+      vip
+        .findAll("button[data-duration]")
+        .map((button) => button.attributes("data-duration")),
+    ).toEqual(["60", "90", "120"]);
+    await vip.get('button[data-duration="90"]').trigger("click");
+    await vip.get('input[value="nezuko-vip-regular-extra-60"]').setValue(true);
+    expect(vip.text()).toContain("150 min");
+    expect(vip.text()).toContain("Rp 449.000");
+    expect(vip.get('a[data-booking-cta="desktop"]').attributes("href")).toBe(
+      "/booking?service=nezuko-vip&mode=regular&duration=90&extension=nezuko-vip-regular-extra-60",
+    );
+    await vip.get('button[data-mode="double_therapist"]').trigger("click");
+    expect(
+      vip
+        .findAll("button[data-duration]")
+        .map((button) => button.attributes("data-duration")),
+    ).toEqual(["60"]);
+    await vip.get('button[data-duration="60"]').trigger("click");
+    expect(vip.get("input").attributes("value")).toBe(
+      "nezuko-vip-double-extra-30",
+    );
+    expect(
+      vip.findAll('.package-detail a[href="/services/nezuko"]'),
+    ).toHaveLength(1);
   });
 });

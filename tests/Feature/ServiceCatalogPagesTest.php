@@ -101,6 +101,41 @@ class ServiceCatalogPagesTest extends TestCase
         $this->get('/services/not_valid')->assertNotFound();
     }
 
+    // Production break caught: the VIP route must present its own exact active package choices and only the reverse comparison link.
+    public function test_vip_service_detail_exposes_exact_active_choices_and_the_standard_comparison_link(): void
+    {
+        $response = $this->get('/services/nezuko-vip');
+
+        $response->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->component('ServiceDetail')
+            ->where('service.slug', 'nezuko-vip')
+            ->where('service.isVip', true)
+            ->where('comparison.slug', 'nezuko')
+            ->has('service.variants', 4)
+            ->has('service.extensions', 2)
+            ->missing('category')
+            ->missing('related'));
+
+        $props = $response->viewData('page')['props'];
+        $service = $props['service'];
+
+        $this->assertSame([
+            'slug', 'nameId', 'nameEn', 'descId', 'descEn', 'longId', 'longEn',
+            'benefitId', 'benefitEn', 'image', 'gallery', 'isVip', 'variants', 'extensions',
+        ], array_keys($service));
+        $this->assertSame(['slug', 'nameId', 'nameEn', 'isVip'], array_keys($props['comparison']));
+        $this->assertSame([
+            ['code' => 'nezuko-vip-regular-60', 'mode' => 'regular', 'duration' => 60, 'price' => 299000],
+            ['code' => 'nezuko-vip-regular-90', 'mode' => 'regular', 'duration' => 90, 'price' => 349000],
+            ['code' => 'nezuko-vip-regular-120', 'mode' => 'regular', 'duration' => 120, 'price' => 499000],
+            ['code' => 'nezuko-vip-double-60', 'mode' => 'double_therapist', 'duration' => 60, 'price' => 350000],
+        ], $service['variants']);
+        $this->assertSame([
+            ['code' => 'nezuko-vip-regular-extra-60', 'mode' => 'regular', 'duration' => 60, 'price' => 100000],
+            ['code' => 'nezuko-vip-double-extra-30', 'mode' => 'double_therapist', 'duration' => 30, 'price' => 100000],
+        ], $service['extensions']);
+    }
+
     // Production break caught: booking must resolve only active, internally consistent server-side choices after account verification.
     public function test_verified_customer_receives_a_normalized_configured_booking_selection(): void
     {
