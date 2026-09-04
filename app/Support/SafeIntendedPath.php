@@ -25,12 +25,12 @@ class SafeIntendedPath
 
     private static function validate(mixed $intended): ?string
     {
-        if (! is_string($intended) || $intended === '' || str_contains($intended, '\\')) {
+        if (! is_string($intended) || $intended === '' || self::containsUnsafeCharacters($intended)) {
             return null;
         }
 
-        if (str_starts_with($intended, '/') && ! str_starts_with($intended, '//')) {
-            return $intended;
+        if (str_starts_with($intended, '/')) {
+            return self::localPath($intended);
         }
 
         $parts = parse_url($intended);
@@ -43,7 +43,40 @@ class SafeIntendedPath
         $query = isset($parts['query']) ? '?'.$parts['query'] : '';
         $fragment = isset($parts['fragment']) ? '#'.$parts['fragment'] : '';
 
-        return $path.$query.$fragment;
+        return self::localPath($path.$query.$fragment);
+    }
+
+    private static function localPath(string $target): ?string
+    {
+        if (self::containsUnsafeCharacters($target)) {
+            return null;
+        }
+
+        $parts = parse_url($target);
+
+        if ($parts === false || str_starts_with($target, '//') || isset($parts['scheme'], $parts['host'])) {
+            return null;
+        }
+
+        $path = $parts['path'] ?? '/';
+        $normalizedPath = rawurldecode($path);
+
+        if (! str_starts_with($path, '/') || str_starts_with($path, '//')
+            || ! str_starts_with($normalizedPath, '/') || str_starts_with($normalizedPath, '//')
+            || self::containsUnsafeCharacters($normalizedPath)) {
+            return null;
+        }
+
+        return $target;
+    }
+
+    private static function containsUnsafeCharacters(string $value): bool
+    {
+        $decoded = rawurldecode($value);
+
+        return str_contains($value, '\\') || str_contains($decoded, '\\')
+            || preg_match('/[\x00-\x1F\x7F]/', $value) === 1
+            || preg_match('/[\x00-\x1F\x7F]/', $decoded) === 1;
     }
 
     private static function origin(string $url): ?string

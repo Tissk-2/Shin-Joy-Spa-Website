@@ -19,3 +19,10 @@
 - Cross-mode extensions, inactive extension codes, and array duration input resolve to empty selection fields rather than being coerced.
 - Safe redirects allow a single-slash local path or an exact configured-app origin; protocol-relative URLs, external origins, credentials, and backslashes are rejected.
 - `git diff --check` is clean; only Git line-ending notices were emitted.
+
+## Security fix round 1
+
+- RED: Added regressions for a same-origin absolute `//attacker.example` path, raw and percent-encoded control characters, authenticated-unverified booking access, hostile selection arrays, inactive service/variant values, and already-verified prompt/resend behavior. The focused suite failed as expected: the initial safe-path policy returned the normalized protocol-relative path and raw control-byte target.
+- GREEN: `php artisan test tests/Feature/ServiceCatalogPagesTest.php tests/Feature/PublicPagesTest.php tests/Feature/Auth/AuthenticationTest.php tests/Feature/Auth/EmailVerificationTest.php` passed with 32 tests and 285 assertions.
+- `SafeIntendedPath` now validates both the original value and the post-origin-normalization target. It rejects raw or percent-decoded C0/DEL controls and backslashes, requires the final path to be exactly single-slash local before emitting it, and rejects encoded paths that normalize to protocol-relative or backslash forms.
+- Security self-review: selection array values are rejected without coercion; inactive services and variants clear progressively; unverified booking requests reach the verification notice; prompt and resend use the same hostile-intent policy. No redirect result can contain raw or decoded control bytes, a backslash, or a protocol-relative path.

@@ -39,6 +39,16 @@ class EmailVerificationTest extends TestCase
             ->assertOk();
     }
 
+    // Production break caught: a signed-in unverified customer must be sent to verification before booking can render.
+    public function test_unverified_customer_is_redirected_to_verification_before_booking(): void
+    {
+        $user = User::factory()->unverified()->create();
+
+        $this->actingAs($user)
+            ->get('/booking?service=nezuko&mode=regular&duration=90')
+            ->assertRedirect(route('verification.notice', absolute: false));
+    }
+
     public function test_valid_signed_url_verifies_email_and_dispatches_verified_event_once(): void
     {
         $user = User::factory()->unverified()->create();
@@ -80,6 +90,17 @@ class EmailVerificationTest extends TestCase
         $this->actingAs($user)
             ->withSession(['url.intended' => 'https://attacker.example/phishing'])
             ->get(route('verification.notice'))
+            ->assertRedirect(route('dashboard', absolute: false));
+    }
+
+    // Production break caught: resend endpoint must apply the same safe intended-path policy for already verified customers.
+    public function test_verified_customer_cannot_use_a_hostile_intended_url_when_requesting_a_verification_resend(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->withSession(['url.intended' => '//attacker.example/phishing'])
+            ->post(route('verification.send'))
             ->assertRedirect(route('dashboard', absolute: false));
     }
 

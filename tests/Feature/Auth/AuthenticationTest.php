@@ -123,6 +123,33 @@ class AuthenticationTest extends TestCase
             ->assertRedirect(route('profile', absolute: false));
     }
 
+    // Production break caught: a same-origin absolute URL must not normalize into a protocol-relative redirect target.
+    public function test_same_origin_absolute_intended_url_with_a_double_slash_path_is_discarded_after_login(): void
+    {
+        $user = User::factory()->create(['password' => Hash::make('calmspa9')]);
+
+        $this->withSession(['url.intended' => 'http://localhost//attacker.example/phishing'])
+            ->post(route('login.store'), ['email' => $user->email, 'password' => 'calmspa9'])
+            ->assertRedirect(route('profile', absolute: false));
+    }
+
+    // Production break caught: control bytes, including percent-encoded ones, must never reach a Location header.
+    public function test_control_character_intended_urls_are_discarded_after_login(): void
+    {
+        $user = User::factory()->create(['password' => Hash::make('calmspa9')]);
+        $encodedControlUser = User::factory()->create(['password' => Hash::make('calmspa9')]);
+
+        $this->withSession(['url.intended' => "/booking?note=ok\r\nLocation:%20https://attacker.example"])
+            ->post(route('login.store'), ['email' => $user->email, 'password' => 'calmspa9'])
+            ->assertRedirect(route('profile', absolute: false));
+
+        $this->post(route('logout'));
+
+        $this->withSession(['url.intended' => '/booking?note=%0d%0aLocation%3A%20https%3A%2F%2Fattacker.example'])
+            ->post(route('login.store'), ['email' => $encodedControlUser->email, 'password' => 'calmspa9'])
+            ->assertRedirect(route('profile', absolute: false));
+    }
+
     public function test_remember_me_login_creates_the_recaller_cookie(): void
     {
         $user = User::factory()->create([

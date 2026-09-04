@@ -153,4 +153,60 @@ class ServiceCatalogPagesTest extends TestCase
                 ->where('selection.duration', null)
                 ->where('selection.extension', ''));
     }
+
+    // Production break caught: array-shaped query values must not be coerced into catalog selections.
+    public function test_booking_selection_rejects_array_service_mode_and_extension_inputs(): void
+    {
+        $verified = User::factory()->create(['email_verified_at' => now()]);
+
+        $this->actingAs($verified)
+            ->get('/booking?service[]=nezuko&mode=regular&duration=90&extension=nezuko-regular-extra-60')
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('selection.service', '')
+                ->where('selection.mode', '')
+                ->where('selection.duration', null)
+                ->where('selection.extension', ''));
+
+        $this->actingAs($verified)
+            ->get('/booking?service=nezuko&mode[]=regular&duration=90&extension=nezuko-regular-extra-60')
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('selection.service', 'nezuko')
+                ->where('selection.mode', '')
+                ->where('selection.duration', null)
+                ->where('selection.extension', ''));
+
+        $this->actingAs($verified)
+            ->get('/booking?service=nezuko&mode=regular&duration=90&extension[]=nezuko-regular-extra-60')
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('selection.service', 'nezuko')
+                ->where('selection.mode', 'regular')
+                ->where('selection.duration', 90)
+                ->where('selection.extension', ''));
+    }
+
+    // Production break caught: deactivated packages and duration variants must clear progressively without trusting stale URLs.
+    public function test_booking_selection_clears_inactive_service_and_variant(): void
+    {
+        $verified = User::factory()->create(['email_verified_at' => now()]);
+
+        ServiceVariant::query()->where('code', 'nezuko-regular-90')->update(['is_active' => false]);
+
+        $this->actingAs($verified)
+            ->get('/booking?service=nezuko&mode=regular&duration=90&extension=nezuko-regular-extra-60')
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('selection.service', 'nezuko')
+                ->where('selection.mode', 'regular')
+                ->where('selection.duration', null)
+                ->where('selection.extension', ''));
+
+        Service::query()->where('slug', 'nezuko')->update(['is_active' => false]);
+
+        $this->actingAs($verified)
+            ->get('/booking?service=nezuko&mode=regular&duration=60&extension=nezuko-regular-extra-60')
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('selection.service', '')
+                ->where('selection.mode', '')
+                ->where('selection.duration', null)
+                ->where('selection.extension', ''));
+    }
 }
