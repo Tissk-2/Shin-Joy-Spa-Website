@@ -37,7 +37,7 @@ const accountLabel = computed(
   () => `${tr("nav.account")}: ${currentUser.value?.name?.trim() || "?"}`,
 );
 const activeSection = ref("");
-const catalogCategories = computed(() => page.props.catalog.categories);
+const catalogPackages = computed(() => page.props.catalog.packages);
 
 const links = computed(() => {
   const hash = currentUrl.value.hash;
@@ -54,8 +54,8 @@ const links = computed(() => {
     },
     {
       label: tr("nav.services"),
-      to: "/#services",
-      active: isHashMatch("#services"),
+      to: "/#menu",
+      active: isHashMatch("#menu"),
     },
     { label: tr("nav.about"), to: "/#about", active: isHashMatch("#about") },
     {
@@ -84,7 +84,7 @@ function handleScroll() {
     { id: "faq", el: document.getElementById("faq") },
     { id: "gallery", el: document.getElementById("gallery") },
     { id: "about", el: document.getElementById("about") },
-    { id: "services", el: document.getElementById("services") },
+    { id: "menu", el: document.getElementById("menu") },
   ];
 
   const scrollPosition = window.scrollY + 120;
@@ -497,7 +497,7 @@ onUnmounted(() => {
                 <Link href="/">{{ tr("nav.home") }}</Link>
               </li>
               <li>
-                <Link href="/#services" @click="setMenu(false, false)">{{
+                <Link href="/#menu" @click="setMenu(false, false)">{{
                   tr("nav.services")
                 }}</Link>
               </li>
@@ -522,12 +522,12 @@ onUnmounted(() => {
           <div class="footer-col">
             <h4>{{ tr("foot.services") }}</h4>
             <ul>
-              <li v-for="category in catalogCategories" :key="category.slug">
-                <Link
-                  :href="`/#services?cat=${category.slug}`"
+            <li v-for="servicePackage in catalogPackages" :key="servicePackage.slug">
+              <Link
+                  :href="`/services/${servicePackage.slug}`"
                   @click="setMenu(false, false)"
                 >
-                  {{ language === "id" ? category.nameId : category.nameEn }}
+                  {{ language === "id" ? servicePackage.nameId : servicePackage.nameEn }}
                 </Link>
               </li>
             </ul>

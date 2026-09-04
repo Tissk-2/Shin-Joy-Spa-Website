@@ -1,5 +1,11 @@
 export default [
   {
+    qId: "Bagaimana kebijakan bila air panas terganggu?",
+    qEn: "What is the policy if hot water is disrupted?",
+    aId: "Diskon 10% dapat berlaku saat terjadi gangguan air panas. Kebijakan ini bersifat informasi dan tidak dihitung otomatis; silakan konfirmasi kepada tim kami.",
+    aEn: "A 10% discount may apply if hot water is disrupted. This is an informational policy and is not calculated automatically; please confirm with our team.",
+  },
+  {
     qId: "Apakah saya perlu memesan terlebih dahulu?",
     qEn: "Do I need to book in advance?",
     aId: "Sangat disarankan agar slot dan terapis Anda siap, tapi kami tetap berusaha melayani walk-in kalau ada tempat.",

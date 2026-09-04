@@ -1,65 +1,20 @@
 <script setup lang="ts">
-import { Head, Link, usePage } from "@inertiajs/vue3";
-import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
-import ServiceCard from "@/components/ServiceCard.vue";
+import { Head, Link } from "@inertiajs/vue3";
+import { computed, nextTick, onBeforeUnmount, ref } from "vue";
+import PackageMenuCard from "@/components/PackageMenuCard.vue";
 import { useLanguage } from "@/composables/useLanguage";
 import faqs from "@/data/faq";
 import galleryImgs from "@/data/gallery";
 import testimonials from "@/data/testimonials";
 import MainLayout from "@/layouts/MainLayout.vue";
-import type { AppPageProps, ServiceCategoryData, ServiceData } from "@/types";
+import type { PackageData } from "@/types";
 
-const { categories, services } = defineProps<{
-  categories: ServiceCategoryData[];
-  services: ServiceData[];
+defineProps<{
+  packages: PackageData[];
 }>();
-const page = usePage<AppPageProps>();
 const { language, tr } = useLanguage();
-const activeCategory = ref("");
-
-function categoryFromUrl(url: string): string {
-  const [pathAndQuery, hash = ""] = url.split("#", 2);
-  const query = pathAndQuery.includes("?")
-    ? pathAndQuery.slice(pathAndQuery.indexOf("?"))
-    : hash.includes("?")
-      ? hash.slice(hash.indexOf("?"))
-      : "";
-  const category = new URLSearchParams(query).get("cat") ?? "";
-
-  return categories.some(({ slug }) => slug === category) ? category : "";
-}
-
-watch(
-  () => page.url,
-  (url) => {
-    activeCategory.value = categoryFromUrl(url);
-  },
-  { immediate: true },
-);
-
-const filteredServices = computed(() => {
-  if (!activeCategory.value) {
-    return services.filter(({ popularity }) => popularity > 90).slice(0, 6);
-  }
-  return services.filter(({ category }) => category === activeCategory.value);
-});
-
-function selectCategory(slug: string): void {
-  activeCategory.value = activeCategory.value === slug ? "" : slug;
-  document
-    .getElementById("services-list")
-    ?.scrollIntoView({ behavior: "smooth" });
-}
 const gallerySpans = ["tall", "", "", "wide", "", "tall", "", "wide"];
-const statServices = services.length;
-const statRating = "4.9";
-const statGuests = 2000;
 const title = computed(() => tr("meta.tagline"));
-const formattedGuests = computed(() =>
-  new Intl.NumberFormat(language.value === "id" ? "id-ID" : "en-US").format(
-    statGuests,
-  ),
-);
 
 const lightboxIndex = ref(-1);
 const lightboxOpen = computed(() => lightboxIndex.value >= 0);
@@ -136,20 +91,13 @@ onBeforeUnmount(() => {
           <Link class="btn btn--primary btn--lg" href="/booking">{{
             tr("hero.cta1")
           }}</Link>
-          <Link class="btn btn--on-dark btn--lg" href="/#services">{{
+          <Link class="btn btn--on-dark btn--lg" href="/#menu">{{
             tr("hero.cta2")
           }}</Link>
         </div>
         <div class="hero__meta reveal" data-delay="4">
           <div>
-            <b>{{ statServices }}+</b><span>{{ tr("hero.m1l") }}</span>
-          </div>
-          <div>
-            <b>{{ statRating }}</b
-            ><span>{{ tr("hero.m2l") }}</span>
-          </div>
-          <div>
-            <b>{{ formattedGuests }}+</b><span>{{ tr("hero.m3l") }}</span>
+            <b>Rp199.000</b><span>{{ tr("hero.m1l") }}</span>
           </div>
         </div>
       </div>
@@ -159,123 +107,25 @@ onBeforeUnmount(() => {
       </span>
     </section>
 
-    <section id="services" class="section">
+    <section id="menu" class="official-menu section" aria-labelledby="menu-title">
       <div class="container">
-        <div class="section-head center">
-          <span class="eyebrow center reveal">{{ tr("cats.eyebrow") }}</span>
-          <h2 class="reveal" data-delay="1">{{ tr("cats.title") }}</h2>
-          <p class="lead reveal" data-delay="2" style="margin-inline: auto">
-            {{ tr("cats.sub") }}
-          </p>
+        <header class="official-menu__header">
+          <span class="eyebrow">{{ tr("menu.eyebrow") }}</span>
+          <h2 id="menu-title">{{ tr("menu.title") }}</h2>
+          <p>{{ tr("menu.sub") }}</p>
+        </header>
+        <div class="official-menu__grid">
+          <PackageMenuCard v-for="servicePackage in packages" :key="servicePackage.slug" :service-package="servicePackage" />
         </div>
-        <div class="cat-grid">
-          <button
-            v-for="(category, index) in categories"
-            :key="category.slug"
-            type="button"
-            class="cat-card reveal"
-            :class="{ active: activeCategory === category.slug }"
-            :data-delay="index || undefined"
-            @click="selectCategory(category.slug)"
-            style="
-              appearance: none;
-              border: none;
-              background: transparent;
-              padding: 0;
-              text-align: left;
-              cursor: pointer;
-              font: inherit;
-            "
-          >
-            <img
-              :src="category.image"
-              :alt="language === 'id' ? category.nameId : category.nameEn"
-              loading="lazy"
-            />
-            <div class="cat-body">
-              <h3>
-                {{ language === "id" ? category.nameId : category.nameEn }}
-              </h3>
-              <span class="cat-count">
-                {{
-                  tr("cats.count", {
-                    n: services.filter(
-                      ({ category: slug }) => slug === category.slug,
-                    ).length,
-                  })
-                }}
-              </span>
-              <span class="cat-rule"></span>
-            </div>
-          </button>
-        </div>
+        <p class="menu-policy" role="note">{{ tr("menu.hotWaterPolicy") }}</p>
       </div>
     </section>
 
-    <section id="services-list" class="section tint">
-      <div class="container">
-        <div
-          class="section-head"
-          style="
-            display: flex;
-            flex-wrap: wrap;
-            align-items: flex-end;
-            justify-content: space-between;
-            gap: 1.5rem;
-            max-width: none;
-          "
-        >
-          <div style="max-width: 46ch">
-            <span class="eyebrow reveal">{{
-              activeCategory ? tr("cats.eyebrow") : tr("feat.eyebrow")
-            }}</span>
-            <h2 class="reveal" data-delay="1" style="margin-top: 1rem">
-              {{
-                activeCategory
-                  ? language === "id"
-                    ? categories.find((c) => c.slug === activeCategory)?.nameId
-                    : categories.find((c) => c.slug === activeCategory)?.nameEn
-                  : tr("feat.title")
-              }}
-            </h2>
-            <p
-              class="reveal"
-              data-delay="2"
-              style="margin-top: 1rem; color: var(--muted)"
-            >
-              {{
-                activeCategory
-                  ? tr("sp.results", { n: filteredServices.length })
-                  : tr("feat.sub")
-              }}
-            </p>
-          </div>
-          <button
-            v-if="activeCategory"
-            type="button"
-            class="link-arrow reveal"
-            data-delay="2"
-            @click="selectCategory('')"
-            style="
-              appearance: none;
-              border: none;
-              background: transparent;
-              font: inherit;
-              cursor: pointer;
-            "
-          >
-            <span>{{ tr("sp.all") }}</span>
-          </button>
-        </div>
-        <div class="svc-grid">
-          <ServiceCard
-            v-for="(service, index) in filteredServices"
-            :key="service.slug"
-            :service="service"
-            :category="categories.find(({ slug }) => slug === service.category)"
-            :delay="(index % 3) + 1"
-          />
-        </div>
+    <section class="menu-comparison section">
+      <div class="container menu-comparison__inner">
+        <h2>{{ tr("menu.comparison.title") }}</h2>
+        <p><strong>Nezuko</strong> {{ tr("menu.comparison.standard") }}</p>
+        <p><strong>Nezuko VIP</strong> {{ tr("menu.comparison.vip") }}</p>
       </div>
     </section>
 
@@ -521,7 +371,7 @@ onBeforeUnmount(() => {
           <div class="split__media reveal">
             <iframe
               :title="tr('loc.title')"
-              src="https://www.google.com/maps?q=Jl.+Ijen+No.+12,+Klojen,+Kota+Malang,+Jawa+Timur+65119&output=embed"
+              src="https://www.google.com/maps?q=Jalan+Terusan+Batubara+No.+12,+Malang&output=embed"
               style="
                 width: 100%;
                 aspect-ratio: 4/5;
@@ -602,7 +452,7 @@ onBeforeUnmount(() => {
             <p style="margin-top: 1.8rem">
               <a
                 class="btn btn--ghost"
-                href="https://www.google.com/maps?q=Jl.+Ijen+No.+12,+Klojen,+Kota+Malang,+Jawa+Timur+65119"
+                href="https://www.google.com/maps?q=Jalan+Terusan+Batubara+No.+12,+Malang"
                 target="_blank"
                 rel="noopener"
               >
