@@ -87,6 +87,45 @@ function toggleExtension(checked: boolean): void {
   });
 }
 
+function nextRadio(
+  event: KeyboardEvent,
+  select: (value: string) => void,
+): void {
+  const group = (event.currentTarget as HTMLElement).closest(
+    '[role="radiogroup"]',
+  );
+  const radios = Array.from(
+    group?.querySelectorAll<HTMLButtonElement>('[role="radio"]') ?? [],
+  );
+  const current = radios.indexOf(event.currentTarget as HTMLButtonElement);
+  if (radios.length === 0 || current < 0) return;
+
+  let next = current;
+  if (event.key === "ArrowRight" || event.key === "ArrowDown")
+    next = (current + 1) % radios.length;
+  else if (event.key === "ArrowLeft" || event.key === "ArrowUp")
+    next = (current - 1 + radios.length) % radios.length;
+  else if (event.key === "Home") next = 0;
+  else if (event.key === "End") next = radios.length - 1;
+  else return;
+
+  event.preventDefault();
+  const target = radios[next];
+  const value = target.dataset.mode ?? target.dataset.duration;
+  if (!value) return;
+  select(value);
+  target.focus();
+}
+
+function selectModeFromKeyboard(mode: string): void {
+  if (mode === "regular" || mode === "double_therapist") chooseMode(mode);
+}
+
+function selectDurationFromKeyboard(duration: string): void {
+  const parsed = Number(duration);
+  if (Number.isInteger(parsed)) chooseDuration(parsed);
+}
+
 function modeLabel(mode: TreatmentMode): string {
   if (locale.value === "id")
     return mode === "regular" ? "Reguler" : "Dua terapis";
@@ -126,14 +165,18 @@ const labels = computed(() =>
     >
       <span class="package-configurator__label">{{ labels.treatment }}</span>
       <button
-        v-for="mode in modes"
+        v-for="(mode, index) in modes"
         :key="mode"
         type="button"
         role="radio"
         :data-mode="mode"
         :aria-checked="selection.mode === mode"
         :aria-pressed="selection.mode === mode"
+        :tabindex="
+          selection.mode === mode || (!selection.mode && index === 0) ? 0 : -1
+        "
         @click="chooseMode(mode)"
+        @keydown="nextRadio($event, selectModeFromKeyboard)"
       >
         {{ modeLabel(mode) }}
       </button>
@@ -147,14 +190,21 @@ const labels = computed(() =>
     >
       <span class="package-configurator__label">{{ labels.duration }}</span>
       <button
-        v-for="variant in durations"
+        v-for="(variant, index) in durations"
         :key="variant.code"
         type="button"
         role="radio"
         :data-duration="variant.duration"
         :aria-checked="selection.duration === variant.duration"
         :aria-pressed="selection.duration === variant.duration"
+        :tabindex="
+          selection.duration === variant.duration ||
+          (selection.duration === null && index === 0)
+            ? 0
+            : -1
+        "
         @click="chooseDuration(variant.duration)"
+        @keydown="nextRadio($event, selectDurationFromKeyboard)"
       >
         {{ variant.duration }} min · Rp
         {{ variant.price.toLocaleString("id-ID") }}
@@ -180,32 +230,31 @@ const labels = computed(() =>
       {{ total.price.toLocaleString("id-ID") }}
     </p>
 
-    <Link
-      v-if="showBookingLink && isValid"
-      class="package-configurator__cta"
-      :href="href"
-      data-booking-cta="desktop"
-      >{{ labels.book }}</Link
-    >
-    <button
-      v-else
-      class="package-configurator__cta"
-      type="button"
-      disabled
-      data-booking-cta="desktop"
-    >
-      {{ labels.select }}
-    </button>
-    <div class="package-configurator__mobile-cta">
+    <template v-if="showBookingLink">
       <Link
-        v-if="showBookingLink && isValid"
+        v-if="isValid"
         class="package-configurator__cta"
         :href="href"
+        data-booking-cta="desktop"
         >{{ labels.book }}</Link
       >
-      <button v-else class="package-configurator__cta" type="button" disabled>
+      <button
+        v-else
+        class="package-configurator__cta"
+        type="button"
+        disabled
+        data-booking-cta="desktop"
+      >
         {{ labels.select }}
       </button>
-    </div>
+      <div class="package-configurator__mobile-cta">
+        <Link v-if="isValid" class="package-configurator__cta" :href="href">{{
+          labels.book
+        }}</Link>
+        <button v-else class="package-configurator__cta" type="button" disabled>
+          {{ labels.select }}
+        </button>
+      </div>
+    </template>
   </section>
 </template>

@@ -36,6 +36,12 @@ Created only the six owned Task 5 files:
 
 No diagnostics name `serviceSelection.ts`, `media.ts`, `PackageConfigurator.vue`, `PackageMenuCard.vue`, or either Task 5 test file.
 
+## Fix round 1
+
+- **RED:** The expanded localized CTA regression test failed in both English and Indonesian when `v-if="showBookingLink"` was temporarily removed: valid hidden-link configurations still rendered the desktop CTA (assertion at `officialMenuComponents.test.ts:243`).
+- **GREEN:** Restoring the conditional CTA boundary made the focused suite pass with 2 files and 7 tests. The test now checks disabled desktop/mobile invalid messages in both locales, no CTA or invalid wording for valid hidden-link configurations, real host `v-model` updates, all Nezuko regular/double choices and compatible extensions, immutable package data, and Arrow/Home/End selection plus focus.
+- The radio navigation helper now explicitly returns before modulo/index selection when a radiogroup has no radios.
+
 ## Self-review
 
 - Selection functions construct fresh objects and never mutate package props or model values.
