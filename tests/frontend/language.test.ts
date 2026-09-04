@@ -17,4 +17,12 @@ describe("official menu translations", () => {
       expect(translations.en[key]).toEqual(expect.any(String));
     }
   });
+
+  it("keeps package names out of active translation values", () => {
+    for (const dictionary of [translations.id, translations.en]) {
+      for (const value of Object.values(dictionary)) {
+        expect(value).not.toMatch(/\bNezuko(?: VIP)?\b/i);
+      }
+    }
+  });
 });

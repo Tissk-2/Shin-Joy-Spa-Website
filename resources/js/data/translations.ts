@@ -24,7 +24,7 @@ export default {
     "hero.eyebrow": "Shin Joy Spa · Malang",
     "hero.title": "Tempat tenang untuk melepas penat",
     "hero.sub":
-      "Pilih perawatan Nezuko yang menenangkan di ruang yang tenang. Pesan waktu istirahat Anda secara online.",
+      "Pilih perawatan resmi yang menenangkan di ruang yang tenang. Pesan waktu istirahat Anda secara online.",
     "hero.cta1": "Pesan perawatan",
     "hero.cta2": "Lihat menu",
     "hero.m1l": "mulai dari",
@@ -447,7 +447,7 @@ export default {
     "hero.eyebrow": "Shin Joy Spa · Malang",
     "hero.title": "A quiet place to rest",
     "hero.sub":
-      "Choose a calming Nezuko treatment in a quiet space. Book your time to rest online.",
+      "Choose a calming official treatment in a quiet space. Book your time to rest online.",
     "hero.cta1": "Book a treatment",
     "hero.cta2": "View menu",
     "hero.m1l": "starting from",

@@ -28,3 +28,7 @@ The new CTA/static and active-dictionary tests exposed that menu CTA anchors had
 - Typecheck retains only the existing allowed diagnostics in unchanged `ServiceCard.vue`, `Booking.vue`, and `ServiceDetail.vue`; no Task 6-owned diagnostics.
 
 The obsolete Couple Retreat FAQ was replaced with honest availability guidance. The menu CTA anchor is explicitly centered, 44px minimum-height, and full-width/flex in the mobile sticky bar. Active translation parity now reads `resources/js/data/translations.ts`; package names were removed from translation values and comparison labels come from package props.
+
+## Copy polish
+
+The hero subtitle now uses generic official-menu wording in Indonesian and English, so package names remain data-owned. A focused regression assertion scans every active translation value for exact package names. RED failed on the former Indonesian hero subtitle; GREEN passed with `npx vitest run tests/frontend/language.test.ts` (3 tests), direct active-dictionary parity, and `git diff --check`.
