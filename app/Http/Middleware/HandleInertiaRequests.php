@@ -2,7 +2,7 @@
 
 namespace App\Http\Middleware;
 
-use App\Models\ServiceCategory;
+use App\Models\Service;
 use App\Support\ServiceCatalogPresenter;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -56,10 +56,10 @@ class HandleInertiaRequests extends Middleware
                 'status' => fn (): ?string => $request->session()->get('status'),
             ],
             'catalog' => [
-                'categories' => fn (): array => ServiceCategory::query()
-                    ->active()
+                'packages' => fn (): array => Service::query()
+                    ->publiclyVisible()
                     ->get()
-                    ->map($presenter->category(...))
+                    ->map($presenter->link(...))
                     ->values()
                     ->all(),
             ],

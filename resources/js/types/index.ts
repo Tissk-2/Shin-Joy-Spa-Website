@@ -3,29 +3,40 @@ import type { LucideIcon } from "lucide-vue-next";
 
 export type Locale = "id" | "en";
 
-export interface ServiceCategoryData {
-  slug: string;
-  nameId: string;
-  nameEn: string;
-  image: string;
+export type TreatmentMode = "regular" | "double_therapist";
+
+export interface PackageVariantData {
+  code: string;
+  mode: TreatmentMode;
+  duration: number;
+  price: number;
 }
 
-export interface ServiceData {
+export interface PackageExtensionData {
+  code: string;
+  mode: TreatmentMode;
+  duration: number;
+  price: number;
+}
+
+export interface PackageLinkData {
   slug: string;
-  category: string;
   nameId: string;
   nameEn: string;
+  isVip: boolean;
+}
+
+export interface PackageData extends PackageLinkData {
   descId: string;
   descEn: string;
   longId: string;
   longEn: string;
-  goodId: string | null;
-  goodEn: string | null;
+  benefitId: string | null;
+  benefitEn: string | null;
   image: string;
   gallery: string[];
-  duration: number;
-  price: number;
-  popularity: number;
+  variants: PackageVariantData[];
+  extensions: PackageExtensionData[];
 }
 
 export interface PublicUser {
@@ -40,7 +51,7 @@ export interface AppPageProps extends PageProps {
   auth: { user: PublicUser | null };
   locale: Locale;
   flash: { status?: string };
-  catalog: { categories: ServiceCategoryData[] };
+  catalog: { packages: PackageLinkData[] };
 }
 
 export interface BreadcrumbItem {

@@ -3,58 +3,73 @@
 namespace App\Support;
 
 use App\Models\Service;
-use App\Models\ServiceCategory;
+use App\Models\ServiceExtension;
+use App\Models\ServiceVariant;
 
 class ServiceCatalogPresenter
 {
-    /** @return array{slug: string, nameId: string, nameEn: string, image: string} */
-    public function category(ServiceCategory $category): array
+    /**
+     * Temporary compatibility bridge for BookingController until Task 4 adopts package().
+     *
+     * @return array<string, mixed>
+     */
+    public function service(Service $service): array
+    {
+        $package = clone $service;
+        $package->setRelation('variants', $service->variants()->active()->get());
+        $package->setRelation('extensions', $service->extensions()->active()->get());
+
+        return $this->package($package);
+    }
+
+    /** @return array{slug: string, nameId: string, nameEn: string, isVip: bool} */
+    public function link(Service $service): array
     {
         return [
-            'slug' => $category->slug,
-            'nameId' => $category->name_id,
-            'nameEn' => $category->name_en,
-            'image' => $category->image_path,
+            'slug' => $service->slug,
+            'nameId' => $service->name_id,
+            'nameEn' => $service->name_en,
+            'isVip' => (bool) $service->is_vip,
         ];
     }
 
     /**
      * @return array{
-     *     slug: string,
-     *     category: string,
-     *     nameId: string,
-     *     nameEn: string,
-     *     descId: string,
-     *     descEn: string,
-     *     longId: string,
-     *     longEn: string,
-     *     goodId: string|null,
-     *     goodEn: string|null,
-     *     duration: int,
-     *     price: int,
-     *     image: string,
-     *     gallery: list<string>,
-     *     popularity: int
+     *     slug: string, nameId: string, nameEn: string, descId: string, descEn: string,
+     *     longId: string, longEn: string, benefitId: string|null, benefitEn: string|null,
+     *     image: string, gallery: list<string>, isVip: bool,
+     *     variants: list<array{code: string, mode: string, duration: int, price: int}>,
+     *     extensions: list<array{code: string, mode: string, duration: int, price: int}>
      * }
      */
-    public function service(Service $service): array
+    public function package(Service $service): array
     {
         return [
             'slug' => $service->slug,
-            'category' => $service->category->slug,
             'nameId' => $service->name_id,
             'nameEn' => $service->name_en,
             'descId' => $service->description_id,
             'descEn' => $service->description_en,
             'longId' => $service->long_description_id,
             'longEn' => $service->long_description_en,
-            'goodId' => $service->good_for_id,
-            'goodEn' => $service->good_for_en,
-            'duration' => (int) $service->duration_minutes,
-            'price' => (int) $service->price_idr,
+            'benefitId' => $service->good_for_id,
+            'benefitEn' => $service->good_for_en,
             'image' => $service->image_path,
-            'gallery' => array_map($this->galleryImagePath(...), $service->gallery_paths),
-            'popularity' => (int) $service->popularity,
+            'gallery' => array_map($this->galleryImagePath(...), $service->gallery_paths ?? []),
+            'isVip' => (bool) $service->is_vip,
+            'variants' => $service->variants->map(fn (ServiceVariant $variant): array => $this->choice($variant))->values()->all(),
+            'extensions' => $service->extensions->map(fn (ServiceExtension $extension): array => $this->choice($extension))->values()->all(),
+        ];
+    }
+
+    /** @return array{code: string, mode: string, duration: int, price: int} */
+    private function choice(ServiceVariant|ServiceExtension $choice): array
+    {
+        return [
+            'code' => $choice->code,
+            'mode' => $choice->treatment_mode->value,
+            'duration' => (int) $choice->duration_minutes,
+            'price' => (int) $choice->price_idr,
         ];
     }
 

@@ -27,11 +27,11 @@ class PublicPagesTest extends TestCase
         $this->get('/services/balinese-massage')
             ->assertNotFound();
 
-        $this->get('/services/javanese-massage')
+        $this->get('/services/nezuko')
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('ServiceDetail')
-                ->where('service.slug', 'javanese-massage'));
+                ->where('service.slug', 'nezuko'));
 
         $this->get('/booking')
             ->assertOk()

@@ -12,22 +12,21 @@ class ServiceController extends Controller
     {
         $service = Service::query()
             ->publiclyVisible()
-            ->with('category')
+            ->with([
+                'variants' => fn ($query) => $query->active(),
+                'extensions' => fn ($query) => $query->active(),
+            ])
             ->where('slug', $slug)
             ->firstOrFail();
 
-        $related = Service::query()
+        $comparison = Service::query()
             ->publiclyVisible()
-            ->with('category')
-            ->where('category_id', $service->category_id)
             ->whereKeyNot($service)
-            ->limit(3)
-            ->get();
+            ->first();
 
         return inertia('ServiceDetail', [
-            'service' => $presenter->service($service),
-            'category' => $presenter->category($service->category),
-            'related' => $related->map($presenter->service(...))->values(),
+            'service' => $presenter->package($service),
+            'comparison' => $comparison ? $presenter->link($comparison) : null,
         ]);
     }
 }
