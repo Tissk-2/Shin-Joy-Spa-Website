@@ -4,27 +4,71 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import MainLayout from "@/layouts/MainLayout.vue";
 import Home from "@/pages/Home.vue";
+import ServiceDetail from "@/pages/ServiceDetail.vue";
 import type { PackageData } from "@/types";
 
 const inertia = vi.hoisted(() => ({
   page: {
     url: "/",
-    props: { auth: { user: null }, locale: "en", flash: {}, catalog: { packages: [] } },
+    props: {
+      auth: { user: null },
+      locale: "en",
+      flash: {},
+      catalog: { packages: [] },
+    },
   },
 }));
 
 vi.mock("@inertiajs/vue3", () => ({
-  Head: "span", Link: "a", router: { post: vi.fn() }, usePage: () => inertia.page,
+  Head: "span",
+  Link: "a",
+  router: { post: vi.fn() },
+  usePage: () => inertia.page,
 }));
 
 const packages: PackageData[] = [
-  { slug: "nezuko", nameId: "Nezuko", nameEn: "Nezuko", isVip: false, descId: "Pijat lembut.", descEn: "A gentle treatment.", longId: "", longEn: "", benefitId: "", benefitEn: "", image: "/img/massage.jpg", gallery: [], variants: [{ code: "n60", mode: "regular", duration: 60, price: 199000 }], extensions: [] },
-  { slug: "nezuko-vip", nameId: "Nezuko VIP", nameEn: "Nezuko VIP", isVip: true, descId: "Pijat sesuai kebutuhan.", descEn: "A tailored treatment.", longId: "", longEn: "", benefitId: "", benefitEn: "", image: "/img/massage.jpg", gallery: [], variants: [{ code: "v60", mode: "regular", duration: 60, price: 299000 }], extensions: [] },
+  {
+    slug: "nezuko",
+    nameId: "Nezuko",
+    nameEn: "Nezuko",
+    isVip: false,
+    descId: "Pijat lembut.",
+    descEn: "A gentle treatment.",
+    longId: "",
+    longEn: "",
+    benefitId: "",
+    benefitEn: "",
+    image: "/img/massage.jpg",
+    gallery: [],
+    variants: [{ code: "n60", mode: "regular", duration: 60, price: 199000 }],
+    extensions: [],
+  },
+  {
+    slug: "nezuko-vip",
+    nameId: "Nezuko VIP",
+    nameEn: "Nezuko VIP",
+    isVip: true,
+    descId: "Pijat sesuai kebutuhan.",
+    descEn: "A tailored treatment.",
+    longId: "",
+    longEn: "",
+    benefitId: "",
+    benefitEn: "",
+    image: "/img/massage.jpg",
+    gallery: [],
+    variants: [{ code: "v60", mode: "regular", duration: 60, price: 299000 }],
+    extensions: [],
+  },
 ];
 
 beforeEach(() => {
   inertia.page.url = "/";
-  inertia.page.props = { auth: { user: null }, locale: "en", flash: {}, catalog: { packages } };
+  inertia.page.props = {
+    auth: { user: null },
+    locale: "en",
+    flash: {},
+    catalog: { packages },
+  };
   Element.prototype.scrollIntoView = vi.fn();
 });
 afterEach(() => vi.restoreAllMocks());
@@ -32,8 +76,12 @@ afterEach(() => vi.restoreAllMocks());
 describe("official menu homepage", () => {
   it("keeps package CTAs as full-size anchors, including the mobile action", () => {
     const styles = readFileSync("resources/css/menu.css", "utf8");
-    expect(styles).toMatch(/\.package-configurator__cta\s*\{[\s\S]*display:\s*(?:inline-)?flex[\s\S]*min-height:\s*44px/);
-    expect(styles).toMatch(/\.package-configurator__mobile-cta\s+\.package-configurator__cta\s*\{[\s\S]*width:\s*100%/);
+    expect(styles).toMatch(
+      /\.package-configurator__cta\s*\{[\s\S]*display:\s*(?:inline-)?flex[\s\S]*min-height:\s*44px/,
+    );
+    expect(styles).toMatch(
+      /\.package-configurator__mobile-cta\s+\.package-configurator__cta\s*\{[\s\S]*width:\s*100%/,
+    );
   });
 
   it("renders exactly the two official package articles at the canonical menu anchor", async () => {
@@ -74,5 +122,139 @@ describe("official menu homepage", () => {
     expect(wrapper.get('a[href="/#menu"]').text()).toBe("Menu");
     expect(wrapper.get('a[href="/services/nezuko"]')).toBeTruthy();
     expect(wrapper.get('a[href="/services/nezuko-vip"]')).toBeTruthy();
+  });
+});
+
+describe("package detail", () => {
+  const nezuko: PackageData = {
+    slug: "nezuko",
+    nameId: "Nezuko",
+    nameEn: "Nezuko",
+    isVip: false,
+    descId: "Pijat lembut.",
+    descEn: "A gentle treatment.",
+    longId: "Pijatan lembut yang menenangkan.",
+    longEn: "A gentle treatment combining traditional and Thai massage.",
+    benefitId: "Membantu tidur lebih nyenyak.",
+    benefitEn: "Helps improve sleep quality.",
+    image: "/img/massage.jpg",
+    gallery: ["/img/massage.jpg", "/img/oil.jpg"],
+    variants: [
+      {
+        code: "nezuko-regular-60",
+        mode: "regular",
+        duration: 60,
+        price: 199000,
+      },
+      {
+        code: "nezuko-regular-90",
+        mode: "regular",
+        duration: 90,
+        price: 265000,
+      },
+      {
+        code: "nezuko-regular-120",
+        mode: "regular",
+        duration: 120,
+        price: 315000,
+      },
+      {
+        code: "nezuko-double-60",
+        mode: "double_therapist",
+        duration: 60,
+        price: 250000,
+      },
+    ],
+    extensions: [
+      {
+        code: "nezuko-regular-extra-60",
+        mode: "regular",
+        duration: 60,
+        price: 75000,
+      },
+      {
+        code: "nezuko-double-extra-30",
+        mode: "double_therapist",
+        duration: 30,
+        price: 100000,
+      },
+    ],
+  };
+
+  it("renders an accessible package configurator, gallery, and one opposite-package comparison", async () => {
+    const wrapper = mount(ServiceDetail, {
+      props: {
+        service: nezuko,
+        comparison: {
+          slug: "nezuko-vip",
+          nameId: "Nezuko VIP",
+          nameEn: "Nezuko VIP",
+          isVip: true,
+        },
+      },
+    });
+
+    expect(wrapper.get('nav[aria-label="Breadcrumb"]')).toBeTruthy();
+    expect(wrapper.text()).toContain("A gentle treatment.");
+    expect(wrapper.text()).toContain("Helps improve sleep quality.");
+    expect(
+      wrapper.get('[role="radiogroup"][aria-label="Treatment type"]'),
+    ).toBeTruthy();
+    await wrapper.get('button[data-mode="regular"]').trigger("click");
+    expect(wrapper.findAll("button[data-duration]")).toHaveLength(3);
+    await wrapper.get('button[data-duration="90"]').trigger("click");
+    await wrapper.get('input[value="nezuko-regular-extra-60"]').setValue(true);
+    expect(wrapper.text()).toContain("150 min");
+    expect(wrapper.text()).toContain("Rp 340.000");
+    expect(
+      wrapper.get('a[data-booking-cta="desktop"]').attributes("href"),
+    ).toBe(
+      "/booking?service=nezuko&mode=regular&duration=90&extension=nezuko-regular-extra-60",
+    );
+    await wrapper.get('button[data-mode="double_therapist"]').trigger("click");
+    expect(wrapper.findAll("button[data-duration]")).toHaveLength(1);
+    expect(
+      wrapper.get("button[data-duration]").attributes("data-duration"),
+    ).toBe("60");
+    await wrapper.get('button[data-duration="60"]').trigger("click");
+    expect(wrapper.get("input").attributes("value")).toBe(
+      "nezuko-double-extra-30",
+    );
+    await wrapper.get('[aria-label="Nezuko 2"]').trigger("click");
+    expect(wrapper.get(".detail-media > img").attributes("src")).toBe(
+      "/img/oil.jpg",
+    );
+    expect(
+      wrapper.findAll('.package-detail a[href="/services/nezuko-vip"]'),
+    ).toHaveLength(1);
+    expect(wrapper.find(".svc-tag").exists()).toBe(false);
+    expect(wrapper.find(".price-row").exists()).toBe(false);
+    expect(wrapper.find(".svc-grid").exists()).toBe(false);
+  });
+
+  it("marks VIP packages without changing localized copy", () => {
+    inertia.page.props.locale = "id";
+    const vip = mount(ServiceDetail, {
+      props: {
+        service: {
+          ...nezuko,
+          slug: "nezuko-vip",
+          nameId: "Nezuko VIP",
+          nameEn: "Nezuko VIP",
+          isVip: true,
+          descId: "Pijat sesuai kebutuhan.",
+          benefitId: "Membantu sirkulasi darah.",
+        },
+        comparison: {
+          slug: "nezuko",
+          nameId: "Nezuko",
+          nameEn: "Nezuko",
+          isVip: false,
+        },
+      },
+    });
+    expect(vip.text()).toContain("VIP");
+    expect(vip.text()).toContain("Pijat sesuai kebutuhan.");
+    expect(vip.text()).toContain("Membantu sirkulasi darah.");
   });
 });
