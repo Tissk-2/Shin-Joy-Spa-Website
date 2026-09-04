@@ -99,42 +99,50 @@ class ServiceCatalogPersistenceTest extends TestCase
         $this->assertInstanceOf(QueryException::class, $extensionException);
     }
 
-    // Production break caught: replacing upserts with inserts would duplicate the fixed catalog when the seeder runs again.
-    public function test_catalog_seeder_persists_the_exact_idempotent_catalog(): void
+    // Production break caught: replacing the official packages or their child choices would expose the wrong public menu.
+    public function test_catalog_seeder_persists_the_exact_official_menu_idempotently(): void
     {
         $this->seed(ServiceCatalogSeeder::class);
         $this->seed(ServiceCatalogSeeder::class);
 
-        $this->assertDatabaseCount('service_categories', 4);
-        $this->assertDatabaseCount('services', 12);
-        $this->assertSame(4, ServiceCategory::query()->distinct()->count('slug'));
-        $this->assertSame(12, Service::query()->distinct()->count('slug'));
+        $this->assertSame(['nezuko', 'nezuko-vip'], Service::query()->publiclyVisible()->pluck('slug')->all());
+        $this->assertSame(8, ServiceVariant::query()->where('is_active', true)->count());
+        $this->assertSame(4, ServiceExtension::query()->where('is_active', true)->count());
+        $this->assertDatabaseHas('service_variants', [
+            'code' => 'nezuko-regular-60', 'duration_minutes' => 60, 'price_idr' => 199000,
+        ]);
+        $this->assertDatabaseHas('service_variants', [
+            'code' => 'nezuko-vip-double-60', 'duration_minutes' => 60, 'price_idr' => 350000,
+        ]);
+        $this->assertDatabaseHas('service_extensions', [
+            'code' => 'nezuko-regular-extra-60', 'duration_minutes' => 60, 'price_idr' => 75000,
+        ]);
+        $this->assertDatabaseHas('service_extensions', [
+            'code' => 'nezuko-vip-double-extra-30', 'duration_minutes' => 30, 'price_idr' => 100000,
+        ]);
+    }
 
-        $this->assertDatabaseHas('service_categories', [
-            'slug' => 'massage',
-            'name_id' => 'Pijat',
-            'name_en' => 'Massage',
-            'image_path' => '/img/massage.jpg',
-            'is_active' => true,
-            'display_order' => 1,
+    // Production break caught: broad retirement queries could deactivate future or admin-created services.
+    public function test_catalog_seeder_preserves_unknown_services_while_retiring_known_placeholders(): void
+    {
+        $category = ServiceCategory::query()->create([
+            'slug' => 'future', 'name_id' => 'Masa Depan', 'name_en' => 'Future',
+            'image_path' => '/img/about.jpg', 'is_active' => true, 'display_order' => 99,
         ]);
-        $this->assertDatabaseHas('services', [
-            'slug' => 'javanese-massage',
-            'name_id' => 'Pijat Tradisional Jawa',
-            'duration_minutes' => 90,
-            'price_idr' => 185000,
-            'popularity' => 98,
-            'is_active' => true,
-            'display_order' => 1,
+        $unknown = Service::query()->create($this->packageAttributes($category, 'future-treatment'));
+        $placeholderCategory = ServiceCategory::query()->create([
+            'slug' => 'legacy', 'name_id' => 'Lama', 'name_en' => 'Legacy',
+            'image_path' => '/img/massage.jpg', 'is_active' => true, 'display_order' => 100,
         ]);
-        $this->assertDatabaseHas('services', [
-            'slug' => 'couple-package',
-            'name_en' => 'Couple Retreat Package',
-            'duration_minutes' => 180,
-            'price_idr' => 850000,
-            'popularity' => 85,
-            'display_order' => 12,
-        ]);
+        foreach ($this->placeholderSlugs() as $slug) {
+            Service::query()->create($this->packageAttributes($placeholderCategory, $slug));
+        }
+
+        $this->seed(ServiceCatalogSeeder::class);
+
+        $this->assertTrue($unknown->fresh()->is_active);
+        $this->assertSame('future', $unknown->fresh()->category->slug);
+        $this->assertSame(12, Service::query()->whereIn('slug', $this->placeholderSlugs())->where('is_active', false)->count());
     }
 
     // Production break caught: removing casts or the category foreign key would return untyped gallery data or disconnect services from their categories.
@@ -142,16 +150,16 @@ class ServiceCatalogPersistenceTest extends TestCase
     {
         $this->seed(ServiceCatalogSeeder::class);
 
-        $service = Service::query()->where('slug', 'javanese-massage')->firstOrFail();
+        $service = Service::query()->where('slug', 'nezuko')->firstOrFail();
 
-        $this->assertSame(['massage.jpg', 'oil.jpg', 'stilllife.jpg'], $service->gallery_paths);
-        $this->assertIsInt($service->duration_minutes);
-        $this->assertIsInt($service->price_idr);
+        $this->assertSame(['massage.jpg', 'oil.jpg', 'about.jpg'], $service->gallery_paths);
+        $this->assertNull($service->duration_minutes);
+        $this->assertNull($service->price_idr);
         $this->assertIsInt($service->popularity);
         $this->assertIsInt($service->display_order);
         $this->assertTrue($service->is_active);
-        $this->assertSame('massage', $service->category->slug);
-        $this->assertCount(4, ServiceCategory::query()->where('slug', 'massage')->firstOrFail()->services);
+        $this->assertSame('package', $service->category->slug);
+        $this->assertCount(2, ServiceCategory::query()->where('slug', 'package')->firstOrFail()->services);
     }
 
     // Production break caught: changing the category foreign key to cascade or null-on-delete would allow a populated catalog category to be removed.
@@ -161,7 +169,7 @@ class ServiceCatalogPersistenceTest extends TestCase
 
         $this->expectException(QueryException::class);
 
-        ServiceCategory::query()->where('slug', 'massage')->firstOrFail()->delete();
+        ServiceCategory::query()->where('slug', 'package')->firstOrFail()->delete();
     }
 
     // Production break caught: a public query that only filters a service's flag would expose inactive services or services in inactive categories and could reorder public results.
@@ -169,34 +177,12 @@ class ServiceCatalogPersistenceTest extends TestCase
     {
         $this->seed(ServiceCatalogSeeder::class);
 
-        Service::query()->get()->each(function (Service $service): void {
-            ServiceVariant::query()->create([
-                'service_id' => $service->id,
-                'code' => "{$service->slug}-regular",
-                'treatment_mode' => TreatmentMode::Regular,
-                'duration_minutes' => 60,
-                'price_idr' => 100000,
-                'is_active' => true,
-                'display_order' => 1,
-            ]);
-        });
-
-        Service::query()->where('slug', 'aromatherapy-massage')->update(['is_active' => false]);
-        ServiceCategory::query()->where('slug', 'facial')->update(['is_active' => false]);
+        Service::query()->where('slug', 'nezuko')->update(['is_active' => false]);
 
         $visibleSlugs = Service::query()->publiclyVisible()->pluck('slug')->all();
 
-        $this->assertSame([
-            'javanese-massage',
-            'hot-stone-massage',
-            'deep-tissue-massage',
-            'body-scrub',
-            'body-wrap',
-            'foot-reflexology',
-            'serenity-package',
-            'couple-package',
-        ], $visibleSlugs);
-        $this->assertSame(['massage', 'body', 'package'], ServiceCategory::query()->active()->pluck('slug')->all());
+        $this->assertSame(['nezuko-vip'], $visibleSlugs);
+        $this->assertSame(['package'], ServiceCategory::query()->active()->pluck('slug')->all());
     }
 
     /** @return array<string, mixed> */
@@ -221,6 +207,16 @@ class ServiceCatalogPersistenceTest extends TestCase
             'is_vip' => false,
             'is_active' => true,
             'display_order' => 1,
+        ];
+    }
+
+    /** @return list<string> */
+    private function placeholderSlugs(): array
+    {
+        return [
+            'javanese-massage', 'aromatherapy-massage', 'hot-stone-massage', 'deep-tissue-massage',
+            'brightening-facial', 'antiaging-facial', 'acne-facial', 'body-scrub', 'body-wrap',
+            'foot-reflexology', 'serenity-package', 'couple-package',
         ];
     }
 }
