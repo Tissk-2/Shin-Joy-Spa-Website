@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import MainLayout from "@/layouts/MainLayout.vue";
 import Home from "@/pages/Home.vue";
+import Booking from "@/pages/Booking.vue";
 import ServiceDetail from "@/pages/ServiceDetail.vue";
 import type { PackageData } from "@/types";
 
@@ -339,5 +340,93 @@ describe("package detail", () => {
     expect(
       vip.findAll('.package-detail a[href="/services/nezuko"]'),
     ).toHaveLength(1);
+  });
+});
+
+describe("authenticated package booking", () => {
+  it("renders the normalized configuration, retains editable account details, and reviews without claiming persistence", async () => {
+    inertia.page.props = {
+      auth: {
+        user: {
+          id: 1,
+          name: "Nadia",
+          phone: "+62 812-3456-7890",
+          email: "nadia@example.test",
+          email_verified_at: "2026-08-01",
+        },
+      },
+      locale: "en",
+      flash: {},
+      catalog: { packages },
+    };
+    const configured = {
+      service: "nezuko",
+      mode: "regular" as const,
+      duration: 90,
+      extension: "nezuko-regular-extra-60",
+    };
+    const bookingPackages = [
+      {
+        ...packages[0],
+        variants: [
+          {
+            code: "n90",
+            mode: "regular" as const,
+            duration: 90,
+            price: 265000,
+          },
+          {
+            code: "n-double",
+            mode: "double_therapist" as const,
+            duration: 60,
+            price: 250000,
+          },
+        ],
+        extensions: [
+          {
+            code: "nezuko-regular-extra-60",
+            mode: "regular" as const,
+            duration: 60,
+            price: 75000,
+          },
+          {
+            code: "nezuko-double-extra-30",
+            mode: "double_therapist" as const,
+            duration: 30,
+            price: 100000,
+          },
+        ],
+      },
+    ];
+    const wrapper = mount(Booking, {
+      props: { packages: bookingPackages, selection: configured },
+    });
+    expect(wrapper.get<HTMLInputElement>("#f-email").element.readOnly).toBe(
+      true,
+    );
+    expect(wrapper.get<HTMLInputElement>("#f-name").element.value).toBe(
+      "Nadia",
+    );
+    expect(wrapper.get<HTMLInputElement>("#f-phone").element.value).toBe(
+      "+62 812-3456-7890",
+    );
+    expect(wrapper.text()).toContain("150 min");
+    expect(wrapper.text()).toContain("Rp 340.000");
+    expect(wrapper.get('button[data-mode="double_therapist"]')).toBeTruthy();
+    await wrapper.get('button[data-mode="double_therapist"]').trigger("click");
+    expect(wrapper.findAll("button[data-duration]")).toHaveLength(1);
+    expect(
+      wrapper.find('input[value="nezuko-regular-extra-60"]').exists(),
+    ).toBe(false);
+    expect(wrapper.text()).toContain("Review booking");
+    expect(wrapper.text()).not.toContain("Send reservation");
+    await wrapper.get('button[data-mode="regular"]').trigger("click");
+    await wrapper.get('button[data-duration="90"]').trigger("click");
+    await wrapper.get('input[value="nezuko-regular-extra-60"]').setValue(true);
+    await wrapper.get<HTMLInputElement>("#f-date").setValue("2026-09-05");
+    await wrapper.get<HTMLSelectElement>("#f-time").setValue("09:00");
+    await wrapper.get("form").trigger("submit");
+    expect(wrapper.text()).toContain("No reservation has been created yet");
+    expect(wrapper.text()).toContain("Edit details");
   });
 });

@@ -6,8 +6,52 @@ import {
   validateBooking,
 } from "../../resources/js/lib/booking";
 import { isValidPhoneNumber } from "../../resources/js/lib/phone";
+import type { PackageData } from "../../resources/js/types";
 
-const services = [{ slug: "aromatherapy" }];
+const packages: PackageData[] = [
+  {
+    slug: "nezuko",
+    nameId: "Nezuko",
+    nameEn: "Nezuko",
+    isVip: false,
+    descId: "",
+    descEn: "",
+    longId: "",
+    longEn: "",
+    benefitId: null,
+    benefitEn: null,
+    image: "",
+    gallery: [],
+    variants: [
+      {
+        code: "nezuko-regular-90",
+        mode: "regular",
+        duration: 90,
+        price: 265000,
+      },
+      {
+        code: "nezuko-double-60",
+        mode: "double_therapist",
+        duration: 60,
+        price: 250000,
+      },
+    ],
+    extensions: [
+      {
+        code: "nezuko-regular-extra-60",
+        mode: "regular",
+        duration: 60,
+        price: 75000,
+      },
+      {
+        code: "nezuko-double-extra-30",
+        mode: "double_therapist",
+        duration: 30,
+        price: 100000,
+      },
+    ],
+  },
+];
 
 describe("booking validation helpers", () => {
   it("validates phone numbers without accepting short input", () => {
@@ -23,27 +67,84 @@ describe("booking validation helpers", () => {
     expect(date.getHours()).toBe(12);
   });
 
-  it("returns field errors for invalid booking input", () => {
+  it("rejects incomplete, unknown, inactive, incompatible, or array-like package selections", () => {
     expect(
       validateBooking(
         {
           name: " ",
           phone: "123",
-          service: "missing",
+          service: "missing" as string,
+          mode: "" as "",
+          duration: null,
+          extension: "nezuko-regular-extra-60",
           date: "2026-08-19",
           time: "08:30",
         },
-        services,
+        packages,
         "2026-08-20",
       ),
     ).toEqual({
       name: "b.err.name",
       phone: "b.err.phone",
       service: "b.err.service",
+      mode: "b.err.mode",
+      duration: "b.err.duration",
+      extension: "b.err.extension",
       date: "b.err.date",
       time: "b.err.time",
     });
+    expect(
+      validateBooking(
+        {
+          name: "Nadia",
+          phone: "+62 812-3456-7890",
+          service: "nezuko",
+          mode: "double_therapist",
+          duration: 60,
+          extension: "nezuko-regular-extra-60",
+          date: "2026-08-20",
+          time: "09:00",
+        },
+        packages,
+        "2026-08-20",
+      ),
+    ).toEqual({ extension: "b.err.extension" });
+    expect(
+      validateBooking(
+        {
+          name: "Nadia",
+          phone: "+62 812-3456-7890",
+          service: ["nezuko"] as unknown as string,
+          mode: "regular",
+          duration: 90,
+          extension: "",
+          date: "2026-08-20",
+          time: "09:00",
+        },
+        packages,
+        "2026-08-20",
+      ),
+    ).toEqual({ service: "b.err.service" });
     expect(timeSlots).toContain("09:00");
     expect(timeSlots).toContain("20:00");
+  });
+
+  it("accepts an exact active Nezuko regular 90-minute selection with its extension", () => {
+    expect(
+      validateBooking(
+        {
+          name: "Nadia",
+          phone: "+62 812-3456-7890",
+          service: "nezuko",
+          mode: "regular",
+          duration: 90,
+          extension: "nezuko-regular-extra-60",
+          date: "2026-08-20",
+          time: "09:00",
+        },
+        packages,
+        "2026-08-20",
+      ),
+    ).toEqual({});
   });
 });
