@@ -95,6 +95,8 @@ class ServiceCatalogSeeder extends Seeder
             ['service' => 'nezuko-vip', 'code' => 'nezuko-vip-double-60', 'mode' => TreatmentMode::DoubleTherapist, 'duration' => 60, 'price' => 350000],
         ];
 
+        $this->removeConflictingVariantChoices($services, $rows);
+
         foreach ($rows as $index => $row) {
             ServiceVariant::query()->updateOrCreate(
                 ['code' => $row['code']],
@@ -125,6 +127,8 @@ class ServiceCatalogSeeder extends Seeder
             ['service' => 'nezuko-vip', 'code' => 'nezuko-vip-double-extra-30', 'mode' => TreatmentMode::DoubleTherapist, 'duration' => 30, 'price' => 100000],
         ];
 
+        $this->removeConflictingExtensionChoices($services, $rows);
+
         foreach ($rows as $index => $row) {
             ServiceExtension::query()->updateOrCreate(
                 ['code' => $row['code']],
@@ -143,6 +147,32 @@ class ServiceCatalogSeeder extends Seeder
             ->whereIn('service_id', collect($services)->pluck('id'))
             ->whereNotIn('code', collect($rows)->pluck('code'))
             ->update(['is_active' => false]);
+    }
+
+    /** @param array<string, Service> $services @param list<array<string, mixed>> $rows */
+    private function removeConflictingVariantChoices(array $services, array $rows): void
+    {
+        foreach ($rows as $row) {
+            ServiceVariant::query()
+                ->where('service_id', $services[$row['service']]->id)
+                ->where('treatment_mode', $row['mode'])
+                ->where('duration_minutes', $row['duration'])
+                ->where('code', '!=', $row['code'])
+                ->delete();
+        }
+    }
+
+    /** @param array<string, Service> $services @param list<array<string, mixed>> $rows */
+    private function removeConflictingExtensionChoices(array $services, array $rows): void
+    {
+        foreach ($rows as $row) {
+            ServiceExtension::query()
+                ->where('service_id', $services[$row['service']]->id)
+                ->where('treatment_mode', $row['mode'])
+                ->where('duration_minutes', $row['duration'])
+                ->where('code', '!=', $row['code'])
+                ->delete();
+        }
     }
 
     /** @return list<string> */

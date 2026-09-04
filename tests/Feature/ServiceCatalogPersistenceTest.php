@@ -108,18 +108,99 @@ class ServiceCatalogPersistenceTest extends TestCase
         $this->assertSame(['nezuko', 'nezuko-vip'], Service::query()->publiclyVisible()->pluck('slug')->all());
         $this->assertSame(8, ServiceVariant::query()->where('is_active', true)->count());
         $this->assertSame(4, ServiceExtension::query()->where('is_active', true)->count());
-        $this->assertDatabaseHas('service_variants', [
-            'code' => 'nezuko-regular-60', 'duration_minutes' => 60, 'price_idr' => 199000,
+
+        $this->assertDatabaseHas('service_categories', [
+            'slug' => 'package', 'name_id' => 'Paket Spa', 'name_en' => 'Spa Packages',
+            'image_path' => '/img/package.jpg', 'is_active' => true, 'display_order' => 1,
         ]);
-        $this->assertDatabaseHas('service_variants', [
-            'code' => 'nezuko-vip-double-60', 'duration_minutes' => 60, 'price_idr' => 350000,
+
+        foreach ($this->officialPackages() as $slug => $attributes) {
+            $service = Service::query()->where('slug', $slug)->firstOrFail();
+
+            $this->assertSame($attributes['name_id'], $service->name_id);
+            $this->assertSame($attributes['name_en'], $service->name_en);
+            $this->assertSame($attributes['description_id'], $service->description_id);
+            $this->assertSame($attributes['description_en'], $service->description_en);
+            $this->assertSame($attributes['description_id'], $service->long_description_id);
+            $this->assertSame($attributes['description_en'], $service->long_description_en);
+            $this->assertSame($attributes['good_for_id'], $service->good_for_id);
+            $this->assertSame($attributes['good_for_en'], $service->good_for_en);
+            $this->assertSame($attributes['is_vip'], $service->is_vip);
+            $this->assertSame($attributes['popularity'], $service->popularity);
+            $this->assertSame($attributes['gallery_paths'], $service->gallery_paths);
+            $this->assertNull($service->duration_minutes);
+            $this->assertNull($service->price_idr);
+            $this->assertSame($attributes['image_path'], $service->image_path);
+            $this->assertSame($attributes['display_order'], $service->display_order);
+            $this->assertSame('package', $service->category->slug);
+            $this->assertTrue($service->is_active);
+        }
+
+        foreach ($this->officialVariants() as $row) {
+            $variant = ServiceVariant::query()->where('code', $row['code'])->firstOrFail();
+
+            $this->assertSame($row['service'], $variant->service->slug);
+            $this->assertSame($row['mode'], $variant->treatment_mode);
+            $this->assertSame($row['duration'], $variant->duration_minutes);
+            $this->assertSame($row['price'], $variant->price_idr);
+            $this->assertSame($row['display_order'], $variant->display_order);
+            $this->assertTrue($variant->is_active);
+        }
+
+        foreach ($this->officialExtensions() as $row) {
+            $extension = ServiceExtension::query()->where('code', $row['code'])->firstOrFail();
+
+            $this->assertSame($row['service'], $extension->service->slug);
+            $this->assertSame($row['mode'], $extension->treatment_mode);
+            $this->assertSame($row['duration'], $extension->duration_minutes);
+            $this->assertSame($row['price'], $extension->price_idr);
+            $this->assertSame($row['display_order'], $extension->display_order);
+            $this->assertTrue($extension->is_active);
+        }
+    }
+
+    // Production break caught: inactive duplicate natural keys still prevent official child rows from being inserted.
+    public function test_catalog_seeder_removes_only_conflicting_stale_official_children_and_preserves_unknown_children(): void
+    {
+        $packageCategory = ServiceCategory::query()->create([
+            'slug' => 'package', 'name_id' => 'Paket', 'name_en' => 'Packages',
+            'image_path' => '/img/package.jpg', 'is_active' => true, 'display_order' => 1,
         ]);
-        $this->assertDatabaseHas('service_extensions', [
-            'code' => 'nezuko-regular-extra-60', 'duration_minutes' => 60, 'price_idr' => 75000,
+        $nezuko = Service::query()->create($this->packageAttributes($packageCategory, 'nezuko'));
+        $staleVariant = ServiceVariant::query()->create([
+            'service_id' => $nezuko->id, 'code' => 'stale-nezuko-regular-60',
+            'treatment_mode' => TreatmentMode::Regular, 'duration_minutes' => 60,
+            'price_idr' => 1, 'is_active' => true, 'display_order' => 99,
         ]);
-        $this->assertDatabaseHas('service_extensions', [
-            'code' => 'nezuko-vip-double-extra-30', 'duration_minutes' => 30, 'price_idr' => 100000,
+        $staleExtension = ServiceExtension::query()->create([
+            'service_id' => $nezuko->id, 'code' => 'stale-nezuko-extra-60',
+            'treatment_mode' => TreatmentMode::Regular, 'duration_minutes' => 60,
+            'price_idr' => 1, 'is_active' => true, 'display_order' => 99,
         ]);
+        $futureCategory = ServiceCategory::query()->create([
+            'slug' => 'future', 'name_id' => 'Masa Depan', 'name_en' => 'Future',
+            'image_path' => '/img/about.jpg', 'is_active' => true, 'display_order' => 2,
+        ]);
+        $future = Service::query()->create($this->packageAttributes($futureCategory, 'future-treatment'));
+        $futureVariant = ServiceVariant::query()->create([
+            'service_id' => $future->id, 'code' => 'future-regular-60',
+            'treatment_mode' => TreatmentMode::Regular, 'duration_minutes' => 60,
+            'price_idr' => 123000, 'is_active' => true, 'display_order' => 1,
+        ]);
+        $futureExtension = ServiceExtension::query()->create([
+            'service_id' => $future->id, 'code' => 'future-extra-60',
+            'treatment_mode' => TreatmentMode::Regular, 'duration_minutes' => 60,
+            'price_idr' => 45000, 'is_active' => true, 'display_order' => 1,
+        ]);
+
+        $this->seed(ServiceCatalogSeeder::class);
+
+        $this->assertDatabaseMissing('service_variants', ['id' => $staleVariant->id]);
+        $this->assertDatabaseMissing('service_extensions', ['id' => $staleExtension->id]);
+        $this->assertDatabaseHas('service_variants', ['code' => 'nezuko-regular-60', 'is_active' => true]);
+        $this->assertDatabaseHas('service_extensions', ['code' => 'nezuko-regular-extra-60', 'is_active' => true]);
+        $this->assertDatabaseHas('service_variants', ['id' => $futureVariant->id, 'is_active' => true]);
+        $this->assertDatabaseHas('service_extensions', ['id' => $futureExtension->id, 'is_active' => true]);
     }
 
     // Production break caught: broad retirement queries could deactivate future or admin-created services.
@@ -217,6 +298,57 @@ class ServiceCatalogPersistenceTest extends TestCase
             'javanese-massage', 'aromatherapy-massage', 'hot-stone-massage', 'deep-tissue-massage',
             'brightening-facial', 'antiaging-facial', 'acne-facial', 'body-scrub', 'body-wrap',
             'foot-reflexology', 'serenity-package', 'couple-package',
+        ];
+    }
+
+    /** @return array<string, array<string, mixed>> */
+    private function officialPackages(): array
+    {
+        return [
+            'nezuko' => [
+                'name_id' => 'Nezuko', 'name_en' => 'Nezuko', 'is_vip' => false,
+                'description_id' => 'Pijatan lembut dengan perpaduan pijat tradisional dan pijat Thailand, menggunakan minyak atau tanpa minyak, yang menghadirkan sensasi relaksasi.',
+                'description_en' => 'A gentle treatment combining traditional and Thai massage techniques, with or without oil, designed to create a deeply relaxing experience.',
+                'good_for_id' => 'Membantu memperlancar peredaran darah dan meningkatkan kualitas tidur.',
+                'good_for_en' => 'Helps support healthy circulation and improve sleep quality.',
+                'image_path' => '/img/massage.jpg', 'gallery_paths' => ['massage.jpg', 'oil.jpg', 'about.jpg'],
+                'popularity' => 100, 'display_order' => 1,
+            ],
+            'nezuko-vip' => [
+                'name_id' => 'Nezuko VIP', 'name_en' => 'Nezuko VIP', 'is_vip' => true,
+                'description_id' => 'Perpaduan pijat tradisional dan pijat Thailand, menggunakan minyak atau tanpa minyak, yang disesuaikan dengan kebutuhan dan keluhan klien untuk menghadirkan sensasi relaksasi.',
+                'description_en' => "A tailored blend of traditional and Thai massage, with or without oil, adjusted to the client's needs and preferences for a deeply relaxing experience.",
+                'good_for_id' => 'Membantu memperlancar peredaran darah dan meningkatkan kualitas tidur.',
+                'good_for_en' => 'Helps support healthy circulation and improve sleep quality.',
+                'image_path' => '/img/package.jpg', 'gallery_paths' => ['package.jpg', 'hands.jpg', 'oil.jpg'],
+                'popularity' => 99, 'display_order' => 2,
+            ],
+        ];
+    }
+
+    /** @return list<array{service: string, code: string, mode: TreatmentMode, duration: int, price: int, display_order: int}> */
+    private function officialVariants(): array
+    {
+        return [
+            ['service' => 'nezuko', 'code' => 'nezuko-regular-60', 'mode' => TreatmentMode::Regular, 'duration' => 60, 'price' => 199000, 'display_order' => 1],
+            ['service' => 'nezuko', 'code' => 'nezuko-regular-90', 'mode' => TreatmentMode::Regular, 'duration' => 90, 'price' => 265000, 'display_order' => 2],
+            ['service' => 'nezuko', 'code' => 'nezuko-regular-120', 'mode' => TreatmentMode::Regular, 'duration' => 120, 'price' => 315000, 'display_order' => 3],
+            ['service' => 'nezuko', 'code' => 'nezuko-double-60', 'mode' => TreatmentMode::DoubleTherapist, 'duration' => 60, 'price' => 250000, 'display_order' => 4],
+            ['service' => 'nezuko-vip', 'code' => 'nezuko-vip-regular-60', 'mode' => TreatmentMode::Regular, 'duration' => 60, 'price' => 299000, 'display_order' => 5],
+            ['service' => 'nezuko-vip', 'code' => 'nezuko-vip-regular-90', 'mode' => TreatmentMode::Regular, 'duration' => 90, 'price' => 349000, 'display_order' => 6],
+            ['service' => 'nezuko-vip', 'code' => 'nezuko-vip-regular-120', 'mode' => TreatmentMode::Regular, 'duration' => 120, 'price' => 499000, 'display_order' => 7],
+            ['service' => 'nezuko-vip', 'code' => 'nezuko-vip-double-60', 'mode' => TreatmentMode::DoubleTherapist, 'duration' => 60, 'price' => 350000, 'display_order' => 8],
+        ];
+    }
+
+    /** @return list<array{service: string, code: string, mode: TreatmentMode, duration: int, price: int, display_order: int}> */
+    private function officialExtensions(): array
+    {
+        return [
+            ['service' => 'nezuko', 'code' => 'nezuko-regular-extra-60', 'mode' => TreatmentMode::Regular, 'duration' => 60, 'price' => 75000, 'display_order' => 1],
+            ['service' => 'nezuko', 'code' => 'nezuko-double-extra-30', 'mode' => TreatmentMode::DoubleTherapist, 'duration' => 30, 'price' => 100000, 'display_order' => 2],
+            ['service' => 'nezuko-vip', 'code' => 'nezuko-vip-regular-extra-60', 'mode' => TreatmentMode::Regular, 'duration' => 60, 'price' => 100000, 'display_order' => 3],
+            ['service' => 'nezuko-vip', 'code' => 'nezuko-vip-double-extra-30', 'mode' => TreatmentMode::DoubleTherapist, 'duration' => 30, 'price' => 100000, 'display_order' => 4],
         ];
     }
 }
