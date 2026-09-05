@@ -22,5 +22,8 @@ function recursiveKeys(value, prefix = "") {
 }
 
 test("active Indonesian and English UI dictionaries have recursive key parity", () => {
-  assert.deepEqual(recursiveKeys(translations.id), recursiveKeys(translations.en));
+  assert.deepEqual(
+    recursiveKeys(translations.id),
+    recursiveKeys(translations.en),
+  );
 });

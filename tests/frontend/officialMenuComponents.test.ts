@@ -164,9 +164,9 @@ describe("PackageConfigurator", () => {
       extension: "",
     });
     await configurator().get('button[data-duration="60"]').trigger("click");
-    expect(configurator().get('input[type="checkbox"]').attributes("value")).toBe(
-      "nezuko-double-extra-30",
-    );
+    expect(
+      configurator().get('input[type="checkbox"]').attributes("value"),
+    ).toBe("nezuko-double-extra-30");
     expect(nezuko).toEqual(original);
   });
 
@@ -203,7 +203,9 @@ describe("PackageConfigurator", () => {
       .trigger("keydown", { key: "End" });
     expect(wrapper.vm.selection.duration).toBe(120);
     expect(
-      configurator().get('button[data-duration="120"]').attributes("aria-pressed"),
+      configurator()
+        .get('button[data-duration="120"]')
+        .attributes("aria-pressed"),
     ).toBe("true");
     expect(document.activeElement).toBe(
       configurator().get('button[data-duration="120"]').element,
@@ -224,7 +226,9 @@ describe("PackageConfigurator", () => {
         invalidLabel,
       );
       expect(
-        configurator().get('[data-booking-cta="desktop"]').attributes("disabled"),
+        configurator()
+          .get('[data-booking-cta="desktop"]')
+          .attributes("disabled"),
       ).toBeDefined();
       expect(
         configurator().get(".package-configurator__mobile-cta button").text(),
@@ -238,9 +242,9 @@ describe("PackageConfigurator", () => {
       await wrapper.setProps({ showBookingLink: false });
       await configurator().get('button[data-mode="regular"]').trigger("click");
       await configurator().get('button[data-duration="90"]').trigger("click");
-      expect(
-        configurator().find('[data-booking-cta="desktop"]').exists(),
-      ).toBe(false);
+      expect(configurator().find('[data-booking-cta="desktop"]').exists()).toBe(
+        false,
+      );
       expect(
         configurator().find(".package-configurator__mobile-cta").exists(),
       ).toBe(false);

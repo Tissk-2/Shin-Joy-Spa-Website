@@ -65,7 +65,8 @@ class Service extends Model
 
     public function scopePubliclyVisible(Builder $query): void
     {
-        $query->where('is_active', true)
+        $query->whereIn('slug', ['nezuko', 'nezuko-vip'])
+            ->where('is_active', true)
             ->whereHas('category', fn (Builder $categoryQuery) => $categoryQuery->where('is_active', true))
             ->whereHas('variants', fn (Builder $variantQuery) => $variantQuery->where('is_active', true))
             ->orderBy('display_order')

@@ -9,6 +9,7 @@ use App\Models\ServiceExtension;
 use App\Models\ServiceVariant;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class ServiceCatalogSeeder extends Seeder
 {
@@ -95,15 +96,28 @@ class ServiceCatalogSeeder extends Seeder
             ['service' => 'nezuko-vip', 'code' => 'nezuko-vip-double-60', 'mode' => TreatmentMode::DoubleTherapist, 'duration' => 60, 'price' => 350000],
         ];
 
-        $this->removeConflictingVariantChoices($services, $rows);
-
         foreach ($rows as $index => $row) {
+            $serviceId = $services[$row['service']]->id;
+            $naturalChoice = ServiceVariant::query()
+                ->where('service_id', $serviceId)
+                ->where('treatment_mode', $row['mode'])
+                ->where('duration_minutes', $row['duration'])
+                ->first();
+            $codeOwner = ServiceVariant::query()->where('code', $row['code'])->first();
+
+            if ($codeOwner !== null && ($naturalChoice === null || ! $codeOwner->is($naturalChoice))) {
+                $this->archiveChoice($codeOwner);
+            }
+
             ServiceVariant::query()->updateOrCreate(
-                ['code' => $row['code']],
                 [
-                    'service_id' => $services[$row['service']]->id,
+                    'service_id' => $serviceId,
                     'treatment_mode' => $row['mode'],
                     'duration_minutes' => $row['duration'],
+                ],
+                [
+                    'code' => $row['code'],
+                    'treatment_mode' => $row['mode'],
                     'price_idr' => $row['price'],
                     'is_active' => true,
                     'display_order' => $index + 1,
@@ -127,15 +141,28 @@ class ServiceCatalogSeeder extends Seeder
             ['service' => 'nezuko-vip', 'code' => 'nezuko-vip-double-extra-30', 'mode' => TreatmentMode::DoubleTherapist, 'duration' => 30, 'price' => 100000],
         ];
 
-        $this->removeConflictingExtensionChoices($services, $rows);
-
         foreach ($rows as $index => $row) {
+            $serviceId = $services[$row['service']]->id;
+            $naturalChoice = ServiceExtension::query()
+                ->where('service_id', $serviceId)
+                ->where('treatment_mode', $row['mode'])
+                ->where('duration_minutes', $row['duration'])
+                ->first();
+            $codeOwner = ServiceExtension::query()->where('code', $row['code'])->first();
+
+            if ($codeOwner !== null && ($naturalChoice === null || ! $codeOwner->is($naturalChoice))) {
+                $this->archiveChoice($codeOwner);
+            }
+
             ServiceExtension::query()->updateOrCreate(
-                ['code' => $row['code']],
                 [
-                    'service_id' => $services[$row['service']]->id,
+                    'service_id' => $serviceId,
                     'treatment_mode' => $row['mode'],
                     'duration_minutes' => $row['duration'],
+                ],
+                [
+                    'code' => $row['code'],
+                    'treatment_mode' => $row['mode'],
                     'price_idr' => $row['price'],
                     'is_active' => true,
                     'display_order' => $index + 1,
@@ -149,30 +176,12 @@ class ServiceCatalogSeeder extends Seeder
             ->update(['is_active' => false]);
     }
 
-    /** @param array<string, Service> $services @param list<array<string, mixed>> $rows */
-    private function removeConflictingVariantChoices(array $services, array $rows): void
+    private function archiveChoice(ServiceVariant|ServiceExtension $choice): void
     {
-        foreach ($rows as $row) {
-            ServiceVariant::query()
-                ->where('service_id', $services[$row['service']]->id)
-                ->where('treatment_mode', $row['mode'])
-                ->where('duration_minutes', $row['duration'])
-                ->where('code', '!=', $row['code'])
-                ->delete();
-        }
-    }
-
-    /** @param array<string, Service> $services @param list<array<string, mixed>> $rows */
-    private function removeConflictingExtensionChoices(array $services, array $rows): void
-    {
-        foreach ($rows as $row) {
-            ServiceExtension::query()
-                ->where('service_id', $services[$row['service']]->id)
-                ->where('treatment_mode', $row['mode'])
-                ->where('duration_minutes', $row['duration'])
-                ->where('code', '!=', $row['code'])
-                ->delete();
-        }
+        $choice->update([
+            'code' => sprintf('archived-%s-%s', Str::uuid(), $choice->code),
+            'is_active' => false,
+        ]);
     }
 
     /** @return list<string> */

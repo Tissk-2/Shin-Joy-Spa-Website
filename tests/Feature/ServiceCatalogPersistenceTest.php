@@ -159,8 +159,8 @@ class ServiceCatalogPersistenceTest extends TestCase
         }
     }
 
-    // Production break caught: inactive duplicate natural keys still prevent official child rows from being inserted.
-    public function test_catalog_seeder_removes_only_conflicting_stale_official_children_and_preserves_unknown_children(): void
+    // Production break caught: resolving catalog collisions by deletion discards existing child-row identities and data history.
+    public function test_catalog_seeder_reuses_natural_choices_archives_code_collisions_and_preserves_unknown_children(): void
     {
         $packageCategory = ServiceCategory::query()->create([
             'slug' => 'package', 'name_id' => 'Paket', 'name_en' => 'Packages',
@@ -176,6 +176,16 @@ class ServiceCatalogPersistenceTest extends TestCase
             'service_id' => $nezuko->id, 'code' => 'stale-nezuko-extra-60',
             'treatment_mode' => TreatmentMode::Regular, 'duration_minutes' => 60,
             'price_idr' => 1, 'is_active' => true, 'display_order' => 99,
+        ]);
+        $variantCodeCollision = ServiceVariant::query()->create([
+            'service_id' => $nezuko->id, 'code' => 'nezuko-regular-60',
+            'treatment_mode' => TreatmentMode::Regular, 'duration_minutes' => 45,
+            'price_idr' => 2, 'is_active' => true, 'display_order' => 98,
+        ]);
+        $extensionCodeCollision = ServiceExtension::query()->create([
+            'service_id' => $nezuko->id, 'code' => 'nezuko-regular-extra-60',
+            'treatment_mode' => TreatmentMode::Regular, 'duration_minutes' => 45,
+            'price_idr' => 2, 'is_active' => true, 'display_order' => 98,
         ]);
         $futureCategory = ServiceCategory::query()->create([
             'slug' => 'future', 'name_id' => 'Masa Depan', 'name_en' => 'Future',
@@ -195,12 +205,53 @@ class ServiceCatalogPersistenceTest extends TestCase
 
         $this->seed(ServiceCatalogSeeder::class);
 
-        $this->assertDatabaseMissing('service_variants', ['id' => $staleVariant->id]);
-        $this->assertDatabaseMissing('service_extensions', ['id' => $staleExtension->id]);
-        $this->assertDatabaseHas('service_variants', ['code' => 'nezuko-regular-60', 'is_active' => true]);
-        $this->assertDatabaseHas('service_extensions', ['code' => 'nezuko-regular-extra-60', 'is_active' => true]);
-        $this->assertDatabaseHas('service_variants', ['id' => $futureVariant->id, 'is_active' => true]);
-        $this->assertDatabaseHas('service_extensions', ['id' => $futureExtension->id, 'is_active' => true]);
+        $this->assertDatabaseHas('service_variants', [
+            'id' => $staleVariant->id,
+            'service_id' => $nezuko->id,
+            'code' => 'nezuko-regular-60',
+            'treatment_mode' => TreatmentMode::Regular->value,
+            'duration_minutes' => 60,
+            'price_idr' => 199000,
+            'is_active' => true,
+            'display_order' => 1,
+        ]);
+        $this->assertDatabaseHas('service_extensions', [
+            'id' => $staleExtension->id,
+            'service_id' => $nezuko->id,
+            'code' => 'nezuko-regular-extra-60',
+            'treatment_mode' => TreatmentMode::Regular->value,
+            'duration_minutes' => 60,
+            'price_idr' => 75000,
+            'is_active' => true,
+            'display_order' => 1,
+        ]);
+
+        $archivedVariantCode = $variantCodeCollision->fresh()->code;
+        $archivedExtensionCode = $extensionCodeCollision->fresh()->code;
+        $this->assertNotSame('nezuko-regular-60', $archivedVariantCode);
+        $this->assertNotSame('nezuko-regular-extra-60', $archivedExtensionCode);
+        $this->assertDatabaseHas('service_variants', ['id' => $variantCodeCollision->id, 'code' => $archivedVariantCode, 'is_active' => false]);
+        $this->assertDatabaseHas('service_extensions', ['id' => $extensionCodeCollision->id, 'code' => $archivedExtensionCode, 'is_active' => false]);
+        $this->assertDatabaseHas('service_variants', [
+            'id' => $futureVariant->id, 'service_id' => $future->id, 'code' => 'future-regular-60',
+            'price_idr' => 123000, 'is_active' => true,
+        ]);
+        $this->assertDatabaseHas('service_extensions', [
+            'id' => $futureExtension->id, 'service_id' => $future->id, 'code' => 'future-extra-60',
+            'price_idr' => 45000, 'is_active' => true,
+        ]);
+        $this->assertSame(8, ServiceVariant::query()->whereIn('service_id', [$nezuko->id, Service::query()->where('slug', 'nezuko-vip')->value('id')])->where('is_active', true)->count());
+        $this->assertSame(4, ServiceExtension::query()->whereIn('service_id', [$nezuko->id, Service::query()->where('slug', 'nezuko-vip')->value('id')])->where('is_active', true)->count());
+
+        $variantCount = ServiceVariant::query()->count();
+        $extensionCount = ServiceExtension::query()->count();
+
+        $this->seed(ServiceCatalogSeeder::class);
+
+        $this->assertSame($variantCount, ServiceVariant::query()->count());
+        $this->assertSame($extensionCount, ServiceExtension::query()->count());
+        $this->assertSame($archivedVariantCode, $variantCodeCollision->fresh()->code);
+        $this->assertSame($archivedExtensionCode, $extensionCodeCollision->fresh()->code);
     }
 
     // Production break caught: broad retirement queries could deactivate future or admin-created services.
@@ -264,6 +315,26 @@ class ServiceCatalogPersistenceTest extends TestCase
 
         $this->assertSame(['nezuko-vip'], $visibleSlugs);
         $this->assertSame(['package'], ServiceCategory::query()->active()->pluck('slug')->all());
+    }
+
+    // Production break caught: an active admin-created service with an active choice must remain private until it joins the official menu.
+    public function test_publicly_visible_scope_excludes_active_unknown_services_without_deactivating_them(): void
+    {
+        $this->seed(ServiceCatalogSeeder::class);
+
+        $category = ServiceCategory::query()->create([
+            'slug' => 'future', 'name_id' => 'Masa Depan', 'name_en' => 'Future',
+            'image_path' => '/img/about.jpg', 'is_active' => true, 'display_order' => 99,
+        ]);
+        $future = Service::query()->create($this->packageAttributes($category, 'future-treatment'));
+        ServiceVariant::query()->create([
+            'service_id' => $future->id, 'code' => 'future-regular-60',
+            'treatment_mode' => TreatmentMode::Regular, 'duration_minutes' => 60,
+            'price_idr' => 123000, 'is_active' => true, 'display_order' => 1,
+        ]);
+
+        $this->assertTrue($future->fresh()->is_active);
+        $this->assertSame(['nezuko', 'nezuko-vip'], Service::query()->publiclyVisible()->pluck('slug')->all());
     }
 
     /** @return array<string, mixed> */
