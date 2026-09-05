@@ -12,6 +12,7 @@ use App\Models\ServiceVariant;
 use App\Models\User;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
@@ -34,6 +35,21 @@ class BookingSchemaTest extends TestCase
             ['pending', 'confirmed', 'completed', 'cancelled'],
             array_map(fn (BookingStatus $status) => $status->value, BookingStatus::cases()),
         );
+    }
+
+    // Production break caught: query-builder writes must not persist statuses the booking domain cannot hydrate.
+    public function test_bookings_table_rejects_unsupported_persisted_statuses(): void
+    {
+        $exception = null;
+
+        try {
+            DB::table('bookings')->insert($this->validBookingRow(['status' => 'refunded']));
+        } catch (QueryException $queryException) {
+            $exception = $queryException;
+        }
+
+        $this->assertInstanceOf(QueryException::class, $exception);
+        $this->assertDatabaseCount('bookings', 0);
     }
 
     // Production break caught: removing casts would leak raw strings/numbers instead of typed booking snapshots.
@@ -187,6 +203,38 @@ class BookingSchemaTest extends TestCase
             'total_price_idr',
             'created_at',
             'updated_at',
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $overrides
+     * @return array<string, mixed>
+     */
+    private function validBookingRow(array $overrides = []): array
+    {
+        return [
+            'reference' => 'SJ-01K4DR9M7JQ2ABCD3EFGHJKL01',
+            'submission_key' => '018f2f7c-9d0a-7b1b-9a45-3c1f9d0b5a11',
+            'request_fingerprint' => hash('sha256', 'booking-schema-test'),
+            'status' => BookingStatus::Pending->value,
+            'customer_name' => 'Dewi Lestari',
+            'customer_email' => 'dewi@example.test',
+            'customer_phone' => '+6281234567890',
+            'appointment_date' => '2026-09-15',
+            'appointment_time' => '10:30',
+            'appointment_timezone' => 'Asia/Jakarta',
+            'guests' => 1,
+            'package_slug' => 'nezuko',
+            'package_name_id' => 'Nezuko',
+            'package_name_en' => 'Nezuko',
+            'package_is_vip' => false,
+            'treatment_mode' => TreatmentMode::Regular->value,
+            'base_choice_code' => 'nezuko-regular-90',
+            'base_duration_minutes' => 90,
+            'base_price_idr' => 265000,
+            'total_duration_minutes' => 90,
+            'total_price_idr' => 265000,
+            ...$overrides,
         ];
     }
 

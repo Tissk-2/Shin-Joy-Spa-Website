@@ -18,7 +18,7 @@ return new class extends Migration
             $table->string('reference', 32)->unique();
             $table->uuid('submission_key');
             $table->char('request_fingerprint', 64);
-            $table->string('status', 32)->default(BookingStatus::Pending->value);
+            $table->enum('status', BookingStatus::cases())->default(BookingStatus::Pending->value);
             $table->string('customer_name');
             $table->string('customer_email');
             $table->string('customer_phone', 32);
