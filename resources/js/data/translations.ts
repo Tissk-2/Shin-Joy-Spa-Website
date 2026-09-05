@@ -74,8 +74,10 @@ export default {
     "loc.directions": "Buka di peta",
     "menu.eyebrow": "Menu resmi",
     "menu.title": "Pilihan perawatan",
-    "menu.sub": "Pilih paket dan durasi yang sesuai untuk waktu istirahat Anda.",
-    "menu.hotWaterPolicy": "Jika terjadi gangguan air panas, diskon 10% dapat berlaku sebagai kebijakan informasi; konfirmasi ketersediaannya kepada tim kami.",
+    "menu.sub":
+      "Pilih paket dan durasi yang sesuai untuk waktu istirahat Anda.",
+    "menu.hotWaterPolicy":
+      "Jika terjadi gangguan air panas, diskon 10% dapat berlaku sebagai kebijakan informasi; konfirmasi ketersediaannya kepada tim kami.",
     "menu.regular": "Reguler",
     "menu.doubleTherapist": "Dua terapis",
     "menu.duration": "Durasi",
@@ -83,10 +85,12 @@ export default {
     "menu.total": "Total",
     "menu.comparison.title": "Dua cara untuk beristirahat",
     "menu.comparison.standard": "adalah pengalaman pijat lembut dan klasik.",
-    "menu.comparison.vip": "adalah pengalaman yang disesuaikan dengan kebutuhan Anda.",
+    "menu.comparison.vip":
+      "adalah pengalaman yang disesuaikan dengan kebutuhan Anda.",
     "menu.unavailable": "Pilihan ini sedang tidak tersedia.",
     "menu.bookingReview": "Tinjau pilihan perawatan Anda sebelum melanjutkan.",
-    "menu.unavailableSelection": "Pilih paket, jenis perawatan, dan durasi yang tersedia untuk melanjutkan.",
+    "menu.unavailableSelection":
+      "Pilih paket, jenis perawatan, dan durasi yang tersedia untuk melanjutkan.",
     "cta.eyebrow": "Mau coba?",
     "cta.title": "Pesan perawatan Anda",
     "cta.sub": "Pilih perawatan dan waktu, kami urus sisanya.",
@@ -499,8 +503,10 @@ export default {
     "loc.directions": "Open in maps",
     "menu.eyebrow": "Official menu",
     "menu.title": "Treatment choices",
-    "menu.sub": "Choose the package and duration that best suits your time to rest.",
-    "menu.hotWaterPolicy": "If a hot-water disruption occurs, a 10% discount may apply as an informational policy; please confirm availability with our team.",
+    "menu.sub":
+      "Choose the package and duration that best suits your time to rest.",
+    "menu.hotWaterPolicy":
+      "If a hot-water disruption occurs, a 10% discount may apply as an informational policy; please confirm availability with our team.",
     "menu.regular": "Regular",
     "menu.doubleTherapist": "Double therapist",
     "menu.duration": "Duration",
@@ -511,7 +517,8 @@ export default {
     "menu.comparison.vip": "is a tailored experience shaped around your needs.",
     "menu.unavailable": "This selection is currently unavailable.",
     "menu.bookingReview": "Review your treatment choices before continuing.",
-    "menu.unavailableSelection": "Choose an available package, treatment type, and duration to continue.",
+    "menu.unavailableSelection":
+      "Choose an available package, treatment type, and duration to continue.",
     "cta.eyebrow": "Want to try?",
     "cta.title": "Book your treatment",
     "cta.sub": "Pick a treatment and a time. We take care of the rest.",

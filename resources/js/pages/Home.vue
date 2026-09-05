@@ -114,7 +114,11 @@ onBeforeUnmount(() => {
       </span>
     </section>
 
-    <section id="menu" class="official-menu section" aria-labelledby="menu-title">
+    <section
+      id="menu"
+      class="official-menu section"
+      aria-labelledby="menu-title"
+    >
       <div class="container">
         <header class="official-menu__header">
           <span class="eyebrow">{{ tr("menu.eyebrow") }}</span>
@@ -122,7 +126,11 @@ onBeforeUnmount(() => {
           <p>{{ tr("menu.sub") }}</p>
         </header>
         <div class="official-menu__grid">
-          <PackageMenuCard v-for="servicePackage in packages" :key="servicePackage.slug" :service-package="servicePackage" />
+          <PackageMenuCard
+            v-for="servicePackage in packages"
+            :key="servicePackage.slug"
+            :service-package="servicePackage"
+          />
         </div>
         <p class="menu-policy" role="note">{{ tr("menu.hotWaterPolicy") }}</p>
       </div>
@@ -131,8 +139,13 @@ onBeforeUnmount(() => {
     <section class="menu-comparison section">
       <div class="container menu-comparison__inner">
         <h2>{{ tr("menu.comparison.title") }}</h2>
-        <p><strong>{{ packageName(0) }}</strong> {{ tr("menu.comparison.standard") }}</p>
-        <p><strong>{{ packageName(1) }}</strong> {{ tr("menu.comparison.vip") }}</p>
+        <p>
+          <strong>{{ packageName(0) }}</strong>
+          {{ tr("menu.comparison.standard") }}
+        </p>
+        <p>
+          <strong>{{ packageName(1) }}</strong> {{ tr("menu.comparison.vip") }}
+        </p>
       </div>
     </section>
 

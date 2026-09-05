@@ -522,12 +522,19 @@ onUnmounted(() => {
           <div class="footer-col">
             <h4>{{ tr("foot.services") }}</h4>
             <ul>
-            <li v-for="servicePackage in catalogPackages" :key="servicePackage.slug">
-              <Link
+              <li
+                v-for="servicePackage in catalogPackages"
+                :key="servicePackage.slug"
+              >
+                <Link
                   :href="`/services/${servicePackage.slug}`"
                   @click="setMenu(false, false)"
                 >
-                  {{ language === "id" ? servicePackage.nameId : servicePackage.nameEn }}
+                  {{
+                    language === "id"
+                      ? servicePackage.nameId
+                      : servicePackage.nameEn
+                  }}
                 </Link>
               </li>
             </ul>

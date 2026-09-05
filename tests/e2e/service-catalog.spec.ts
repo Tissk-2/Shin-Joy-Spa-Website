@@ -91,5 +91,7 @@ test("hostile booking query values clear selection and cannot alter official tot
     "/booking?service=nezuko&mode=regular&duration=999&extension=nezuko-vip-double-extra-30",
   );
   await expect(page.getByText("Rp 340.000", { exact: true })).toHaveCount(0);
-  await expect(page.getByText("Rp 0", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("Total: 0 min · Rp 0", { exact: true }),
+  ).toBeVisible();
 });
