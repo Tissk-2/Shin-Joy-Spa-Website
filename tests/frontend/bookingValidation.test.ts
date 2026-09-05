@@ -147,4 +147,47 @@ describe("booking validation helpers", () => {
       ),
     ).toEqual({});
   });
+
+  it("rejects non-scalar, malformed, impossible, past, and lexically future junk dates", () => {
+    const validSelection = {
+      name: "Nadia",
+      phone: "+62 812-3456-7890",
+      service: "nezuko",
+      mode: "regular" as const,
+      duration: 90,
+      extension: "nezuko-regular-extra-60",
+      time: "09:00",
+    };
+
+    for (const date of [
+      "2026-2-20",
+      "2026-02-30",
+      "2026-08-20oops",
+      "9999-99-99",
+      ["2026-08-20"],
+    ]) {
+      expect(
+        validateBooking(
+          { ...validSelection, date: date as string },
+          packages,
+          "2026-08-20",
+        ),
+      ).toMatchObject({ date: "b.err.date" });
+    }
+
+    expect(
+      validateBooking(
+        { ...validSelection, date: "2026-08-19" },
+        packages,
+        "2026-08-20",
+      ),
+    ).toMatchObject({ date: "b.err.date" });
+    expect(
+      validateBooking(
+        { ...validSelection, date: "2026-08-20" },
+        packages,
+        "2026-08-20",
+      ),
+    ).toEqual({});
+  });
 });

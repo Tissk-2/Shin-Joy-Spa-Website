@@ -428,5 +428,8 @@ describe("authenticated package booking", () => {
     await wrapper.get("form").trigger("submit");
     expect(wrapper.text()).toContain("No reservation has been created yet");
     expect(wrapper.text()).toContain("Edit details");
+    expect(wrapper.text()).toContain("Base duration");
+    expect(wrapper.text()).toContain("Extension");
+    expect(wrapper.text()).toContain("60 min · Rp 75.000");
   });
 });

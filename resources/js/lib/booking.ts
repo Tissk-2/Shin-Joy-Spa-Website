@@ -25,6 +25,19 @@ export function todayIso(date = new Date()): string {
   return `${year}-${month}-${day}`;
 }
 
+function isCalendarDate(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return false;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (month < 1 || month > 12 || day < 1) return false;
+
+  return day <= new Date(Date.UTC(year, month, 0)).getUTCDate();
+}
+
 export function validateBooking(
   form: BookingFormInput,
   packages: readonly PackageData[],
@@ -64,7 +77,8 @@ export function validateBooking(
       errors.extension = "b.err.extension";
   }
 
-  if (!form.date || form.date < today) errors.date = "b.err.date";
+  if (!isCalendarDate(form.date) || form.date < today)
+    errors.date = "b.err.date";
   if (!timeSlots.includes(form.time)) errors.time = "b.err.time";
   return errors;
 }

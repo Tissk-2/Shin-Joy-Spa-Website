@@ -13,3 +13,12 @@
 ## Self-review
 
 Validation accepts only scalar selections that normalize exactly against the supplied active package choices. The page resets the complete selection on package changes, renders account email read-only, keeps customer details editable, and enters a bilingual review-only panel after valid submission. It does not submit to an endpoint or use browser storage, payments, success claims, or guest-based price multiplication.
+
+## Fix round 1 — RED
+
+- `npx vitest run tests/frontend/bookingValidation.test.ts -t date` failed because malformed/impossible date strings could pass the lexical future-date check.
+- `npx vitest run tests/frontend/serviceCatalog.test.ts -t "authenticated package booking"` failed because the final review omitted the base-duration and extension rows.
+
+## Fix round 1 — GREEN
+
+Booking validation now accepts only scalar `YYYY-MM-DD` values representing real calendar dates before applying the non-past comparison. The final bilingual review repeats package, mode, base duration, extension (or a truthful no-extension label), total duration, date, time, and price, while remaining review-only.

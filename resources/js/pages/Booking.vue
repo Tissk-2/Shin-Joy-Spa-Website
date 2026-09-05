@@ -81,6 +81,7 @@ const labels = computed(() =>
         mode: "Jenis perawatan",
         base: "Durasi dasar",
         extension: "Tambahan",
+        noExtension: "Tanpa tambahan",
       }
     : {
         choose: "Choose a package",
@@ -92,6 +93,7 @@ const labels = computed(() =>
         mode: "Treatment type",
         base: "Base duration",
         extension: "Extension",
+        noExtension: "No extension",
       },
 );
 const extensionLabel = computed(() => {
@@ -100,7 +102,7 @@ const extensionLabel = computed(() => {
   );
   return extension
     ? `${extension.duration} ${tr("d.min")} · Rp ${extension.price.toLocaleString("id-ID")}`
-    : "—";
+    : labels.value.noExtension;
 });
 function choosePackage(slug: string): void {
   selected.value = emptySelection(slug);
@@ -141,6 +143,14 @@ function submit(): void {
             <div class="summary-row">
               <span>{{ labels.mode }}</span
               ><span>{{ modeLabel }}</span>
+            </div>
+            <div class="summary-row">
+              <span>{{ labels.base }}</span
+              ><span>{{ selected.duration }} {{ tr("d.min") }}</span>
+            </div>
+            <div class="summary-row">
+              <span>{{ labels.extension }}</span
+              ><span>{{ extensionLabel }}</span>
             </div>
             <div class="summary-row">
               <span>{{ tr("b.sumduration") }}</span
