@@ -1,46 +1,12 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
-const originalPassword = "calmspa9";
-
-async function registerCustomer(page: Page, email: string): Promise<void> {
-  await page.goto("/register");
-  await page.getByLabel(/nama lengkap|full name/i).fill("Ayu Lestari");
-  await page.getByLabel(/^email$/i).fill(email);
-  await page
-    .getByLabel(/nomor whatsapp|whatsapp number/i)
-    .fill("+6281234567890");
-  await page.getByLabel(/^kata sandi$|^password$/i).fill(originalPassword);
-  await page
-    .getByLabel(/konfirmasi kata sandi|confirm password/i)
-    .fill(originalPassword);
-  await page.getByRole("button", { name: /buat akun|create account/i }).click();
-  await expect(page).toHaveURL(/\/verify-email$/);
-}
-
-async function testingLink(
-  page: Page,
-  endpoint: "verification-link" | "reset-link",
-  email: string,
-): Promise<string> {
-  const response = await page.request.get(
-    `/__testing/${endpoint}?email=${encodeURIComponent(email)}`,
-  );
-
-  const payload = (await response.json()) as { url: string };
-
-  expect(response.ok()).toBe(true);
-  expect(payload).toEqual({ url: expect.any(String) });
-
-  return payload.url;
-}
-
-async function verifyCustomer(page: Page, email: string): Promise<void> {
-  await page.goto(await testingLink(page, "verification-link", email));
-  await expect(page).toHaveURL(/\/profile\?verified=1$/);
-  await expect(
-    page.getByRole("heading", { name: /profil saya|my profile/i }),
-  ).toBeVisible();
-}
+import {
+  customerPassword,
+  login,
+  registerCustomer,
+  testingLink,
+  verifyCustomer,
+} from "./helpers/auth";
 
 async function logoutFromProfile(page: Page): Promise<void> {
   await page.locator('button[aria-controls="account-menu"]').click();
@@ -69,17 +35,6 @@ async function logoutFromProfile(page: Page): Promise<void> {
   ).toBe("/login");
 }
 
-async function login(
-  page: Page,
-  email: string,
-  password: string,
-): Promise<void> {
-  await page.goto("/login");
-  await page.getByLabel(/^email$/i).fill(email);
-  await page.getByLabel(/^kata sandi$|^password$/i).fill(password);
-  await page.getByRole("button", { name: /^masuk$|^log in$/i }).click();
-}
-
 test("customer registers, verifies, logs out, and logs back in with a normalized email", async ({
   page,
 }) => {
@@ -87,8 +42,11 @@ test("customer registers, verifies, logs out, and logs back in with a normalized
 
   await registerCustomer(page, email);
   await verifyCustomer(page, email.toUpperCase());
+  await expect(
+    page.getByRole("heading", { name: /profil saya|my profile/i }),
+  ).toBeVisible();
   await logoutFromProfile(page);
-  await login(page, " AYU@EXAMPLE.COM ", originalPassword);
+  await login(page, " AYU@EXAMPLE.COM ", customerPassword);
 
   await expect(page).toHaveURL("/profile");
   await expect(page.getByText(email, { exact: true })).toBeVisible();
@@ -197,7 +155,7 @@ test("a hostile external intended redirect is rejected after login", async ({
   expect(intended.status()).toBe(302);
   expect(intended.headers().location).toMatch(/\/login$/);
 
-  await login(page, email, originalPassword);
+  await login(page, email, customerPassword);
 
   await expect(page).toHaveURL("/profile");
   expect(new URL(page.url()).origin).toBe("http://127.0.0.1:8000");

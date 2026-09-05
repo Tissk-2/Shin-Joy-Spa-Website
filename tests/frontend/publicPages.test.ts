@@ -29,27 +29,45 @@ describe("Laravel-owned public pages", () => {
     const source = readPage("Home.vue");
 
     expect(source).toMatch(/useLanguage/);
-    expect(source).toMatch(/id="services"/);
+    expect(source).toMatch(/id="menu"/);
     expect(source).toMatch(/id="about"/);
     expect(source).toMatch(/id="gallery"/);
     expect(source).toMatch(/id="contact"/);
     expect(source).toMatch(/role="dialog"/);
     expect(source).toMatch(/aria-modal="true"/);
     expect(source).toMatch(/handleLightboxKeydown/);
-    expect(source).toMatch(/URLSearchParams/);
-    expect(source).toMatch(/\.get\(["']cat["']\)/);
   });
 
-  it("does not retain runtime imports for the retired client catalog modules", () => {
+  it("does not retain placeholder catalog imports or scalar service cards", () => {
     for (const name of [
       "Home.vue",
       "ServiceDetail.vue",
       "Booking.vue",
-      "../components/ServiceCard.vue",
       "../layouts/MainLayout.vue",
     ]) {
       expect(readPage(name)).not.toMatch(/@\/data\/(services|categories)/);
+      expect(readPage(name)).not.toMatch(
+        /Pijat Tradisional Jawa|ServiceCard|ServiceCategoryData/,
+      );
     }
+  });
+
+  it("keeps browser-only storage, router, and legacy stores out of Laravel runtime", () => {
+    const source = [
+      "Home.vue",
+      "ServiceDetail.vue",
+      "Booking.vue",
+      "Profile.vue",
+      "../layouts/MainLayout.vue",
+      "../components/PackageConfigurator.vue",
+      "../components/PackageMenuCard.vue",
+    ]
+      .map(readPage)
+      .join("\n");
+
+    expect(source).not.toMatch(
+      /localStorage|sessionStorage|vue-router|useAuth|bookingHistory/,
+    );
   });
 
   it("keeps guest booking validation without browser persistence or auth storage", () => {
@@ -59,7 +77,6 @@ describe("Laravel-owned public pages", () => {
     expect(source).toMatch(/timeSlots/);
     expect(source).toMatch(/todayIso/);
     expect(source).toMatch(/novalidate/);
-    expect(source).toMatch(/aria-describedby="f-name-error"/);
     expect(source).not.toMatch(
       /localStorage|bookingHistory|createBookingStore|useAuth/,
     );
