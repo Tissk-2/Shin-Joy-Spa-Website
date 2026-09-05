@@ -20,11 +20,14 @@ test("Nezuko regular 90 plus extension survives verified login", async ({
   await verifyCustomer(
     page,
     "menu@example.com",
-    /\/booking\?(?=.*service=nezuko)(?=.*mode=regular)(?=.*duration=90)/,
+    /\/booking\?(?=.*service=nezuko)(?=.*mode=regular)(?=.*duration=90)(?=.*extension=nezuko-regular-extra-60)/,
   );
 
   await expect(page).toHaveURL(
-    /\/booking\?(?=.*service=nezuko)(?=.*mode=regular)(?=.*duration=90)/,
+    /\/booking\?(?=.*service=nezuko)(?=.*mode=regular)(?=.*duration=90)(?=.*extension=nezuko-regular-extra-60)/,
+  );
+  expect(new URL(page.url()).searchParams.get("extension")).toBe(
+    "nezuko-regular-extra-60",
   );
   await expect(page.getByText("Rp 340.000", { exact: true })).toBeVisible();
 });
@@ -46,7 +49,7 @@ test("Nezuko VIP double therapist plus 30 minutes totals 90 minutes and Rp450.00
   await expect(vip.getByText("Total: 90 min · Rp 450.000")).toBeVisible();
   await expect(vip.getByRole("link", { name: /book|pesan/i })).toHaveAttribute(
     "href",
-    /service=nezuko-vip&mode=double_therapist&duration=60.*extension=nezuko-vip-double-extra-30/,
+    /\?(?=.*service=nezuko-vip)(?=.*mode=double_therapist)(?=.*duration=60)(?=.*extension=nezuko-vip-double-extra-30)/,
   );
 });
 

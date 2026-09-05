@@ -41,10 +41,16 @@ export async function testingLink(
 export async function verifyCustomer(
   page: Page,
   email: string,
-  expectedUrl: string | RegExp = /\/profile\?verified=1$/,
+  expectedUrl?: string | RegExp,
 ): Promise<void> {
   await page.goto(await testingLink(page, "verification-link", email));
-  await expect(page).toHaveURL(expectedUrl);
+  await expect(page).toHaveURL(expectedUrl ?? /\/profile\?verified=1$/);
+
+  if (expectedUrl === undefined) {
+    await expect(
+      page.getByRole("heading", { name: /profil saya|my profile/i }),
+    ).toBeVisible();
+  }
 }
 
 export async function login(

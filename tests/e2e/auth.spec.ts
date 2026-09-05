@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 import {
   customerPassword,
@@ -42,9 +42,6 @@ test("customer registers, verifies, logs out, and logs back in with a normalized
 
   await registerCustomer(page, email);
   await verifyCustomer(page, email.toUpperCase());
-  await expect(
-    page.getByRole("heading", { name: /profil saya|my profile/i }),
-  ).toBeVisible();
   await logoutFromProfile(page);
   await login(page, " AYU@EXAMPLE.COM ", customerPassword);
 
