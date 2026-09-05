@@ -75,15 +75,17 @@ if (app()->environment('testing')) {
 
 require __DIR__.'/settings.php';
 
-Route::middleware('auth')->group(function () {
+$verificationLimiter = config('fortify.limiters.verification', '6,1');
+
+Route::middleware('auth')->group(function () use ($verificationLimiter): void {
     Route::get('verify-email', EmailVerificationPromptController::class)
         ->name('verification.notice');
 
     Route::get('verify-email/{id}/{hash}', VerifyEmailController::class)
-        ->middleware(['signed', 'throttle:6,1'])
+        ->middleware(['signed', "throttle:{$verificationLimiter}"])
         ->name('verification.verify');
 
     Route::post('email/verification-notification', [EmailVerificationNotificationController::class, 'store'])
-        ->middleware('throttle:6,1')
+        ->middleware("throttle:{$verificationLimiter}")
         ->name('verification.send');
 });

@@ -26,3 +26,10 @@
 - GREEN: `php artisan test tests/Feature/ServiceCatalogPagesTest.php tests/Feature/PublicPagesTest.php tests/Feature/Auth/AuthenticationTest.php tests/Feature/Auth/EmailVerificationTest.php` passed with 32 tests and 285 assertions.
 - `SafeIntendedPath` now validates both the original value and the post-origin-normalization target. It rejects raw or percent-decoded C0/DEL controls and backslashes, requires the final path to be exactly single-slash local before emitting it, and rejects encoded paths that normalize to protocol-relative or backslash forms.
 - Security self-review: selection array values are rejected without coercion; inactive services and variants clear progressively; unverified booking requests reach the verification notice; prompt and resend use the same hostile-intent policy. No redirect result can contain raw or decoded control bytes, a backslash, or a protocol-relative path.
+
+## Final integration limiter fix
+
+- Root cause: the custom verification-route overrides that enforce `SafeIntendedPath` used a hardcoded `throttle:6,1`, bypassing Fortify's configured verification limiter (`1,1`) and allowing repeated resend notifications.
+- RED: the resend rate-limit regression returned 302 instead of 429, and the new route-policy regression found `throttle:6,1` rather than `throttle:1,1` on both signed verification and resend routes.
+- GREEN: both overrides now derive one limiter from `config('fortify.limiters.verification', '6,1')`; the targeted verification, email-verification, and security-configuration suite passed (20 tests, 92 assertions), followed by the full suite (136 tests, 1,009 assertions).
+- Security self-review: both custom routes preserve `auth`; signed verification also preserves `signed`. They share the same configured limiter so configuration changes cannot silently cause divergent verification and notification policies.

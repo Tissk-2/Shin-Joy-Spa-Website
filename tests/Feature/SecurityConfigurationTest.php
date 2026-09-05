@@ -115,6 +115,22 @@ class SecurityConfigurationTest extends TestCase
             ->assertJsonValidationErrors('email');
     }
 
+    // Production break caught: custom verification routes must retain Fortify's configured shared limiter policy.
+    public function test_verification_routes_use_the_configured_fortify_verification_limiter(): void
+    {
+        $limiter = 'throttle:'.config('fortify.limiters.verification', '6,1');
+        $verifyRoute = Route::getRoutes()->getByName('verification.verify');
+        $sendRoute = Route::getRoutes()->getByName('verification.send');
+
+        $this->assertNotNull($verifyRoute);
+        $this->assertNotNull($sendRoute);
+        $this->assertContains($limiter, $verifyRoute->gatherMiddleware());
+        $this->assertContains($limiter, $sendRoute->gatherMiddleware());
+        $this->assertContains('auth', $verifyRoute->gatherMiddleware());
+        $this->assertContains('signed', $verifyRoute->gatherMiddleware());
+        $this->assertContains('auth', $sendRoute->gatherMiddleware());
+    }
+
     public function test_testing_link_helpers_are_not_registered_in_production(): void
     {
         $originalEnvironment = $this->app->environment();
