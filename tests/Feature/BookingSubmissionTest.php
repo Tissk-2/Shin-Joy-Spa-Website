@@ -11,6 +11,7 @@ use App\Models\ServiceVariant;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Database\Seeders\ServiceCatalogSeeder;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -130,6 +131,19 @@ class BookingSubmissionTest extends TestCase
         $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', $booking->request_fingerprint);
     }
 
+    // Production break caught: the persisted fingerprint must be the canonical request payload, excluding submission_key.
+    public function test_request_fingerprint_hashes_canonical_normalized_payload_without_submission_key(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)->post('/bookings', $this->validPayload())->assertStatus(303);
+
+        $this->assertSame(
+            '02a1a1549c8b302c715add72d081b189cd32f14b090f5fed21009f27e9855428',
+            Booking::query()->sole()->request_fingerprint,
+        );
+    }
+
     // Production break caught: retrying the same key and same payload must return the original row, not create a duplicate.
     public function test_same_key_same_payload_replay_redirects_to_the_existing_booking(): void
     {
@@ -206,8 +220,8 @@ class BookingSubmissionTest extends TestCase
         $this->assertDatabaseCount('bookings', 2);
     }
 
-    // Production break caught: a unique-key race after the initial replay check must safely return the same user's matching row.
-    public function test_unique_submission_key_race_returns_the_same_user_matching_booking(): void
+    // Production break caught: unique-key recovery must not read rows created inside the rolled-back failed transaction.
+    public function test_unique_submission_key_exception_rethrows_when_no_committed_same_user_row_exists(): void
     {
         $user = User::factory()->create();
         $payload = $this->validPayload([
@@ -230,11 +244,57 @@ class BookingSubmissionTest extends TestCase
             ]);
         });
 
-        $response = $this->actingAs($user)->post('/bookings', $payload);
+        $exception = null;
 
-        $response
+        try {
+            $this->withoutExceptionHandling()
+                ->actingAs($user)
+                ->post('/bookings', $payload);
+        } catch (QueryException $queryException) {
+            $exception = $queryException;
+        }
+
+        $this->assertInstanceOf(QueryException::class, $exception);
+        $this->assertDatabaseCount('bookings', 0);
+    }
+
+    // Production break caught: unique-key recovery must look after rollback, then return only a matching same-user row.
+    public function test_unique_submission_key_exception_recovers_matching_row_after_rollback(): void
+    {
+        $user = User::factory()->create();
+        $payload = $this->validPayload([
+            'submission_key' => '018f2f7c-9d0a-7b1b-9a45-3c1f9d0b5b99',
+        ]);
+        $insertedByRace = false;
+
+        Booking::creating(function (Booking $booking) use (&$insertedByRace): void {
+            if ($insertedByRace) {
+                return;
+            }
+
+            $insertedByRace = true;
+            $attributes = $booking->getAttributes();
+
+            DB::afterRollBack(fn () => DB::table('bookings')->insert([
+                ...$attributes,
+                'reference' => 'SJ-01K4DR9M7JQ2ABCD3EFGHJKB99',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]));
+
+            DB::table('bookings')->insert([
+                ...$attributes,
+                'reference' => 'SJ-01K4DR9M7JQ2ABCD3EFGHJKA99',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        });
+
+        $this->actingAs($user)
+            ->post('/bookings', $payload)
             ->assertStatus(303)
-            ->assertRedirect('/bookings/SJ-01K4DR9M7JQ2ABCD3EFGHJKL99');
+            ->assertRedirect('/bookings/SJ-01K4DR9M7JQ2ABCD3EFGHJKB99');
+
         $this->assertDatabaseCount('bookings', 1);
     }
 
@@ -254,6 +314,45 @@ class BookingSubmissionTest extends TestCase
             ->post('/bookings', $payload)
             ->assertStatus(429)
             ->assertSee('Too Many Requests');
+    }
+
+    // Production break caught: the shared IP bucket must throttle even when each authenticated user is below 6/minute.
+    public function test_booking_store_route_is_rate_limited_per_ip_across_authenticated_customers(): void
+    {
+        $payload = $this->validPayload(['submission_key' => 'not-a-uuid']);
+
+        for ($attempt = 1; $attempt <= 20; $attempt++) {
+            $this->actingAs(User::factory()->create())
+                ->withServerVariables(['REMOTE_ADDR' => '203.0.113.77'])
+                ->post('/bookings', $payload)
+                ->assertSessionHasErrors('submission_key');
+        }
+
+        $this->actingAs(User::factory()->create())
+            ->withServerVariables(['REMOTE_ADDR' => '203.0.113.77'])
+            ->post('/bookings', $payload)
+            ->assertStatus(429)
+            ->assertSee('Too Many Requests');
+    }
+
+    // Production break caught: malformed scalar and array submission keys must fail at the HTTP boundary.
+    public function test_submission_key_must_be_a_scalar_uuid_at_the_http_boundary(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->from('/booking')
+            ->post('/bookings', $this->validPayload(['submission_key' => 'not-a-uuid']))
+            ->assertRedirect('/booking')
+            ->assertSessionHasErrors('submission_key');
+
+        $this->actingAs($user)
+            ->from('/booking')
+            ->post('/bookings', $this->validPayload(['submission_key' => ['018f2f7c-9d0a-7b1b-9a45-3c1f9d0b5a10']]))
+            ->assertRedirect('/booking')
+            ->assertSessionHasErrors('submission_key');
+
+        $this->assertDatabaseCount('bookings', 0);
     }
 
     /**

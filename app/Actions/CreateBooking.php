@@ -25,16 +25,16 @@ class CreateBooking
     {
         $fingerprint = $this->fingerprint($data);
 
-        return DB::transaction(function () use ($user, $data, $fingerprint): Booking {
-            $existing = $this->existingBooking($user, (string) $data['submission_key']);
+        try {
+            return DB::transaction(function () use ($user, $data, $fingerprint): Booking {
+                $existing = $this->existingBooking($user, (string) $data['submission_key']);
 
-            if ($existing instanceof Booking) {
-                return $this->matchingBooking($existing, $fingerprint);
-            }
+                if ($existing instanceof Booking) {
+                    return $this->matchingBooking($existing, $fingerprint);
+                }
 
-            $bookingAttributes = $this->quoteResolver->resolve($user, $data)->bookingAttributes();
+                $bookingAttributes = $this->quoteResolver->resolve($user, $data)->bookingAttributes();
 
-            try {
                 return Booking::query()->create([
                     'user_id' => $user->id,
                     'reference' => $this->reference(),
@@ -43,20 +43,20 @@ class CreateBooking
                     'status' => BookingStatus::Pending,
                     ...$bookingAttributes,
                 ]);
-            } catch (QueryException $exception) {
-                if (! $this->isUniqueConstraint($exception)) {
-                    throw $exception;
-                }
-
-                $existing = $this->existingBooking($user, (string) $data['submission_key']);
-
-                if (! $existing instanceof Booking) {
-                    throw $exception;
-                }
-
-                return $this->matchingBooking($existing, $fingerprint);
+            });
+        } catch (QueryException $exception) {
+            if (! $this->isUniqueConstraint($exception)) {
+                throw $exception;
             }
-        });
+
+            $existing = $this->existingBooking($user, (string) $data['submission_key']);
+
+            if (! $existing instanceof Booking) {
+                throw $exception;
+            }
+
+            return $this->matchingBooking($existing, $fingerprint);
+        }
     }
 
     private function existingBooking(User $user, string $submissionKey): ?Booking
@@ -85,6 +85,8 @@ class CreateBooking
      */
     private function fingerprint(array $attributes): string
     {
+        unset($attributes['submission_key']);
+
         return hash('sha256', json_encode(
             $this->canonicalize($attributes),
             JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
