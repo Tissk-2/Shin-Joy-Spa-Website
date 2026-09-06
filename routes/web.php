@@ -1,9 +1,9 @@
 <?php
 
-use App\Http\Controllers\BookingController;
 use App\Http\Controllers\Auth\EmailVerificationNotificationController;
 use App\Http\Controllers\Auth\EmailVerificationPromptController;
 use App\Http\Controllers\Auth\VerifyEmailController;
+use App\Http\Controllers\BookingController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\ServiceController;
 use App\Models\User;
@@ -25,6 +25,10 @@ Route::get('/services/{slug}', [ServiceController::class, 'show'])
 Route::get('/booking', [BookingController::class, 'create'])
     ->middleware(['auth', 'verified'])
     ->name('booking');
+
+Route::post('/bookings', [BookingController::class, 'store'])
+    ->middleware(['auth', 'verified', 'throttle:booking-store'])
+    ->name('bookings.store');
 
 Route::redirect('/about', '/#about');
 
