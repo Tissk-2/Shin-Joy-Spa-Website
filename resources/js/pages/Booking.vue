@@ -42,6 +42,7 @@ const errorIds: Record<SubmittedField, string> = {
   extension: "booking-selection-error",
   submission_key: "booking-submit-error",
 };
+const selectionErrorFields = ["mode", "duration", "extension"] as const;
 
 const props = defineProps<{
   packages: PackageData[];
@@ -165,6 +166,16 @@ function fieldError(field: SubmittedField): string {
   if (field === "submission_key") return "";
   return translateError(localErrors.value[field as keyof BookingErrors]);
 }
+const selectionErrors = computed(() => {
+  const messages: string[] = [];
+  for (const field of selectionErrorFields) {
+    const message = fieldError(field);
+    if (message && !messages.includes(message)) {
+      messages.push(message);
+    }
+  }
+  return messages;
+});
 function describedBy(
   field: SubmittedField,
   extraIds: string[] = [],
@@ -202,9 +213,20 @@ function edit(): void {
 function confirm(): void {
   if (bookingForm.processing) return;
 
-  const payload = buildBookingSubmissionPayload(
-    bookingForm as BookingSubmissionInput,
-  );
+  const submissionInput: BookingSubmissionInput = {
+    name: bookingForm.name,
+    phone: bookingForm.phone,
+    service: bookingForm.service,
+    mode: bookingForm.mode,
+    duration: bookingForm.duration,
+    extension: bookingForm.extension,
+    date: bookingForm.date,
+    time: bookingForm.time,
+    guests: bookingForm.guests,
+    notes: bookingForm.notes,
+    submission_key: bookingForm.submission_key,
+  };
+  const payload = buildBookingSubmissionPayload(submissionInput);
   bookingForm
     .transform(() => payload)
     .post("/bookings", {
@@ -379,23 +401,26 @@ function confirm(): void {
                 v-if="servicePackage"
                 class="full"
                 role="group"
+                :aria-invalid="selectionErrors.length ? 'true' : undefined"
                 :aria-describedby="
-                  fieldError('mode') ||
-                  fieldError('duration') ||
-                  fieldError('extension')
-                    ? 'booking-selection-error'
-                    : undefined
+                  selectionErrors.length ? 'booking-selection-error' : undefined
                 "
               >
                 <PackageConfigurator
                   v-model="selected"
                   :service-package="servicePackage"
                   :show-booking-link="false"
-                /><span id="booking-selection-error" class="err">{{
-                  fieldError("mode") ||
-                  fieldError("duration") ||
-                  fieldError("extension")
-                }}</span>
+                />
+                <ul
+                  v-if="selectionErrors.length"
+                  id="booking-selection-error"
+                  class="err"
+                  role="list"
+                >
+                  <li v-for="message in selectionErrors" :key="message">
+                    {{ message }}
+                  </li>
+                </ul>
               </div>
               <div class="field">
                 <label for="f-date">{{ tr("b.fdate") }}</label

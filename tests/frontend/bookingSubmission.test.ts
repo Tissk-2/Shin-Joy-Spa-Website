@@ -354,6 +354,36 @@ describe("reviewed booking submission", () => {
     expect(inertia.forms.at(-1)?.submission_key).toBe(submissionKey);
   });
 
+  it("shows every distinct server selection error in the associated configuration group", async () => {
+    inertia.nextPostError = {
+      mode: "The selected treatment type is unavailable.",
+      duration: "The selected base duration is unavailable.",
+      extension: "The selected extension is unavailable.",
+    };
+    const wrapper = mountBooking();
+
+    await completeDetails(wrapper);
+    await wrapper.get("form").trigger("submit");
+    await wrapper.get("[data-booking-confirm]").trigger("click");
+    await wrapper.vm.$nextTick();
+
+    const selectionGroup = wrapper.get(
+      "[role='group'][aria-describedby='booking-selection-error']",
+    );
+    expect(selectionGroup.attributes("aria-describedby")).toContain(
+      "booking-selection-error",
+    );
+
+    const selectionErrors = wrapper
+      .findAll("#booking-selection-error li")
+      .map((item) => item.text());
+    expect(selectionErrors).toEqual([
+      "The selected treatment type is unavailable.",
+      "The selected base duration is unavailable.",
+      "The selected extension is unavailable.",
+    ]);
+  });
+
   it("disables review and confirmation controls while processing and ignores repeated confirm clicks", async () => {
     const wrapper = mountBooking();
 
