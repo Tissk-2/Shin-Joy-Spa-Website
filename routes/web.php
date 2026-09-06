@@ -26,9 +26,17 @@ Route::get('/booking', [BookingController::class, 'create'])
     ->middleware(['auth', 'verified'])
     ->name('booking');
 
+Route::get('/bookings', [BookingController::class, 'index'])
+    ->middleware(['auth', 'verified'])
+    ->name('bookings.index');
+
 Route::post('/bookings', [BookingController::class, 'store'])
     ->middleware(['auth', 'verified', 'throttle:booking-store'])
     ->name('bookings.store');
+
+Route::get('/bookings/{reference}', [BookingController::class, 'show'])
+    ->middleware(['auth', 'verified'])
+    ->name('bookings.show');
 
 Route::redirect('/about', '/#about');
 

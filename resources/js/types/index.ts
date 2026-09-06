@@ -5,6 +5,8 @@ export type Locale = "id" | "en";
 
 export type TreatmentMode = "regular" | "double_therapist";
 
+export type BookingStatus = "pending" | "confirmed" | "completed" | "cancelled";
+
 export interface PackageVariantData {
   code: string;
   mode: TreatmentMode;
@@ -37,6 +39,42 @@ export interface PackageData extends PackageLinkData {
   gallery: string[];
   variants: PackageVariantData[];
   extensions: PackageExtensionData[];
+}
+
+export interface BookingAppointmentData {
+  date: string;
+  time: string;
+  timezone: string;
+}
+
+export interface BookingSummaryData {
+  reference: string;
+  status: BookingStatus;
+  package: PackageLinkData;
+  treatmentMode: TreatmentMode;
+  appointment: BookingAppointmentData;
+  guests: number;
+  totalDurationMinutes: number;
+  totalPriceIdr: number;
+}
+
+export interface BookingCustomerData {
+  name: string;
+  email: string;
+  phone: string;
+}
+
+export interface BookingChoiceData {
+  choiceCode: string;
+  durationMinutes: number;
+  priceIdr: number;
+}
+
+export interface BookingDetailData extends BookingSummaryData {
+  customer: BookingCustomerData;
+  base: BookingChoiceData;
+  extension: BookingChoiceData | null;
+  notes: string | null;
 }
 
 export interface PublicUser {

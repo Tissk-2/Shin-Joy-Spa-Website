@@ -4,7 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Actions\CreateBooking;
 use App\Http\Requests\StoreBookingRequest;
+use App\Models\Booking;
 use App\Models\Service;
+use App\Support\BookingPresenter;
 use App\Support\BookingSelectionResolver;
 use App\Support\ServiceCatalogPresenter;
 use Illuminate\Http\RedirectResponse;
@@ -14,6 +16,17 @@ use Inertia\Response;
 
 class BookingController extends Controller
 {
+    public function index(Request $request, BookingPresenter $presenter): Response
+    {
+        $groups = $presenter->groupedIndex(
+            Booking::query()
+                ->where('user_id', $request->user()->id)
+                ->get()
+        );
+
+        return inertia('bookings/Index', $groups);
+    }
+
     public function create(Request $request, ServiceCatalogPresenter $presenter, BookingSelectionResolver $selectionResolver): Response
     {
         $services = Service::query()
@@ -36,5 +49,17 @@ class BookingController extends Controller
         $booking = $createBooking($request->user(), $request->validatedBookingData());
 
         return redirect('/bookings/'.$booking->reference, 303);
+    }
+
+    public function show(Request $request, BookingPresenter $presenter, string $reference): Response
+    {
+        $booking = Booking::query()
+            ->where('user_id', $request->user()->id)
+            ->where('reference', $reference)
+            ->firstOrFail();
+
+        return inertia('bookings/Show', [
+            'booking' => $presenter->detail($booking),
+        ]);
     }
 }
