@@ -7,9 +7,29 @@ export interface BookingFormInput extends ServiceSelection {
   phone: string;
   date: string;
   time: string;
+  guests: number;
+  notes: string;
 }
 
 export type BookingErrors = Partial<Record<keyof BookingFormInput, string>>;
+
+export interface BookingSubmissionInput extends BookingFormInput {
+  submission_key: string;
+}
+
+export interface BookingSubmissionPayload {
+  name: string;
+  phone: string;
+  service: string;
+  mode: string;
+  duration: number | null;
+  extension: string;
+  date: string;
+  time: string;
+  guests: number;
+  notes: string;
+  submission_key: string;
+}
 
 export const timeSlots = Object.freeze(
   Array.from({ length: 23 }, (_, index) => {
@@ -81,4 +101,22 @@ export function validateBooking(
     errors.date = "b.err.date";
   if (!timeSlots.includes(form.time)) errors.time = "b.err.time";
   return errors;
+}
+
+export function buildBookingSubmissionPayload(
+  input: BookingSubmissionInput,
+): BookingSubmissionPayload {
+  return {
+    name: input.name,
+    phone: input.phone,
+    service: input.service,
+    mode: input.mode,
+    duration: input.duration,
+    extension: input.extension,
+    date: input.date,
+    time: input.time,
+    guests: input.guests,
+    notes: input.notes,
+    submission_key: input.submission_key,
+  };
 }

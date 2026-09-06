@@ -20,12 +20,26 @@ const inertia = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("@inertiajs/vue3", () => ({
-  Head: "span",
-  Link: "a",
-  router: { post: vi.fn() },
-  usePage: () => inertia.page,
-}));
+vi.mock("@inertiajs/vue3", async () => {
+  const { reactive } = await import("vue");
+
+  return {
+    Head: "span",
+    Link: "a",
+    router: { post: vi.fn() },
+    usePage: () => inertia.page,
+    useForm: (initial: Record<string, unknown>) =>
+      reactive({
+        ...initial,
+        errors: {},
+        processing: false,
+        transform: vi.fn(function (this: { post: ReturnType<typeof vi.fn> }) {
+          return this;
+        }),
+        post: vi.fn(),
+      }),
+  };
+});
 
 const packages: PackageData[] = [
   {
@@ -399,7 +413,11 @@ describe("authenticated package booking", () => {
       },
     ];
     const wrapper = mount(Booking, {
-      props: { packages: bookingPackages, selection: configured },
+      props: {
+        packages: bookingPackages,
+        selection: configured,
+        submissionKey: "018f2f7c-9d0a-7b1b-9a45-3c1f9d0b5a10",
+      },
     });
     expect(wrapper.get<HTMLInputElement>("#f-email").element.readOnly).toBe(
       true,
@@ -423,10 +441,10 @@ describe("authenticated package booking", () => {
     await wrapper.get('button[data-mode="regular"]').trigger("click");
     await wrapper.get('button[data-duration="90"]').trigger("click");
     await wrapper.get('input[value="nezuko-regular-extra-60"]').setValue(true);
-    await wrapper.get<HTMLInputElement>("#f-date").setValue("2026-09-05");
+    await wrapper.get<HTMLInputElement>("#f-date").setValue("2099-09-06");
     await wrapper.get<HTMLSelectElement>("#f-time").setValue("09:00");
     await wrapper.get("form").trigger("submit");
-    expect(wrapper.text()).toContain("No reservation has been created yet");
+    expect(wrapper.text()).toContain("No reservation has been submitted yet");
     expect(wrapper.text()).toContain("Edit details");
     expect(wrapper.text()).toContain("Base duration");
     expect(wrapper.text()).toContain("Extension");
