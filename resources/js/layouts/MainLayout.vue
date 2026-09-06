@@ -314,9 +314,7 @@ onUnmounted(() => {
           <Link
             class="btn btn--primary"
             href="/booking"
-            :aria-current="
-              currentUrl.path.startsWith('/booking') ? 'page' : undefined
-            "
+            :aria-current="currentUrl.path === '/booking' ? 'page' : undefined"
             @click="setMenu(false, false)"
           >
             {{ tr("nav.book") }}
@@ -357,6 +355,15 @@ onUnmounted(() => {
               class="account-menu"
             >
               <p class="account-menu__name">{{ currentUser?.name }}</p>
+              <Link
+                href="/bookings"
+                :aria-current="
+                  currentUrl.path.startsWith('/bookings') ? 'page' : undefined
+                "
+                @click="setAccountMenu(false, false)"
+              >
+                {{ tr("nav.bookings") }}
+              </Link>
               <Link href="/profile" @click="setAccountMenu(false, false)">
                 {{ tr("nav.profile") }}
               </Link>

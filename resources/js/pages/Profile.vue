@@ -46,42 +46,17 @@ const account = computed(() => page.props.auth.user);
           </dl>
         </aside>
 
-        <div>
-          <section
-            class="history-section"
-            aria-labelledby="upcoming-history-title"
-          >
-            <div class="history-section__header">
-              <div>
-                <p class="eyebrow">{{ tr("profile.statusUpcoming") }}</p>
-                <h2 id="upcoming-history-title">
-                  {{ tr("profile.upcoming") }}
-                </h2>
-              </div>
-            </div>
-            <p class="history-empty">
-              {{ tr("profile.emptyUpcoming") }}
-              <Link class="ulink" href="/booking">{{
-                tr("profile.emptyAction")
-              }}</Link>
-            </p>
-          </section>
-
-          <section class="history-section" aria-labelledby="past-history-title">
-            <div class="history-section__header">
-              <div>
-                <p class="eyebrow">{{ tr("profile.statusPast") }}</p>
-                <h2 id="past-history-title">{{ tr("profile.past") }}</h2>
-              </div>
-            </div>
-            <p class="history-empty">
-              {{ tr("profile.emptyPast") }}
-              <Link class="ulink" href="/booking">{{
-                tr("profile.emptyAction")
-              }}</Link>
-            </p>
-          </section>
-        </div>
+        <section class="history-section" aria-labelledby="booking-history-link">
+          <div class="history-section__header">
+            <h2 id="booking-history-link">{{ tr("profile.bookingsTitle") }}</h2>
+          </div>
+          <p class="history-empty history-empty--left">
+            <span>{{ tr("profile.bookingsBody") }}</span>
+            <Link class="ulink" href="/bookings">{{
+              tr("profile.bookingsAction")
+            }}</Link>
+          </p>
+        </section>
       </div>
     </section>
   </MainLayout>

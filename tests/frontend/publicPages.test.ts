@@ -14,6 +14,8 @@ describe("Laravel-owned public pages", () => {
       "Home.vue",
       "ServiceDetail.vue",
       "Booking.vue",
+      "bookings/Index.vue",
+      "bookings/Show.vue",
       "Profile.vue",
     ]) {
       const source = readPage(name);
@@ -57,6 +59,8 @@ describe("Laravel-owned public pages", () => {
       "Home.vue",
       "ServiceDetail.vue",
       "Booking.vue",
+      "bookings/Index.vue",
+      "bookings/Show.vue",
       "Profile.vue",
       "../layouts/MainLayout.vue",
       "../components/PackageConfigurator.vue",
