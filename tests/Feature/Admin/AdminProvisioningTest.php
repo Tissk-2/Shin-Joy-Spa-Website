@@ -6,6 +6,7 @@ use App\Enums\UserRole;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class AdminProvisioningTest extends TestCase
@@ -158,5 +159,63 @@ class AdminProvisioningTest extends TestCase
             ->assertFailed();
 
         $this->assertSame(UserRole::Admin, $admin->refresh()->role);
+    }
+
+    public function test_revoke_retains_its_concurrency_safety_contract(): void
+    {
+        User::factory()->admin()->create();
+        $target = User::factory()->admin()->create(['email' => 'locked@example.com']);
+        $baselineTransactionLevel = DB::transactionLevel();
+        $transactionLevelAtRoleUpdate = null;
+
+        User::updating(function (User $user) use (&$transactionLevelAtRoleUpdate): void {
+            if ($user->isDirty('role')) {
+                $transactionLevelAtRoleUpdate = DB::transactionLevel();
+            }
+        });
+
+        DB::enableQueryLog();
+
+        $this->artisan('admin:revoke', ['email' => $target->email, '--yes' => true])
+            ->assertSuccessful();
+
+        $queries = array_column(DB::getQueryLog(), 'query');
+        $administratorQueryIndex = $this->firstQueryIndexContaining(
+            $queries,
+            'select "id" from "users" where "role" = ? order by "id" asc',
+        );
+        $targetRereadQueryIndex = $this->firstQueryIndexContaining(
+            $queries,
+            'select * from "users" where "users"."id" = ? limit 1',
+        );
+        $roleUpdateQueryIndex = $this->firstQueryIndexContaining(
+            $queries,
+            'update "users" set "role" = ?, "updated_at" = ?',
+        );
+
+        $this->assertSame($baselineTransactionLevel + 1, $transactionLevelAtRoleUpdate);
+        $this->assertLessThan($targetRereadQueryIndex, $administratorQueryIndex);
+        $this->assertLessThan($roleUpdateQueryIndex, $targetRereadQueryIndex);
+
+        $source = file_get_contents(app_path('Console/Commands/RevokeAdmin.php'));
+
+        $this->assertIsString($source);
+        $this->assertGreaterThanOrEqual(2, substr_count($source, '->lockForUpdate()'));
+        $this->assertStringContainsString('}, 3);', $source);
+        $this->assertStringContainsString('if ($adminIds->count() <= 1)', $source);
+    }
+
+    /**
+     * @param  list<string>  $queries
+     */
+    private function firstQueryIndexContaining(array $queries, string $fragment): int
+    {
+        foreach ($queries as $index => $query) {
+            if (str_contains($query, $fragment)) {
+                return $index;
+            }
+        }
+
+        $this->fail("Expected query fragment was not executed: {$fragment}");
     }
 }
