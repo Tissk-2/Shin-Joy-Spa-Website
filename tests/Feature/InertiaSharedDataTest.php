@@ -51,6 +51,23 @@ class InertiaSharedDataTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page->where('auth.canAccessAdmin', true));
     }
 
+    public function test_admin_access_shared_prop_uses_the_current_database_role_after_session_revocation(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $this->actingAs($admin);
+
+        DB::table('users')->where('id', $admin->id)->update([
+            'role' => UserRole::Customer->value,
+        ]);
+
+        $this->assertTrue($admin->isAdmin(), 'The authenticated model must remain stale for this regression test.');
+
+        $this->get(route('home'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('auth.canAccessAdmin', false));
+    }
+
     // Production break caught: shared links must not make inactive or unbookable packages visible in the footer contract.
     public function test_shared_catalog_contains_only_compact_visible_package_links(): void
     {

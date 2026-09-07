@@ -37,7 +37,7 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
-        $user = $request->user();
+        $user = $request->user()?->fresh();
         $presenter = app(ServiceCatalogPresenter::class);
 
         return [

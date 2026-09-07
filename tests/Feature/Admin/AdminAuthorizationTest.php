@@ -92,6 +92,85 @@ class AdminAuthorizationTest extends TestCase
         }
     }
 
+    public function test_guest_cannot_distinguish_existing_and_missing_booking_references(): void
+    {
+        $booking = Booking::factory()->create(['customer_name' => self::CANARY]);
+
+        $existingResponse = $this->get("/admin/bookings/{$booking->reference}");
+        $missingResponse = $this->get('/admin/bookings/SJ-NONEXISTENT');
+
+        foreach ([$existingResponse, $missingResponse] as $response) {
+            $response->assertRedirect(route('login', absolute: false));
+            $this->assertStringNotContainsString(self::CANARY, $response->getContent());
+        }
+
+        $this->assertSame($existingResponse->getStatusCode(), $missingResponse->getStatusCode());
+    }
+
+    public function test_unverified_admin_cannot_distinguish_existing_and_missing_booking_references(): void
+    {
+        $admin = User::factory()->admin()->unverified()->create();
+        $booking = Booking::factory()->create(['customer_name' => self::CANARY]);
+
+        $existingResponse = $this->actingAs($admin)->get("/admin/bookings/{$booking->reference}");
+        $missingResponse = $this->get('/admin/bookings/SJ-NONEXISTENT');
+
+        foreach ([$existingResponse, $missingResponse] as $response) {
+            $response->assertRedirect(route('verification.notice', absolute: false));
+            $this->assertStringNotContainsString(self::CANARY, $response->getContent());
+        }
+
+        $this->assertSame($existingResponse->getStatusCode(), $missingResponse->getStatusCode());
+    }
+
+    public function test_verified_customer_cannot_distinguish_existing_and_missing_booking_references(): void
+    {
+        $customer = User::factory()->create();
+        $booking = Booking::factory()->create(['customer_name' => self::CANARY]);
+
+        $existingResponse = $this->actingAs($customer)->get("/admin/bookings/{$booking->reference}");
+        $missingResponse = $this->get('/admin/bookings/SJ-NONEXISTENT');
+
+        foreach ([$existingResponse, $missingResponse] as $response) {
+            $response->assertForbidden();
+            $this->assertStringNotContainsString(self::CANARY, $response->getContent());
+        }
+
+        $this->assertSame($existingResponse->getStatusCode(), $missingResponse->getStatusCode());
+    }
+
+    public function test_stale_session_revoked_admin_cannot_distinguish_existing_and_missing_booking_references(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $booking = Booking::factory()->create(['customer_name' => self::CANARY]);
+        $this->actingAs($admin);
+
+        DB::table('users')->where('id', $admin->id)->update([
+            'role' => UserRole::Customer->value,
+        ]);
+
+        $this->assertTrue($admin->isAdmin(), 'The authenticated model must remain stale for this regression test.');
+
+        $existingResponse = $this->get("/admin/bookings/{$booking->reference}");
+        $missingResponse = $this->get('/admin/bookings/SJ-NONEXISTENT');
+
+        foreach ([$existingResponse, $missingResponse] as $response) {
+            $response->assertForbidden();
+            $this->assertStringNotContainsString(self::CANARY, $response->getContent());
+        }
+
+        $this->assertSame($existingResponse->getStatusCode(), $missingResponse->getStatusCode());
+    }
+
+    public function test_verified_admin_receives_not_found_for_a_missing_booking_reference(): void
+    {
+        $admin = User::factory()->admin()->create();
+
+        $this->actingAs($admin)
+            ->get('/admin/bookings/SJ-NONEXISTENT')
+            ->assertNotFound();
+    }
+
     public function test_booking_policy_allows_only_verified_admins(): void
     {
         $policy = new BookingPolicy;
