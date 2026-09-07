@@ -7,43 +7,14 @@ use Database\Factories\BookingFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Booking extends Model
 {
     /** @use HasFactory<BookingFactory> */
     use HasFactory;
 
-    protected $fillable = [
-        'user_id',
-        'service_id',
-        'service_variant_id',
-        'service_extension_id',
-        'reference',
-        'submission_key',
-        'request_fingerprint',
-        'status',
-        'customer_name',
-        'customer_email',
-        'customer_phone',
-        'appointment_date',
-        'appointment_time',
-        'appointment_timezone',
-        'guests',
-        'notes',
-        'package_slug',
-        'package_name_id',
-        'package_name_en',
-        'package_is_vip',
-        'treatment_mode',
-        'base_choice_code',
-        'base_duration_minutes',
-        'base_price_idr',
-        'extension_choice_code',
-        'extension_duration_minutes',
-        'extension_price_idr',
-        'total_duration_minutes',
-        'total_price_idr',
-    ];
+    protected $guarded = ['*'];
 
     protected function casts(): array
     {
@@ -64,6 +35,18 @@ class Booking extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function getRouteKeyName(): string
+    {
+        return 'reference';
+    }
+
+    public function statusChanges(): HasMany
+    {
+        return $this->hasMany(BookingStatusChange::class)
+            ->orderBy('created_at')
+            ->orderBy('id');
     }
 
     public function service(): BelongsTo

@@ -35,7 +35,7 @@ class CreateBooking
 
                 $bookingAttributes = $this->quoteResolver->resolve($user, $data)->bookingAttributes();
 
-                return Booking::query()->create([
+                return Booking::query()->forceCreate([
                     'user_id' => $user->id,
                     'reference' => $this->reference(),
                     'submission_key' => (string) $data['submission_key'],
