@@ -11,6 +11,7 @@ use App\Models\ServiceExtension;
 use App\Models\ServiceVariant;
 use App\Models\User;
 use Illuminate\Database\QueryException;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -34,6 +35,32 @@ class BookingSchemaTest extends TestCase
         $this->assertSame(
             ['pending', 'confirmed', 'completed', 'cancelled'],
             array_map(fn (BookingStatus $status) => $status->value, BookingStatus::cases()),
+        );
+    }
+
+    // Production break caught: MySQL and PostgreSQL grammars must receive scalar enum values, not PHP enum objects.
+    public function test_booking_migration_passes_scalar_status_values_to_the_schema_blueprint(): void
+    {
+        $allowedStatuses = null;
+
+        Schema::shouldReceive('create')
+            ->once()
+            ->with('bookings', \Mockery::on(function (\Closure $callback) use (&$allowedStatuses): bool {
+                $blueprint = new Blueprint(DB::connection(), 'bookings', $callback);
+                $statusColumn = collect($blueprint->getColumns())
+                    ->firstWhere('name', 'status');
+
+                $allowedStatuses = $statusColumn?->allowed;
+
+                return true;
+            }));
+
+        $migration = require database_path('migrations/2026_09_05_000000_create_bookings_table.php');
+        $migration->up();
+
+        $this->assertSame(
+            ['pending', 'confirmed', 'completed', 'cancelled'],
+            $allowedStatuses,
         );
     }
 
