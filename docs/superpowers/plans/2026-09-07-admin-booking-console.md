@@ -235,6 +235,8 @@ git commit -m "feat: add explicit user roles"
 
 ### Task 2: Add safe administrator provisioning commands
 
+Completed on 2026-09-07. The command-focused suite passed with 12 tests and 54 assertions; the full Laravel suite passed with 190 tests and 1,550 assertions. Scoped Pint, command discovery, `git diff --check`, and independent code/security review passed. The review-driven concurrency regression test covers the transactional update order and preserves guards for the lock/retry contract that SQLite cannot expose in generated SQL. PHP coverage remains blocked because this environment has no Xdebug or PCOV driver.
+
 **Files:**
 
 - Create: `app/Console/Commands/GrantAdmin.php`
