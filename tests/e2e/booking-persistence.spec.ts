@@ -152,6 +152,7 @@ test("verified customers persist one booking and cannot view another customer's 
   const postResponse = await postResponsePromise;
   expect(postResponse.status()).toBe(303);
   await expect(page).toHaveURL(/\/bookings\/SJ-/);
+  expect(bookingPostRequestsOnly(bookingPostRequests)).toHaveLength(1);
 
   const reference = new URL(page.url()).pathname.split("/").pop() ?? "";
   expect(reference).toMatch(bookingReferencePattern);
