@@ -5,19 +5,41 @@ namespace App\Http\Controllers\Admin;
 use App\Actions\TransitionBookingStatus;
 use App\Enums\BookingStatus;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\AdminBookingIndexRequest;
 use App\Http\Requests\Admin\UpdateBookingStatusRequest;
 use App\Models\Booking;
+use App\Queries\AdminBookingIndexQuery;
+use App\Support\AdminBookingPresenter;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Response;
 
 final class AdminBookingController extends Controller
 {
-    public function index(): Response
-    {
-        Gate::authorize('viewAny', Booking::class);
+    public function index(
+        AdminBookingIndexRequest $request,
+        AdminBookingIndexQuery $query,
+        AdminBookingPresenter $presenter,
+    ): Response {
+        $filters = $request->filters();
+        $now = CarbonImmutable::now('Asia/Jakarta');
+        $paginator = $query->paginate($filters, $now);
 
-        return inertia('admin/bookings/Index');
+        $request->session()->put(
+            'admin.bookings.index_url',
+            route(
+                'admin.bookings.index',
+                array_filter($filters, fn ($value): bool => $value !== null && $value !== ''),
+                false,
+            ),
+        );
+
+        return inertia('admin/bookings/Index', [
+            'counts' => $query->counts($now),
+            'filters' => $filters,
+            'bookings' => $presenter->pagination($paginator),
+        ]);
     }
 
     public function show(Booking $booking): Response
