@@ -27,11 +27,14 @@ return [
         ],
     ],
     'attributes' => [
+        'currentStatus' => 'Status saat ini',
         'email' => 'Email',
         'locale' => 'Bahasa',
         'name' => 'Nama',
+        'nextStatus' => 'Status berikutnya',
         'password' => 'Kata sandi',
         'password_confirmation' => 'Konfirmasi kata sandi',
         'phone' => 'Nomor telepon',
+        'reason' => 'Alasan',
     ],
 ];

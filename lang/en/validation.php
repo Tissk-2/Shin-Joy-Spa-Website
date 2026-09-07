@@ -27,11 +27,14 @@ return [
         ],
     ],
     'attributes' => [
+        'currentStatus' => 'current status',
         'email' => 'email',
         'locale' => 'locale',
         'name' => 'name',
+        'nextStatus' => 'next status',
         'password' => 'password',
         'password_confirmation' => 'password confirmation',
         'phone' => 'phone number',
+        'reason' => 'reason',
     ],
 ];

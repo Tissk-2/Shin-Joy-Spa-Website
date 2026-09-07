@@ -4,6 +4,7 @@ namespace Tests\Feature\Admin;
 
 use App\Actions\TransitionBookingStatus;
 use App\Enums\BookingStatus;
+use App\Enums\UserRole;
 use App\Models\Booking;
 use App\Models\BookingStatusChange;
 use App\Models\User;
@@ -298,6 +299,226 @@ class AdminBookingStatusTest extends TestCase
         ]);
     }
 
+    // Production break caught: the endpoint must pass only validated status data to the transition action.
+    public function test_admin_can_apply_an_allowed_transition_through_the_http_boundary(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $booking = Booking::factory()->create([
+            'status' => BookingStatus::Pending,
+            'total_price_idr' => 265000,
+        ]);
+
+        $this->actingAs($admin)->patch(route('admin.bookings.status.update', $booking), [
+            'currentStatus' => 'pending',
+            'nextStatus' => 'confirmed',
+            'reason' => '  Confirmed by WhatsApp.  ',
+            'total_price_idr' => 1,
+            'role' => UserRole::Customer->value,
+        ])->assertRedirect(route('admin.bookings.show', $booking, absolute: false))
+            ->assertStatus(303)
+            ->assertSessionHas('status', 'Status reservasi berhasil diperbarui.');
+
+        $this->assertSame(BookingStatus::Confirmed, $booking->fresh()->status);
+        $this->assertSame(265000, $booking->fresh()->total_price_idr);
+        $this->assertSame(UserRole::Admin, $admin->fresh()->role);
+        $this->assertDatabaseHas('booking_status_changes', [
+            'booking_id' => $booking->id,
+            'admin_user_id' => $admin->id,
+            'reason' => 'Confirmed by WhatsApp.',
+        ]);
+    }
+
+    /**
+     * @param  array{currentStatus: string, nextStatus: string}  $payload
+     */
+    #[DataProvider('invalidEnumPayloads')]
+    public function test_invalid_enum_strings_are_rejected_at_the_http_boundary(
+        array $payload,
+        string $invalidField,
+    ): void {
+        $admin = User::factory()->admin()->create();
+        $booking = Booking::factory()->create(['status' => BookingStatus::Pending]);
+
+        $this->actingAs($admin)
+            ->from(route('admin.bookings.show', $booking, absolute: false))
+            ->patch(route('admin.bookings.status.update', $booking), $payload)
+            ->assertRedirect(route('admin.bookings.show', $booking, absolute: false))
+            ->assertSessionHasErrors($invalidField);
+
+        $this->assertSame(BookingStatus::Pending, $booking->fresh()->status);
+        $this->assertDatabaseCount('booking_status_changes', 0);
+    }
+
+    #[DataProvider('invalidTransitions')]
+    public function test_invalid_lifecycle_transition_is_rejected_at_the_http_boundary(
+        BookingStatus $from,
+        BookingStatus $to,
+    ): void {
+        $admin = User::factory()->admin()->create();
+        $booking = Booking::factory()->create(['status' => $from]);
+
+        $this->actingAs($admin)
+            ->from(route('admin.bookings.show', $booking, absolute: false))
+            ->patch(route('admin.bookings.status.update', $booking), [
+                'currentStatus' => $from->value,
+                'nextStatus' => $to->value,
+                'reason' => null,
+            ])
+            ->assertRedirect(route('admin.bookings.show', $booking, absolute: false))
+            ->assertSessionHasErrors('nextStatus');
+
+        $this->assertSame($from, $booking->fresh()->status);
+        $this->assertDatabaseCount('booking_status_changes', 0);
+    }
+
+    public function test_blank_reason_is_normalized_to_null(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $booking = Booking::factory()->create(['status' => BookingStatus::Pending]);
+
+        $this->actingAs($admin)->patch(route('admin.bookings.status.update', $booking), [
+            'currentStatus' => 'pending',
+            'nextStatus' => 'cancelled',
+            'reason' => " \t\n ",
+        ])->assertStatus(303);
+
+        $this->assertDatabaseHas('booking_status_changes', [
+            'booking_id' => $booking->id,
+            'reason' => null,
+        ]);
+    }
+
+    public function test_reason_longer_than_500_characters_is_rejected_without_an_audit(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $booking = Booking::factory()->create(['status' => BookingStatus::Pending]);
+
+        $this->actingAs($admin)
+            ->from(route('admin.bookings.show', $booking, absolute: false))
+            ->patch(route('admin.bookings.status.update', $booking), [
+                'currentStatus' => 'pending',
+                'nextStatus' => 'confirmed',
+                'reason' => str_repeat('A', 501),
+            ])
+            ->assertRedirect(route('admin.bookings.show', $booking, absolute: false))
+            ->assertSessionHasErrors('reason');
+
+        $this->assertSame(BookingStatus::Pending, $booking->fresh()->status);
+        $this->assertDatabaseCount('booking_status_changes', 0);
+    }
+
+    public function test_stale_http_transition_returns_a_field_error_without_an_audit(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $booking = Booking::factory()->create(['status' => BookingStatus::Confirmed]);
+
+        $this->actingAs($admin)
+            ->from(route('admin.bookings.show', $booking, absolute: false))
+            ->patch(route('admin.bookings.status.update', $booking), [
+                'currentStatus' => 'pending',
+                'nextStatus' => 'cancelled',
+                'reason' => null,
+            ])
+            ->assertRedirect(route('admin.bookings.show', $booking, absolute: false))
+            ->assertSessionHasErrors([
+                'currentStatus' => 'Status reservasi ini telah berubah. Muat ulang halaman lalu coba lagi.',
+            ]);
+
+        $this->assertSame(BookingStatus::Confirmed, $booking->fresh()->status);
+        $this->assertDatabaseCount('booking_status_changes', 0);
+    }
+
+    public function test_guest_is_redirected_before_status_route_model_binding(): void
+    {
+        $booking = Booking::factory()->create(['status' => BookingStatus::Pending]);
+
+        foreach ([$booking->reference, 'SJ-NONEXISTENT'] as $reference) {
+            $this->patch("/admin/bookings/{$reference}/status", $this->validHttpPayload())
+                ->assertRedirect(route('login', absolute: false));
+        }
+
+        $this->assertSame(BookingStatus::Pending, $booking->fresh()->status);
+        $this->assertDatabaseCount('booking_status_changes', 0);
+    }
+
+    public function test_unverified_admin_is_redirected_before_status_route_model_binding(): void
+    {
+        $admin = User::factory()->admin()->unverified()->create();
+        $booking = Booking::factory()->create(['status' => BookingStatus::Pending]);
+
+        foreach ([$booking->reference, 'SJ-NONEXISTENT'] as $reference) {
+            $this->actingAs($admin)
+                ->patch("/admin/bookings/{$reference}/status", $this->validHttpPayload())
+                ->assertRedirect(route('verification.notice', absolute: false));
+        }
+
+        $this->assertSame(BookingStatus::Pending, $booking->fresh()->status);
+        $this->assertDatabaseCount('booking_status_changes', 0);
+    }
+
+    public function test_verified_customer_is_forbidden_before_status_route_model_binding(): void
+    {
+        $customer = User::factory()->create();
+        $booking = Booking::factory()->create(['status' => BookingStatus::Pending]);
+
+        foreach ([$booking->reference, 'SJ-NONEXISTENT'] as $reference) {
+            $this->actingAs($customer)
+                ->patch("/admin/bookings/{$reference}/status", [
+                    ...$this->validHttpPayload(),
+                    'role' => UserRole::Admin->value,
+                ])
+                ->assertForbidden();
+        }
+
+        $this->assertSame(UserRole::Customer, $customer->fresh()->role);
+        $this->assertSame(BookingStatus::Pending, $booking->fresh()->status);
+        $this->assertDatabaseCount('booking_status_changes', 0);
+    }
+
+    public function test_thirty_first_status_request_for_an_admin_and_ip_is_rate_limited(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $booking = Booking::factory()->create(['status' => BookingStatus::Pending]);
+        $payload = $this->invalidHttpPayload();
+
+        for ($attempt = 1; $attempt <= 30; $attempt++) {
+            $this->actingAs($admin)
+                ->withServerVariables(['REMOTE_ADDR' => '203.0.113.30'])
+                ->patch(route('admin.bookings.status.update', $booking), $payload)
+                ->assertSessionHasErrors('nextStatus');
+        }
+
+        $this->actingAs($admin)
+            ->withServerVariables(['REMOTE_ADDR' => '203.0.113.30'])
+            ->patch(route('admin.bookings.status.update', $booking), $payload)
+            ->assertTooManyRequests();
+
+        $this->assertSame(BookingStatus::Pending, $booking->fresh()->status);
+        $this->assertDatabaseCount('booking_status_changes', 0);
+    }
+
+    public function test_one_hundred_and_first_status_request_from_an_ip_is_rate_limited(): void
+    {
+        $admins = User::factory()->count(5)->admin()->create();
+        $booking = Booking::factory()->create(['status' => BookingStatus::Pending]);
+        $payload = $this->invalidHttpPayload();
+
+        for ($attempt = 0; $attempt < 100; $attempt++) {
+            $this->actingAs($admins[$attempt % 4])
+                ->withServerVariables(['REMOTE_ADDR' => '203.0.113.100'])
+                ->patch(route('admin.bookings.status.update', $booking), $payload)
+                ->assertSessionHasErrors('nextStatus');
+        }
+
+        $this->actingAs($admins[4])
+            ->withServerVariables(['REMOTE_ADDR' => '203.0.113.100'])
+            ->patch(route('admin.bookings.status.update', $booking), $payload)
+            ->assertTooManyRequests();
+
+        $this->assertSame(BookingStatus::Pending, $booking->fresh()->status);
+        $this->assertDatabaseCount('booking_status_changes', 0);
+    }
+
     /**
      * @return array<string, array{BookingStatus, BookingStatus}>
      */
@@ -329,6 +550,47 @@ class AdminBookingStatusTest extends TestCase
             'cancelled to confirmed' => [BookingStatus::Cancelled, BookingStatus::Confirmed],
             'cancelled to completed' => [BookingStatus::Cancelled, BookingStatus::Completed],
             'cancelled to cancelled' => [BookingStatus::Cancelled, BookingStatus::Cancelled],
+        ];
+    }
+
+    /**
+     * @return array<string, array{array{currentStatus: string, nextStatus: string}, string}>
+     */
+    public static function invalidEnumPayloads(): array
+    {
+        return [
+            'invalid current status' => [
+                ['currentStatus' => 'scheduled', 'nextStatus' => 'confirmed'],
+                'currentStatus',
+            ],
+            'invalid next status' => [
+                ['currentStatus' => 'pending', 'nextStatus' => 'scheduled'],
+                'nextStatus',
+            ],
+        ];
+    }
+
+    /**
+     * @return array{currentStatus: string, nextStatus: string, reason: null}
+     */
+    private function validHttpPayload(): array
+    {
+        return [
+            'currentStatus' => 'pending',
+            'nextStatus' => 'confirmed',
+            'reason' => null,
+        ];
+    }
+
+    /**
+     * @return array{currentStatus: string, nextStatus: string, reason: null}
+     */
+    private function invalidHttpPayload(): array
+    {
+        return [
+            'currentStatus' => 'pending',
+            'nextStatus' => 'scheduled',
+            'reason' => null,
         ];
     }
 }

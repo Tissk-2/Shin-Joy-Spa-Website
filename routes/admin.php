@@ -11,5 +11,8 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
         Route::redirect('/', '/admin/bookings')->name('index');
         Route::get('/bookings', [AdminBookingController::class, 'index'])->name('bookings.index');
         Route::get('/bookings/{booking:reference}', [AdminBookingController::class, 'show'])->name('bookings.show');
+        Route::patch('/bookings/{booking:reference}/status', [AdminBookingController::class, 'updateStatus'])
+            ->middleware('throttle:admin-booking-status')
+            ->name('bookings.status.update');
     });
 });
