@@ -813,6 +813,8 @@ git commit -m "feat: audit booking status transitions"
 
 ### Task 5: Add the validated and throttled status endpoint
 
+Completed on 2026-09-07. The focused endpoint suite passed with 55 tests and 671 assertions; the regression set passed with 66 tests and 975 assertions; the full Laravel suite passed with 263 tests and 2,381 assertions. Scoped Pint, route inspection, `git diff --check`, and independent security re-review passed. Review-driven fixes ensure denied customers and unverified administrators cannot consume the admin status limiter, preserve the web CSRF middleware contract, prove customer pages exclude audit metadata, and reject non-scalar status payloads without writes. PHP coverage remains blocked because this environment has no Xdebug or PCOV driver.
+
 **Files:**
 
 - Create: `app/Http/Requests/Admin/UpdateBookingStatusRequest.php`
