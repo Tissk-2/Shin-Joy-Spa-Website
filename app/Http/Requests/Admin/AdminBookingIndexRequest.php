@@ -6,6 +6,7 @@ use App\Enums\BookingStatus;
 use App\Models\Booking;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 final class AdminBookingIndexRequest extends FormRequest
 {
@@ -30,6 +31,23 @@ final class AdminBookingIndexRequest extends FormRequest
             ],
             'page' => ['sometimes', 'integer', 'min:1'],
         ];
+    }
+
+    /** @return list<callable> */
+    public function after(): array
+    {
+        return [function (Validator $validator): void {
+            $unknownFields = array_diff(
+                array_keys($this->query->all()),
+                array_keys($validator->getRules()),
+            );
+
+            foreach ($unknownFields as $field) {
+                $validator->errors()->add((string) $field, trans('validation.prohibited', [
+                    'attribute' => str_replace('_', ' ', (string) $field),
+                ]));
+            }
+        }];
     }
 
     /**

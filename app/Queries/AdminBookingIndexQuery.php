@@ -40,7 +40,10 @@ final class AdminBookingIndexQuery
             ->orderBy('appointment_time', $direction)
             ->orderBy('id', $direction)
             ->paginate(20)
-            ->withQueryString();
+            ->appends(array_filter(
+                $filters,
+                fn ($value): bool => $value !== null && $value !== '',
+            ));
     }
 
     /** @return array{today: int, pending: int, confirmed: int, completed: int} */

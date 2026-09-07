@@ -5,6 +5,7 @@ namespace Tests\Feature\Admin;
 use App\Enums\BookingStatus;
 use App\Models\Booking;
 use App\Models\User;
+use App\Queries\AdminBookingIndexQuery;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -273,6 +274,19 @@ class AdminBookingIndexTest extends TestCase
         yield 'query length' => ['q='.str_repeat('a', 101), 'q'];
     }
 
+    // Production break caught: fields outside the six-key query contract must receive normal validation errors.
+    public function test_unknown_query_fields_are_rejected(): void
+    {
+        $this->actingAs($this->admin)
+            ->from('/admin/bookings')
+            ->get('/admin/bookings?'.http_build_query([
+                'scope' => 'all',
+                'redirect' => 'https://attacker.example/redirect',
+            ]))
+            ->assertRedirect('/admin/bookings')
+            ->assertSessionHasErrors('redirect');
+    }
+
     // Production break caught: pages must contain 20 items and retain every active validated filter.
     public function test_pagination_uses_twenty_rows_plain_labels_and_preserved_query_strings(): void
     {
@@ -316,6 +330,44 @@ class AdminBookingIndexTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page
                 ->has('bookings.data', 1)
                 ->where('bookings.currentPage', 2));
+    }
+
+    // Production break caught: the query object must never copy arbitrary request input into generated links.
+    public function test_pagination_links_contain_only_validated_filters_and_paginator_page(): void
+    {
+        Booking::factory()->count(21)->create([
+            'status' => BookingStatus::Confirmed,
+            'customer_name' => 'Ayu Page',
+            'appointment_date' => '2026-09-07',
+            'appointment_time' => '13:00',
+        ]);
+        $this->app['request']->query->replace([
+            'scope' => 'all',
+            'status' => 'confirmed',
+            'q' => 'Ayu',
+            'dateFrom' => '2026-09-07',
+            'dateTo' => '2026-09-07',
+            'redirect' => 'https://attacker.example/redirect',
+            'page' => 1,
+        ]);
+
+        $paginator = (new AdminBookingIndexQuery)->paginate([
+            'scope' => 'all',
+            'status' => 'confirmed',
+            'q' => 'Ayu',
+            'dateFrom' => '2026-09-07',
+            'dateTo' => '2026-09-07',
+        ], CarbonImmutable::now('Asia/Jakarta'));
+        parse_str((string) parse_url((string) $paginator->nextPageUrl(), PHP_URL_QUERY), $parameters);
+
+        $this->assertSame([
+            'scope' => 'all',
+            'status' => 'confirmed',
+            'q' => 'Ayu',
+            'dateFrom' => '2026-09-07',
+            'dateTo' => '2026-09-07',
+            'page' => '2',
+        ], $parameters);
     }
 
     // Production break caught: summaries must expose every approved field and no model internals.
@@ -397,7 +449,6 @@ class AdminBookingIndexTest extends TestCase
                 'q' => 'Ayu',
                 'dateFrom' => '2026-09-07',
                 'dateTo' => '2026-09-08',
-                'redirect' => 'https://attacker.example/redirect',
                 'page' => 4,
             ]));
 
