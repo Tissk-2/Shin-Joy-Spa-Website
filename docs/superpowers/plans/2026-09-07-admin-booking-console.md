@@ -962,6 +962,8 @@ git commit -m "feat: add secure booking status endpoint"
 
 ### Task 6: Build the admin booking index backend
 
+Completed on 2026-09-08. The focused index and authorization suites passed with 38 tests and 341 assertions; the full Laravel suite passed with 288 tests and 2,630 assertions. Scoped Pint, route inspection, `git diff --check`, and independent re-review passed. The backend now validates and authorizes the exact index filters, applies portable literal search and deterministic appointment ordering, returns filter-independent counts and allow-listed pagination props, and saves only a server-built internal return URL. Review-driven coverage rejects unknown query keys and proves pagination links propagate only normalized validated filters.
+
 **Files:**
 
 - Create: `app/Http/Requests/Admin/AdminBookingIndexRequest.php`
