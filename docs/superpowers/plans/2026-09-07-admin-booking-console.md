@@ -388,6 +388,8 @@ git commit -m "feat: add admin provisioning commands"
 
 ### Task 3: Protect the administrator route boundary
 
+Completed on 2026-09-07. The focused authorization suite passed with 24 tests and 236 assertions; the full Laravel suite passed with 205 tests and 1,693 assertions. TypeScript checking, scoped Pint, route inspection, `git diff --check`, and independent security review passed. Review-driven fixes ensure authentication, verification, and current-role checks run before booking model binding and that shared administrator access is derived from a fresh database identity. PHP coverage remains blocked because this environment has no Xdebug or PCOV driver.
+
 **Files:**
 
 - Create: `app/Http/Middleware/EnsureUserIsAdmin.php`
