@@ -573,6 +573,8 @@ git commit -m "feat: protect admin booking routes"
 
 ### Task 4: Add the append-only booking status lifecycle
 
+Completed on 2026-09-07. The required booking/lifecycle suites passed with 56 tests and 472 assertions; the full Laravel suite passed with 234 tests and 1,784 assertions. Scoped Pint, migration cycling, `git diff --check`, and independent code/security review passed. Review-driven coverage now proves that the real transition query requests a row lock while retaining sequential stale-write and atomic rollback tests. SQLite cannot prove the production database engine's lock semantics. PHP coverage remains blocked because this environment has no Xdebug or PCOV driver.
+
 **Files:**
 
 - Modify: `app/Enums/BookingStatus.php`
