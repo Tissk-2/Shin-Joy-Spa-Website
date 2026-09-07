@@ -1,0 +1,80 @@
+<?php
+
+namespace App\Console\Commands;
+
+use App\Enums\UserRole;
+use App\Exceptions\FinalAdministratorException;
+use App\Models\User;
+use App\Support\CustomerIdentity;
+use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
+
+final class RevokeAdmin extends Command
+{
+    /** @var string */
+    protected $signature = 'admin:revoke {email} {--yes : Skip the confirmation prompt}';
+
+    /** @var string */
+    protected $description = 'Revoke administrator access without removing the final administrator';
+
+    public function handle(): int
+    {
+        $email = CustomerIdentity::email((string) $this->argument('email'));
+        $user = User::query()->where('email', $email)->first();
+
+        if (! $user instanceof User) {
+            $this->error('A user with that email address was not found.');
+
+            return self::FAILURE;
+        }
+
+        $this->line("Target account: {$user->name} <{$user->email}>");
+
+        if (! $this->option('yes') && ! $this->confirm('Revoke administrator access from this account?')) {
+            $this->warn('No changes were made.');
+
+            return self::SUCCESS;
+        }
+
+        try {
+            $changed = DB::transaction(function () use ($user): bool {
+                $adminIds = User::query()
+                    ->where('role', UserRole::Admin->value)
+                    ->orderBy('id')
+                    ->lockForUpdate()
+                    ->pluck('id');
+
+                $lockedTarget = User::query()
+                    ->whereKey($user->getKey())
+                    ->lockForUpdate()
+                    ->firstOrFail();
+
+                if (! $lockedTarget->isAdmin()) {
+                    return false;
+                }
+
+                if ($adminIds->count() <= 1) {
+                    throw new FinalAdministratorException;
+                }
+
+                $lockedTarget->forceFill(['role' => UserRole::Customer])->save();
+
+                return true;
+            }, 3);
+        } catch (FinalAdministratorException) {
+            $this->error('The final administrator cannot be revoked.');
+
+            return self::FAILURE;
+        }
+
+        if (! $changed) {
+            $this->info('This account does not have administrator access.');
+
+            return self::SUCCESS;
+        }
+
+        $this->info('Administrator access revoked.');
+
+        return self::SUCCESS;
+    }
+}
