@@ -5,14 +5,22 @@ namespace Tests\Feature\Admin;
 use App\Actions\TransitionBookingStatus;
 use App\Enums\BookingStatus;
 use App\Enums\UserRole;
+use App\Http\Middleware\EnsureUserIsAdmin;
 use App\Models\Booking;
 use App\Models\BookingStatusChange;
 use App\Models\User;
+use Illuminate\Auth\Middleware\EnsureEmailIsVerified;
+use Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests;
+use Illuminate\Contracts\Http\Kernel as HttpKernel;
 use Illuminate\Database\Eloquent\MassAssignmentException;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Database\Query\Grammars\SQLiteGrammar;
 use Illuminate\Database\QueryException;
+use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Routing\Middleware\SubstituteBindings;
+use Illuminate\Routing\Middleware\ThrottleRequests;
+use Illuminate\Routing\Middleware\ThrottleRequestsWithRedis;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -519,6 +527,149 @@ class AdminBookingStatusTest extends TestCase
         $this->assertDatabaseCount('booking_status_changes', 0);
     }
 
+    // Production break caught: denied identities must not exhaust the shared IP bucket before an admin is authorized.
+    public function test_denied_users_do_not_consume_an_authorized_admins_shared_ip_bucket(): void
+    {
+        $customers = User::factory()->count(2)->create();
+        $unverifiedAdmins = User::factory()->count(2)->admin()->unverified()->create();
+        $admin = User::factory()->admin()->create();
+        $booking = Booking::factory()->create(['status' => BookingStatus::Pending]);
+        $ipAddress = '203.0.113.200';
+
+        for ($attempt = 0; $attempt < 50; $attempt++) {
+            $this->actingAs($customers[$attempt % 2])
+                ->withServerVariables(['REMOTE_ADDR' => $ipAddress])
+                ->patch(route('admin.bookings.status.update', $booking), $this->invalidHttpPayload())
+                ->assertForbidden();
+        }
+
+        for ($attempt = 0; $attempt < 50; $attempt++) {
+            $this->actingAs($unverifiedAdmins[$attempt % 2])
+                ->withServerVariables(['REMOTE_ADDR' => $ipAddress])
+                ->patch(route('admin.bookings.status.update', $booking), $this->invalidHttpPayload())
+                ->assertRedirect(route('verification.notice', absolute: false));
+        }
+
+        $this->actingAs($admin)
+            ->withServerVariables(['REMOTE_ADDR' => $ipAddress])
+            ->patchJson(route('admin.bookings.status.update', $booking), $this->invalidHttpPayload())
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('nextStatus');
+
+        $this->assertSame(BookingStatus::Pending, $booking->fresh()->status);
+        $this->assertDatabaseCount('booking_status_changes', 0);
+    }
+
+    // Production break caught: moving the PATCH endpoint outside the web group would remove Laravel's CSRF boundary.
+    public function test_status_route_keeps_csrf_and_security_middleware_in_the_required_order(): void
+    {
+        $route = app('router')->getRoutes()->getByName('admin.bookings.status.update');
+
+        $this->assertNotNull($route);
+        $this->assertContains('PATCH', $route->methods());
+        $this->assertContains('web', $route->gatherMiddleware());
+        $this->assertContains(
+            PreventRequestForgery::class,
+            app(HttpKernel::class)->getMiddlewareGroups()['web'],
+        );
+
+        $securityStack = array_values(array_filter(
+            app(HttpKernel::class)->getMiddlewarePriority(),
+            fn (string $name): bool => in_array($name, [
+                AuthenticatesRequests::class,
+                EnsureEmailIsVerified::class,
+                EnsureUserIsAdmin::class,
+                ThrottleRequests::class,
+                ThrottleRequestsWithRedis::class,
+                SubstituteBindings::class,
+            ], true),
+        ));
+
+        $this->assertSame([
+            AuthenticatesRequests::class,
+            EnsureEmailIsVerified::class,
+            EnsureUserIsAdmin::class,
+            ThrottleRequests::class,
+            ThrottleRequestsWithRedis::class,
+            SubstituteBindings::class,
+        ], $securityStack);
+    }
+
+    // Production break caught: audit metadata must remain private when the customer booking detail is rendered.
+    public function test_customer_booking_detail_does_not_expose_status_audit_metadata(): void
+    {
+        $customer = User::factory()->create();
+        $admin = User::factory()->admin()->create([
+            'name' => 'PRIVATE-AUDIT-ACTOR',
+            'email' => 'private-audit@example.test',
+        ]);
+        $booking = Booking::factory()->for($customer)->create(['status' => BookingStatus::Pending]);
+
+        app(TransitionBookingStatus::class)(
+            $admin,
+            $booking,
+            BookingStatus::Pending,
+            BookingStatus::Confirmed,
+            'PRIVATE-AUDIT-REASON',
+            '203.0.113.240',
+            'PRIVATE-AUDIT-USER-AGENT',
+        );
+
+        $response = $this->actingAs($customer)
+            ->get(route('bookings.show', $booking->reference))
+            ->assertOk();
+        $presentedBooking = $response->inertiaProps('booking');
+        $serialized = json_encode($presentedBooking, JSON_THROW_ON_ERROR);
+
+        $this->assertSame(BookingStatus::Confirmed->value, $presentedBooking['status']);
+
+        foreach ([
+            'statusChanges',
+            'status_changes',
+            'booking_status_changes',
+            'reason',
+            'admin_user_id',
+            'adminUserId',
+            'actor_name',
+            'actorName',
+            'actor_email',
+            'actorEmail',
+            'ip_address',
+            'ipAddress',
+            'user_agent',
+            'userAgent',
+            'PRIVATE-AUDIT-REASON',
+            'PRIVATE-AUDIT-ACTOR',
+            'private-audit@example.test',
+            '203.0.113.240',
+            'PRIVATE-AUDIT-USER-AGENT',
+        ] as $privateAuditData) {
+            $this->assertStringNotContainsString($privateAuditData, $serialized);
+        }
+    }
+
+    #[DataProvider('nonScalarPayloads')]
+    public function test_non_scalar_status_payloads_return_safe_validation_errors(
+        string $field,
+        mixed $value,
+    ): void {
+        $admin = User::factory()->admin()->create();
+        $booking = Booking::factory()->create(['status' => BookingStatus::Pending]);
+
+        $response = $this->actingAs($admin)
+            ->patchJson(route('admin.bookings.status.update', $booking), [
+                ...$this->validHttpPayload(),
+                $field => $value,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors($field);
+
+        $this->assertSame(['message', 'errors'], array_keys($response->json()));
+        $this->assertSame([$field], array_keys($response->json('errors')));
+        $this->assertSame(BookingStatus::Pending, $booking->fresh()->status);
+        $this->assertDatabaseCount('booking_status_changes', 0);
+    }
+
     /**
      * @return array<string, array{BookingStatus, BookingStatus}>
      */
@@ -567,6 +718,18 @@ class AdminBookingStatusTest extends TestCase
                 ['currentStatus' => 'pending', 'nextStatus' => 'scheduled'],
                 'nextStatus',
             ],
+        ];
+    }
+
+    /**
+     * @return array<string, array{string, array<int, string>}>
+     */
+    public static function nonScalarPayloads(): array
+    {
+        return [
+            'array current status' => ['currentStatus', ['pending']],
+            'array next status' => ['nextStatus', ['confirmed']],
+            'array reason' => ['reason', ['private reason']],
         ];
     }
 
