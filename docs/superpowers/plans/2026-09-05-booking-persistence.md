@@ -29,6 +29,7 @@
 ### Task 1: Booking domain and schema
 
 **Files:**
+
 - Create: `app/Enums/BookingStatus.php`
 - Create: `app/Models/Booking.php`
 - Create: `database/factories/BookingFactory.php`
@@ -45,6 +46,7 @@
 ### Task 2: Authoritative request and quote resolution
 
 **Files:**
+
 - Create: `app/Http/Requests/StoreBookingRequest.php`
 - Create: `app/Support/ResolvedBookingQuote.php`
 - Create: `app/Support/BookingQuoteResolver.php`
@@ -61,6 +63,7 @@
 ### Task 3: Idempotent booking submission
 
 **Files:**
+
 - Create: `app/Actions/CreateBooking.php`
 - Modify: `app/Http/Controllers/BookingController.php`
 - Modify: `routes/web.php`
@@ -76,6 +79,7 @@
 ### Task 4: Safe booking index and detail contracts
 
 **Files:**
+
 - Create: `app/Support/BookingPresenter.php`
 - Modify: `app/Http/Controllers/BookingController.php`
 - Modify: `routes/web.php`
@@ -92,6 +96,7 @@
 ### Task 5: Confirm the booking from the existing review UI
 
 **Files:**
+
 - Modify: `resources/js/pages/Booking.vue`
 - Modify: `resources/js/lib/booking.ts`
 - Create: `tests/frontend/bookingSubmission.test.ts`
@@ -109,6 +114,7 @@
 ### Task 6: Bilingual My Bookings pages and navigation
 
 **Files:**
+
 - Create: `resources/js/pages/bookings/Index.vue`
 - Create: `resources/js/pages/bookings/Show.vue`
 - Modify: `resources/js/layouts/MainLayout.vue`
@@ -126,6 +132,7 @@
 ### Task 7: Browser flow and production safeguards
 
 **Files:**
+
 - Create: `tests/e2e/booking-persistence.spec.ts`
 - Reuse: `tests/e2e/helpers/auth.ts`
 - Modify only where behavior changed: existing booking/catalog E2E tests

@@ -95,4 +95,3 @@ The My Bookings index separates appointments at or after the current Jakarta tim
 7. Catalog edits do not change an existing booking's displayed snapshot.
 8. The form, index, detail, statuses, errors, and navigation are bilingual and accessible.
 9. No availability, admin, notification, or payment behavior is introduced.
-
