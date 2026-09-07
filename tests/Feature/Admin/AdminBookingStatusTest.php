@@ -8,9 +8,12 @@ use App\Models\Booking;
 use App\Models\BookingStatusChange;
 use App\Models\User;
 use Illuminate\Database\Eloquent\MassAssignmentException;
+use Illuminate\Database\Query\Builder;
+use Illuminate\Database\Query\Grammars\SQLiteGrammar;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use PHPUnit\Framework\Attributes\DataProvider;
 use RuntimeException;
@@ -91,6 +94,55 @@ class AdminBookingStatusTest extends TestCase
 
         $this->assertSame(BookingStatus::Confirmed, $booking->fresh()->status);
         $this->assertDatabaseCount('booking_status_changes', 0);
+    }
+
+    // Production break caught: removing lockForUpdate would allow concurrent administrators to transition the same persisted state.
+    public function test_transition_locks_the_persisted_booking_select_for_update(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $booking = Booking::factory()->create(['status' => BookingStatus::Pending]);
+        $connection = DB::connection();
+        $originalGrammar = $connection->getQueryGrammar();
+        $recordingGrammar = new class($connection) extends SQLiteGrammar
+        {
+            /** @var list<array{from: string|null, lock: string|bool|null}> */
+            public array $compiledSelects = [];
+
+            public function compileSelect(Builder $query)
+            {
+                $this->compiledSelects[] = [
+                    'from' => $query->from,
+                    'lock' => $query->lock,
+                ];
+
+                return parent::compileSelect($query);
+            }
+        };
+
+        $connection->setQueryGrammar($recordingGrammar);
+
+        try {
+            app(TransitionBookingStatus::class)(
+                $admin,
+                $booking,
+                BookingStatus::Pending,
+                BookingStatus::Confirmed,
+                null,
+                null,
+                null,
+            );
+        } finally {
+            $connection->setQueryGrammar($originalGrammar);
+        }
+
+        $bookingSelects = array_values(array_filter(
+            $recordingGrammar->compiledSelects,
+            fn (array $select): bool => $select['from'] === 'bookings',
+        ));
+
+        $this->assertSame([
+            ['from' => 'bookings', 'lock' => true],
+        ], $bookingSelects);
     }
 
     public function test_second_request_with_old_status_cannot_create_a_second_audit_row(): void
