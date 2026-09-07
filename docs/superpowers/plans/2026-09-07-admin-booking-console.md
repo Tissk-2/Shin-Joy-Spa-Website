@@ -93,6 +93,8 @@
 
 ### Task 1: Add the user role boundary
 
+Completed on 2026-09-07. Focused tests passed after observed failures; the full Laravel suite passed with 178 tests and 1,496 assertions. Scoped Pint and independent code/security review passed. PHP coverage remains blocked by the missing Xdebug/PCOV driver. Migration verification used isolated in-memory SQLite, not the developer database.
+
 **Files:**
 
 - Create: `app/Enums/UserRole.php`

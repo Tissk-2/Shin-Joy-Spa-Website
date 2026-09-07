@@ -4,11 +4,36 @@ namespace Tests\Feature\Settings;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class ProfileUpdateTest extends TestCase
 {
     use RefreshDatabase;
+
+    #[DataProvider('roleChangeProvider')]
+    public function test_profile_update_cannot_change_the_role(string $initial, string $requested): void
+    {
+        $user = User::factory()->create(['role' => $initial]);
+
+        $this->actingAs($user)->patch('/settings/profile', [
+            'name' => 'Updated Customer',
+            'email' => $user->email,
+            'role' => $requested,
+        ])->assertSessionHasNoErrors()->assertRedirect('/settings/profile');
+
+        $this->assertSame($initial, $user->refresh()->role->value);
+        $this->assertSame('Updated Customer', $user->name);
+    }
+
+    /** @return array<string, array{string, string}> */
+    public static function roleChangeProvider(): array
+    {
+        return [
+            'customer cannot grant admin' => ['customer', 'admin'],
+            'admin cannot revoke through profile' => ['admin', 'customer'],
+        ];
+    }
 
     public function test_profile_page_is_displayed()
     {

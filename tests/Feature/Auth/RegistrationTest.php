@@ -3,6 +3,7 @@
 namespace Tests\Feature\Auth;
 
 use App\Actions\Fortify\CreateNewUser;
+use App\Enums\UserRole;
 use App\Models\User;
 use App\Notifications\VerifyEmail;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -17,6 +18,19 @@ use Tests\TestCase;
 class RegistrationTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_public_registration_cannot_assign_an_admin_role(): void
+    {
+        Notification::fake();
+
+        $this->post(route('register.store'), $this->validRegistrationData([
+            'role' => 'admin',
+        ]))->assertRedirect('/verify-email');
+
+        $user = User::where('email', 'ayu@example.com')->firstOrFail();
+        $this->assertSame(UserRole::Customer, $user->role);
+        $this->assertFalse($user->isAdmin());
+    }
 
     public function test_registration_screen_can_be_rendered(): void
     {
