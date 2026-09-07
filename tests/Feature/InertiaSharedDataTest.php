@@ -2,11 +2,13 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Models\Service;
 use App\Models\ServiceVariant;
 use App\Models\User;
 use Database\Seeders\ServiceCatalogSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
@@ -22,8 +24,31 @@ class InertiaSharedDataTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page
                 ->component('Home')
                 ->where('auth.user', null)
+                ->where('auth.canAccessAdmin', false)
                 ->where('locale', 'id')
                 ->where('flash.status', null));
+    }
+
+    public function test_admin_access_shared_prop_is_derived_from_current_verification_and_role_state(): void
+    {
+        $customer = User::factory()->create();
+        $unverifiedAdmin = User::factory()->admin()->unverified()->create();
+        $revokedAdmin = User::factory()->admin()->create();
+        DB::table('users')->where('id', $revokedAdmin->id)->update([
+            'role' => UserRole::Customer->value,
+        ]);
+        $revokedAdmin->refresh();
+        $verifiedAdmin = User::factory()->admin()->create();
+
+        foreach ([$customer, $unverifiedAdmin, $revokedAdmin] as $deniedUser) {
+            $this->actingAs($deniedUser)->get(route('home'))
+                ->assertOk()
+                ->assertInertia(fn (Assert $page) => $page->where('auth.canAccessAdmin', false));
+        }
+
+        $this->actingAs($verifiedAdmin)->get(route('home'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->where('auth.canAccessAdmin', true));
     }
 
     // Production break caught: shared links must not make inactive or unbookable packages visible in the footer contract.
@@ -55,6 +80,7 @@ class InertiaSharedDataTest extends TestCase
 
         $this->actingAs($user)->get(route('home'))->assertOk()->assertInertia(fn (Assert $page) => $page
             ->has('auth.user', 5)
+            ->where('auth.canAccessAdmin', false)
             ->where('auth.user', ['id' => $user->id, 'name' => 'Ayu Lestari', 'email' => 'ayu@example.com', 'phone' => '+6281234567890', 'email_verified_at' => $verifiedAt->toISOString()]));
     }
 

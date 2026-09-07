@@ -55,9 +55,9 @@ class PublicPagesTest extends TestCase
             ->assertNotFound();
     }
 
-    public function test_no_unprotected_administrator_routes_are_registered(): void
+    public function test_administrator_content_is_protected_and_legacy_login_route_is_absent(): void
     {
-        $this->get('/admin')->assertNotFound();
+        $this->get('/admin')->assertRedirect(route('login', absolute: false));
         $this->get('/admin-login')->assertNotFound();
     }
 }

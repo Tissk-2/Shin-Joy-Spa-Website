@@ -86,6 +86,7 @@ if (app()->environment('testing')) {
 }
 
 require __DIR__.'/settings.php';
+require __DIR__.'/admin.php';
 
 $verificationLimiter = config('fortify.limiters.verification', '6,1');
 

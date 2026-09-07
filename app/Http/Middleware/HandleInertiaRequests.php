@@ -50,6 +50,7 @@ class HandleInertiaRequests extends Middleware
                     'phone' => $user->phone,
                     'email_verified_at' => $user->email_verified_at?->toISOString(),
                 ] : null,
+                'canAccessAdmin' => $user?->hasVerifiedEmail() === true && $user->isAdmin(),
             ],
             'locale' => app()->getLocale(),
             'flash' => [

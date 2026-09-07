@@ -86,7 +86,7 @@ export interface PublicUser {
 }
 
 export interface AppPageProps extends PageProps {
-  auth: { user: PublicUser | null };
+  auth: { user: PublicUser | null; canAccessAdmin: boolean };
   locale: Locale;
   flash: { status?: string };
   catalog: { packages: PackageLinkData[] };
