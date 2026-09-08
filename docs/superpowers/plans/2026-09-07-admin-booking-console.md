@@ -1294,6 +1294,8 @@ git commit -m "feat: add admin booking detail backend"
 
 ### Task 8: Add the admin TypeScript contracts, translations, and layout
 
+Completed on 2026-09-08. The reusable admin shell now uses the server-shared administrator identity and `auth.canAccessAdmin` permission, posts logout through Fortify, supports both locales, and exposes keyboard-accessible navigation, focus, landmarks, and processing states. Readonly TypeScript contracts match the Task 6 and Task 7 server props, and the earlier Task 3 frontend-fixture deferral is resolved. The final frontend suite passed with 65 tests, translation parity passed with 3 tests, the relevant Laravel contract suite passed with 35 tests and 433 assertions, and TypeScript, production build, Prettier, and diff checks passed. Review found no remaining Critical, Important, or Minor issues after one follow-up commit. The approved `TreatmentMode` union remains authoritative; older Task 6 and Task 7 presenter fixtures using the non-domain value `vip` are recorded as upstream test-data drift rather than widening the client contract.
+
 **Files:**
 
 - Modify: `resources/js/types/index.ts`
