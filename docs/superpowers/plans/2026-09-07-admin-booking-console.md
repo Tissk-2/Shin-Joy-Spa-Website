@@ -1452,6 +1452,8 @@ git commit -m "feat: add admin console layout"
 
 ### Task 9: Build the booking console page
 
+Completed on 2026-09-08. The administrator booking index now renders the four operational counts, validated filters and scopes, synchronized desktop and mobile records, localized statuses and dates, safe detail links, distinct empty states, and plain-label pagination from the Task 6 server props. Filter visits build a new trimmed query, omit blank optional values, prevent repeat submissions, disable controls, and show a localized polite loading status until Inertia finishes. The final frontend suite passed with 82 tests; translation parity passed with 3 tests; TypeScript, production build, Prettier, and diff checks passed. Independent review approved the page after one accessibility fix round. Live 375 px and 200 percent zoom verification remains in Task 11's real-browser scope; this task completed static responsive review and mounted keyboard testing. The npm audit advisory endpoint was unavailable, so no dependency-audit verdict is claimed here and the release gate remains open for Task 11.
+
 **Files:**
 
 - Create: `resources/js/pages/admin/bookings/Index.vue`
