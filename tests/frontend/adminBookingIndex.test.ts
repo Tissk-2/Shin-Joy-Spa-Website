@@ -294,6 +294,27 @@ describe("admin booking console", () => {
     expect(storage).not.toHaveBeenCalled();
   });
 
+  // Catches a filter visit offering no visible or politely announced progress message.
+  it("shows a visible polite loading status until the filter visit finishes", async () => {
+    const wrapper = mountPage(filtered);
+    expect(wrapper.find("[data-admin-loading]").exists()).toBe(false);
+
+    await wrapper.get("form[data-admin-filters]").trigger("submit");
+
+    const message = wrapper.get("[data-admin-loading]");
+    expect(message.isVisible()).toBe(true);
+    expect(message.attributes("role")).toBe("status");
+    expect(message.attributes("aria-live")).toBe("polite");
+    expect(message.text()).toBe("Loading bookings…");
+
+    await wrapper.get("button[data-admin-locale='id']").trigger("click");
+    expect(message.text()).toBe("Memuat reservasi…");
+
+    (inertia.options.onFinish as () => void)();
+    await wrapper.vm.$nextTick();
+    expect(wrapper.find("[data-admin-loading]").exists()).toBe(false);
+  });
+
   // Catches empty optional query keys and accidental persistence of page/stale filters.
   it("omits blank optional values after real field edits", async () => {
     const wrapper = mountPage(filtered);

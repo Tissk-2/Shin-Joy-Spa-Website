@@ -295,6 +295,10 @@ function paginationLabel(label: string, index: number): string {
           </div>
         </form>
 
+        <p v-if="loading" data-admin-loading role="status" aria-live="polite">
+          {{ tr("ad.filter.loading") }}
+        </p>
+
         <div
           v-if="!props.bookings.data.length"
           class="admin-empty"
