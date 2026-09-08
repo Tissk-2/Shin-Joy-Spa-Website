@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Enums\BookingStatus;
 use App\Models\Booking;
+use App\Models\BookingStatusChange;
 use Illuminate\Pagination\LengthAwarePaginator;
 
 final class AdminBookingPresenter
@@ -37,6 +38,38 @@ final class AdminBookingPresenter
                 fn (BookingStatus $status): string => $status->value,
                 $booking->status->allowedTransitions(),
             ),
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    public function detail(Booking $booking): array
+    {
+        return [
+            ...$this->summary($booking),
+            'base' => [
+                'choiceCode' => $booking->base_choice_code,
+                'durationMinutes' => $booking->base_duration_minutes,
+                'priceIdr' => $booking->base_price_idr,
+            ],
+            'extension' => $booking->extension_choice_code === null ? null : [
+                'choiceCode' => $booking->extension_choice_code,
+                'durationMinutes' => $booking->extension_duration_minutes,
+                'priceIdr' => $booking->extension_price_idr,
+            ],
+            'notes' => $booking->notes,
+            'history' => $booking->statusChanges
+                ->map(fn (BookingStatusChange $change): array => [
+                    'actor' => [
+                        'name' => $change->actor_name,
+                        'email' => $change->actor_email,
+                    ],
+                    'fromStatus' => $change->from_status->value,
+                    'toStatus' => $change->to_status->value,
+                    'reason' => $change->reason,
+                    'createdAt' => $change->created_at->toISOString(),
+                ])
+                ->values()
+                ->all(),
         ];
     }
 

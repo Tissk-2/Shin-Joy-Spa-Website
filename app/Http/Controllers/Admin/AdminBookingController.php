@@ -12,6 +12,7 @@ use App\Queries\AdminBookingIndexQuery;
 use App\Support\AdminBookingPresenter;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Response;
 
@@ -42,11 +43,18 @@ final class AdminBookingController extends Controller
         ]);
     }
 
-    public function show(Booking $booking): Response
-    {
+    public function show(
+        Request $request,
+        Booking $booking,
+        AdminBookingPresenter $presenter,
+    ): Response {
         Gate::authorize('view', $booking);
+        $booking->load('statusChanges');
 
-        return inertia('admin/bookings/Show');
+        return inertia('admin/bookings/Show', [
+            'booking' => $presenter->detail($booking),
+            'backUrl' => $request->session()->get('admin.bookings.index_url', '/admin/bookings'),
+        ]);
     }
 
     public function updateStatus(
