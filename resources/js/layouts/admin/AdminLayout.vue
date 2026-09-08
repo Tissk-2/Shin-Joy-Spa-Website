@@ -143,7 +143,7 @@ function logout(): void {
           {{ tr("ad.panel") }}
         </p>
         <h1
-          class="font-serif text-3xl leading-tight text-[#52233f] sm:text-4xl"
+          class="break-words font-serif text-3xl leading-tight text-[#52233f] sm:text-4xl"
         >
           {{ props.title }}
         </h1>
