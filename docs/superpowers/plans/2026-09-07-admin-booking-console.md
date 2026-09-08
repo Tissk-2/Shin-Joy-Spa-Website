@@ -1618,6 +1618,8 @@ git commit -m "feat: add admin booking console"
 
 ### Task 10: Build booking detail and accessible status confirmation
 
+Completed on 2026-09-08. The administrator detail page now renders the allow-listed booking dossier, customer contact links, optional extension and notes fallbacks, server-ordered status history, and the authoritative filtered-index return URL. Status controls come only from `allowedTransitions`; the Radix alert dialog states the old and new status, manages focus, supports Escape and Cancel, locks every action while processing, and submits the exact encoded PATCH contract with a trimmed nullable reason. Terminal bookings expose no mutation form, and server field or stale-state errors stay connected and visible. The final frontend suite passed with 97 tests, translation parity passed with 3 tests, and the relevant Laravel detail/status suite passed with 59 tests and 742 assertions. TypeScript, production build, Prettier, dependency audit, forbidden-runtime scans, and diff checks passed. Independent review found no Critical, Important, or Minor issues. Live screenshot, browser inertness, narrow-screen, and 200 percent zoom confirmation remain in Task 11's Playwright scope.
+
 **Files:**
 
 - Create: `resources/js/pages/admin/bookings/Show.vue`
