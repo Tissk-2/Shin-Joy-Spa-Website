@@ -362,10 +362,6 @@ export default {
     "ad.confirm.error":
       "Status belum dapat diperbarui. Periksa formulir dan coba lagi.",
     "ad.flash.statusUpdated": "Status reservasi berhasil diperbarui.",
-    "auth.admin.badge": "Akses Terbatas",
-    "auth.admin.title": "Masuk ke Panel Admin",
-    "auth.admin.sub": "Khusus staf dan pengelola Shin Joy Spa.",
-    "auth.admin.submit": "Masuk ke Panel",
     "auth.err.admin": "Akun Anda tidak memiliki akses administrator.",
     "auth.err.invalid": "Nama pengguna atau kata sandi tidak sesuai.",
     "auth.f.username": "Nama Pengguna / Username",
@@ -732,10 +728,6 @@ export default {
     "ad.confirm.error":
       "The status could not be updated. Check the form and try again.",
     "ad.flash.statusUpdated": "Booking status updated.",
-    "auth.admin.badge": "Restricted Access",
-    "auth.admin.title": "Admin Panel Login",
-    "auth.admin.sub": "Exclusively for Shin Joy Spa staff and management.",
-    "auth.admin.submit": "Log in to Panel",
     "auth.err.admin": "Your account does not have administrator access.",
     "auth.err.invalid": "Invalid username or password.",
     "auth.f.username": "Username",

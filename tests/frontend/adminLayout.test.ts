@@ -65,6 +65,7 @@ describe("administrator layout", () => {
     inertia.page.props.locale = "en";
     inertia.posts = [];
     inertia.finishLogout = undefined;
+    document.body.innerHTML = "";
   });
 
   it("renders the administrator identity and the booking workspace landmarks", () => {
@@ -135,7 +136,43 @@ describe("administrator layout", () => {
     expect(logout.attributes("disabled")).toBeUndefined();
   });
 
-  it("keeps touch-sized controls and keyboard focus visible without client routing or storage", () => {
+  it("provides a real keyboard focus path and a focusable skip-link target", () => {
+    const wrapper = mount(AdminLayout, {
+      props: { title: "Bookings" },
+      attachTo: document.body,
+    });
+    const skipLink = wrapper.get<HTMLAnchorElement>('a[href="#main"]');
+    const bookingsLink = wrapper.get<HTMLAnchorElement>(
+      'nav a[href="/admin/bookings"]',
+    );
+    const localeButton = wrapper.get<HTMLButtonElement>(
+      'button[data-admin-locale="id"]',
+    );
+    const logoutButton = wrapper.get<HTMLButtonElement>(
+      "button[data-admin-logout]",
+    );
+    const main = wrapper.get<HTMLElement>("main#main");
+
+    expect(skipLink.attributes("href")).toBe("#main");
+    expect(main.attributes("tabindex")).toBe("-1");
+
+    skipLink.element.focus();
+    expect(document.activeElement).toBe(skipLink.element);
+
+    // JSDOM does not move focus for native fragment navigation. The concrete
+    // contract is a matching fragment target that can receive programmatic focus.
+    main.element.focus();
+    expect(document.activeElement).toBe(main.element);
+
+    for (const control of [bookingsLink, localeButton, logoutButton]) {
+      control.element.focus();
+      expect(document.activeElement).toBe(control.element);
+    }
+
+    wrapper.unmount();
+  });
+
+  it("declares the touch-size and visible-focus styling JSDOM cannot measure", () => {
     const wrapper = mount(AdminLayout, { props: { title: "Bookings" } });
     const controls = wrapper.findAll("a, button");
 
@@ -144,7 +181,9 @@ describe("administrator layout", () => {
       expect(control.classes().join(" ")).toContain("min-h-11");
       expect(control.classes().join(" ")).toContain("focus-visible:");
     }
+  });
 
+  it("keeps client routing and browser auth storage out of the layout", () => {
     const source = readFileSync(
       resolve(
         import.meta.dirname,
@@ -152,6 +191,7 @@ describe("administrator layout", () => {
       ),
       "utf8",
     );
+
     expect(source).not.toMatch(
       /localStorage|sessionStorage|vue-router|RouterLink|useRoute|useAuth/,
     );
