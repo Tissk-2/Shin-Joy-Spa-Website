@@ -30,6 +30,7 @@ const inertia = vi.hoisted(() => ({
           email: "nadia@example.test",
           email_verified_at: "2026-08-01",
         },
+        canAccessAdmin: false,
       },
       locale: "en",
       flash: {},

@@ -57,3 +57,116 @@ test("customer booking pages keep paired keys and avoid out-of-scope promises", 
     );
   }
 });
+
+test("admin booking operations keep paired copy within the approved scope", () => {
+  const requiredKeys = [
+    "ad.panel",
+    "ad.skip",
+    "ad.logout",
+    "ad.viewsite",
+    "ad.nav.bookings",
+    "ad.booking.title",
+    "ad.booking.subtitle",
+    "ad.booking.reference",
+    "ad.booking.details",
+    "ad.count.today",
+    "ad.count.pending",
+    "ad.count.confirmed",
+    "ad.count.completed",
+    "ad.filter.search",
+    "ad.filter.status",
+    "ad.filter.dateFrom",
+    "ad.filter.dateTo",
+    "ad.filter.apply",
+    "ad.filter.clear",
+    "ad.scope.upcoming",
+    "ad.scope.past",
+    "ad.scope.all",
+    "ad.status.pending",
+    "ad.status.confirmed",
+    "ad.status.completed",
+    "ad.status.cancelled",
+    "ad.table.customer",
+    "ad.table.treatment",
+    "ad.table.schedule",
+    "ad.table.guests",
+    "ad.table.status",
+    "ad.table.action",
+    "ad.table.open",
+    "ad.empty.all",
+    "ad.empty.filtered",
+    "ad.pagination.previous",
+    "ad.pagination.next",
+    "ad.detail.appointment",
+    "ad.detail.customer",
+    "ad.detail.treatment",
+    "ad.detail.notes",
+    "ad.detail.noNotes",
+    "ad.detail.noExtension",
+    "ad.detail.back",
+    "ad.history.title",
+    "ad.history.empty",
+    "ad.history.reason",
+    "ad.history.noReason",
+    "ad.confirm.title",
+    "ad.confirm.body",
+    "ad.confirm.reason",
+    "ad.confirm.submit",
+    "ad.confirm.cancel",
+    "ad.confirm.processing",
+    "ad.confirm.error",
+    "ad.flash.statusUpdated",
+  ];
+  const approvedPrefixes = [
+    "ad.booking.",
+    "ad.count.",
+    "ad.filter.",
+    "ad.scope.",
+    "ad.status.",
+    "ad.table.",
+    "ad.empty.",
+    "ad.pagination.",
+    "ad.detail.",
+    "ad.history.",
+    "ad.confirm.",
+    "ad.flash.",
+  ];
+
+  for (const locale of ["id", "en"]) {
+    for (const key of requiredKeys) {
+      assert.equal(
+        typeof translations[locale][key],
+        "string",
+        `${locale}.${key}`,
+      );
+      assert.notEqual(translations[locale][key].trim(), "", `${locale}.${key}`);
+    }
+
+    const operationalCopy = Object.entries(translations[locale])
+      .filter(([key]) =>
+        approvedPrefixes.some((prefix) => key.startsWith(prefix)),
+      )
+      .map(([, value]) => value)
+      .join("\n")
+      .toLowerCase();
+
+    assert.doesNotMatch(
+      operationalCopy,
+      /delete|payment|refund|reschedule|notification|hapus (?:reservasi|layanan|kategori|foto)|pembayaran|pengembalian dana|ubah jadwal|notifikasi/,
+    );
+
+    for (const unsupportedKey of [
+      "ad.bk.statusDone",
+      "ad.bk.delete",
+      "ad.ov.revenue",
+      "ad.sv.title",
+      "ad.cat.title",
+      "ad.gal.title",
+      "ad.ct.title",
+      "ad.f.addTitle",
+      "ad.nav.services",
+    ]) {
+      assert.equal(translations[locale][unsupportedKey], undefined);
+    }
+  }
+});

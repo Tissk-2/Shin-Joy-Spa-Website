@@ -77,6 +77,65 @@ export interface BookingDetailData extends BookingSummaryData {
   notes: string | null;
 }
 
+export interface AdminBookingSummaryData {
+  readonly reference: string;
+  readonly status: BookingStatus;
+  readonly package: Readonly<
+    Pick<PackageLinkData, "nameId" | "nameEn" | "isVip">
+  >;
+  readonly treatmentMode: TreatmentMode;
+  readonly appointment: Readonly<BookingAppointmentData>;
+  readonly customer: Readonly<BookingCustomerData>;
+  readonly guests: number;
+  readonly totalDurationMinutes: number;
+  readonly totalPriceIdr: number;
+  readonly allowedTransitions: readonly BookingStatus[];
+}
+
+export interface AdminBookingStatusHistoryData {
+  readonly actor: Readonly<{ name: string; email: string }>;
+  readonly fromStatus: BookingStatus;
+  readonly toStatus: BookingStatus;
+  readonly reason: string | null;
+  readonly createdAt: string;
+}
+
+export interface AdminBookingDetailData extends AdminBookingSummaryData {
+  readonly base: Readonly<BookingChoiceData>;
+  readonly extension: Readonly<BookingChoiceData> | null;
+  readonly notes: string | null;
+  readonly history: readonly AdminBookingStatusHistoryData[];
+}
+
+export interface AdminBookingFilters {
+  readonly scope: "upcoming" | "past" | "all";
+  readonly status: BookingStatus | null;
+  readonly q: string;
+  readonly dateFrom: string | null;
+  readonly dateTo: string | null;
+}
+
+export interface AdminBookingCounts {
+  readonly today: number;
+  readonly pending: number;
+  readonly confirmed: number;
+  readonly completed: number;
+}
+
+export interface AdminBookingPaginationLink {
+  readonly url: string | null;
+  readonly label: string;
+  readonly active: boolean;
+}
+
+export interface AdminBookingPagination {
+  readonly data: readonly AdminBookingSummaryData[];
+  readonly links: readonly AdminBookingPaginationLink[];
+  readonly currentPage: number;
+  readonly lastPage: number;
+  readonly total: number;
+}
+
 export interface PublicUser {
   id: number;
   name: string;

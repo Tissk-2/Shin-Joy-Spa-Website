@@ -364,6 +364,13 @@ onUnmounted(() => {
               >
                 {{ tr("nav.bookings") }}
               </Link>
+              <Link
+                v-if="page.props.auth.canAccessAdmin"
+                href="/admin/bookings"
+                @click="setAccountMenu(false, false)"
+              >
+                {{ tr("ad.panel") }}
+              </Link>
               <Link href="/profile" @click="setAccountMenu(false, false)">
                 {{ tr("nav.profile") }}
               </Link>

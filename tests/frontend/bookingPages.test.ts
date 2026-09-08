@@ -20,6 +20,7 @@ const inertia = vi.hoisted(() => ({
           phone: "+62 812-3456-7890",
           email_verified_at: "2026-08-01",
         },
+        canAccessAdmin: false,
       },
       locale: "en" as Locale,
       flash: {},

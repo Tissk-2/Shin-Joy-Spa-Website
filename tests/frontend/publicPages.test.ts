@@ -1,12 +1,49 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-import { describe, expect, it } from "vitest";
+import { mount } from "@vue/test-utils";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import MainLayout from "@/layouts/MainLayout.vue";
+
+const inertia = vi.hoisted(() => ({
+  page: {
+    url: "/",
+    props: {
+      auth: {
+        user: {
+          id: 7,
+          name: "Nadia Lestari",
+          email: "nadia@example.test",
+          phone: "+62 812-3456-7890",
+          email_verified_at: "2026-08-01",
+        },
+        canAccessAdmin: false,
+      },
+      locale: "en",
+      flash: {},
+      catalog: { packages: [] },
+    },
+  },
+}));
+
+vi.mock("@inertiajs/vue3", () => ({
+  Head: "span",
+  Link: "a",
+  router: { post: vi.fn() },
+  usePage: () => inertia.page,
+}));
 
 const pageRoot = resolve(import.meta.dirname, "../../resources/js/pages");
 const resourceRoot = resolve(import.meta.dirname, "../../resources/js");
 const readPage = (name: string): string =>
   readFileSync(resolve(pageRoot, name), "utf8");
+
+beforeEach(() => {
+  inertia.page.url = "/";
+  inertia.page.props.auth.canAccessAdmin = false;
+  Element.prototype.scrollIntoView = vi.fn();
+});
 
 describe("Laravel-owned public pages", () => {
   it("uses the Inertia shell, navigation, and document head on every page", () => {
@@ -98,12 +135,26 @@ describe("Laravel-owned public pages", () => {
     );
   });
 
-  it("does not advertise an unauthorized administrator path in the public shell", () => {
+  it("shows the administrator path only from the server-shared permission", async () => {
+    const customer = mount(MainLayout, {
+      slots: { default: "<p>content</p>" },
+    });
+    await customer.get(".account-toggle").trigger("click");
+    expect(customer.find('a[href="/admin/bookings"]').exists()).toBe(false);
+
+    inertia.page.props.auth.canAccessAdmin = true;
+    const administrator = mount(MainLayout, {
+      slots: { default: "<p>content</p>" },
+    });
+    await administrator.get(".account-toggle").trigger("click");
+    expect(administrator.get('a[href="/admin/bookings"]').text()).toBe(
+      "Admin Panel",
+    );
+
     const layout = readFileSync(
       resolve(resourceRoot, "layouts/MainLayout.vue"),
       "utf8",
     );
-
-    expect(layout).not.toMatch(/admin-login|href=["']\/admin/);
+    expect(layout).not.toMatch(/admin-login|role\s*===|email.*admin/i);
   });
 });

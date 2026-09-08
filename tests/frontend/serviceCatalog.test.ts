@@ -12,7 +12,7 @@ const inertia = vi.hoisted(() => ({
   page: {
     url: "/",
     props: {
-      auth: { user: null },
+      auth: { user: null, canAccessAdmin: false },
       locale: "en",
       flash: {},
       catalog: { packages: [] },
@@ -79,7 +79,7 @@ const packages: PackageData[] = [
 beforeEach(() => {
   inertia.page.url = "/";
   inertia.page.props = {
-    auth: { user: null },
+    auth: { user: null, canAccessAdmin: false },
     locale: "en",
     flash: {},
     catalog: { packages },
@@ -368,6 +368,7 @@ describe("authenticated package booking", () => {
           email: "nadia@example.test",
           email_verified_at: "2026-08-01",
         },
+        canAccessAdmin: false,
       },
       locale: "en",
       flash: {},
