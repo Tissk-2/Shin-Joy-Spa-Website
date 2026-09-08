@@ -1167,6 +1167,8 @@ git commit -m "feat: add admin booking index backend"
 
 ### Task 7: Build the admin booking detail backend
 
+Completed on 2026-09-08. The focused detail suite passed with 4 tests and 71 assertions; the combined detail, index, and customer booking regression suites passed with 34 tests and 511 assertions; the full Laravel suite passed with 292 tests and 2,701 assertions. Scoped Pint, route inspection, and `git diff --check` passed. The response now exposes an allow-listed booking snapshot, nullable extension, ordered actor snapshots, and a server-written internal return URL without audit-network metadata or live actor relationships. Review recorded one deferred test-hardening item for equal-timestamp id ordering. It also raised a plan interpretation conflict: `booking` and `backUrl` are the only page-specific detail props, while the approved app-wide Inertia shared props remain available for the admin layout.
+
 **Files:**
 
 - Modify: `app/Support/AdminBookingPresenter.php`
