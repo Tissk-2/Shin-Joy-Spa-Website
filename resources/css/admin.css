@@ -333,3 +333,176 @@
     animation-iteration-count: 1;
   }
 }
+
+/* Appointment dossier and teleported status confirmation. */
+.admin-detail-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+  background: var(--admin-ivory);
+  border-block: 1px solid var(--admin-line);
+}
+.admin-detail-card {
+  min-width: 0;
+  padding: clamp(1rem, 3vw, 2rem);
+  overflow-wrap: anywhere;
+}
+.admin-detail-card + .admin-detail-card {
+  border-left: 1px solid var(--admin-line);
+}
+.admin-detail-card h2,
+.admin-history h2,
+.admin-dialog-content h2 {
+  margin: 0 0 1rem;
+  color: var(--admin-plum);
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 400;
+  line-height: 1.25;
+}
+.admin-detail-card h2:not(:first-child) {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--admin-line);
+}
+.admin-detail-card dl {
+  margin: 1rem 0 0;
+}
+.admin-detail-card dl > div {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  gap: 1rem;
+  padding-block: 0.625rem;
+}
+.admin-detail-card dt {
+  color: var(--admin-muted);
+  font-size: 0.8125rem;
+}
+.admin-detail-card dd {
+  min-width: 0;
+  margin: 0;
+}
+.admin-detail-card .admin-record-link {
+  max-width: 100%;
+  padding: 0;
+}
+.admin-detail-card [data-booking-notes],
+.admin-history-item p {
+  white-space: pre-wrap;
+}
+.admin-status-actions,
+.admin-status-actions > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+.admin-status-actions {
+  justify-content: space-between;
+  padding-block: 1rem;
+  border-block: 1px solid var(--admin-rose);
+}
+.admin-status-actions .admin-status {
+  margin-top: 0.25rem;
+  font-size: 1rem;
+}
+.admin-history {
+  min-width: 0;
+  padding-block: 1rem;
+  overflow-wrap: anywhere;
+}
+.admin-history ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.admin-history-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 3fr);
+  gap: 1.5rem;
+  padding: 1.25rem 0;
+  border-top: 1px solid var(--admin-line);
+}
+.admin-history-item time {
+  color: var(--admin-muted);
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+}
+.admin-history-item p + p {
+  margin-top: 0.5rem;
+}
+.admin-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgb(52 37 45 / 65%);
+}
+.admin-dialog-content {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 51;
+  width: min(34rem, calc(100% - 2rem));
+  max-height: calc(100dvh - 2rem);
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+  transform: translate(-50%, -50%);
+  padding: clamp(1.25rem, 4vw, 2rem);
+  border: 1px solid var(--admin-line);
+  border-top: 3px solid var(--admin-rose);
+  border-radius: 0.5rem;
+  background: var(--admin-ivory);
+  font-size: 0.875rem;
+  line-height: 1.6;
+  box-shadow: 0 1.5rem 4rem rgb(52 37 45 / 20%);
+}
+.admin-dialog-content fieldset {
+  margin: 1.25rem 0;
+  min-width: 0;
+}
+.admin-dialog-content legend,
+.admin-dialog-content label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 700;
+}
+.admin-dialog-content label {
+  margin-top: 1.25rem;
+}
+.admin-dialog-content textarea {
+  resize: vertical;
+}
+.admin-dialog-content :focus-visible {
+  outline: 2px solid var(--admin-rose);
+  outline-offset: 3px;
+}
+.admin-dialog-content .admin-status-actions {
+  justify-content: flex-end;
+  margin-top: 1.25rem;
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+@media (max-width: 760px) {
+  .admin-detail-grid,
+  .admin-history-item {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .admin-detail-card + .admin-detail-card {
+    border-left: 0;
+    border-top: 1px solid var(--admin-line);
+  }
+  .admin-detail-card dl > div {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.25rem;
+  }
+  .admin-history-item {
+    gap: 0.5rem;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .admin-dialog-overlay,
+  .admin-dialog-content {
+    animation: none;
+    transition: none;
+    scroll-behavior: auto;
+  }
+}
