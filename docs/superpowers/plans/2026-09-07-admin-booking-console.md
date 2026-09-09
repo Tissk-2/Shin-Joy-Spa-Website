@@ -1893,8 +1893,8 @@ Run:
 
 ```bash
 php artisan test --coverage --min=80
-vendor/bin/pint --test
-npx prettier --check resources/js resources/css tests/frontend tests/e2e
+vendor/bin/pint --test $(git diff --name-only 39faff5..HEAD -- '*.php')
+npx prettier --check $(git diff --name-only 39faff5..HEAD -- '*.vue' '*.ts' '*.js' '*.mjs' '*.css')
 php artisan route:cache
 php artisan config:cache
 php artisan route:clear
@@ -1903,7 +1903,7 @@ composer audit
 npm audit
 ```
 
-Expected: coverage is at least 80 percent when a driver exists; otherwise record the missing Xdebug or PCOV driver as an environment blocker. Formatting, cache build/clear, and both audits pass.
+Expected: coverage is at least 80 percent when a driver exists; otherwise record the missing Xdebug or PCOV driver as an environment blocker. Scoped formatting passes for every Phase 2A-owned PHP, Vue, TypeScript, JavaScript, and CSS file. Run the repository-wide Pint and Prettier commands separately and keep inherited failures as explicit release debt instead of changing unrelated files in this feature branch. Cache build/clear and both audits pass.
 
 - [ ] **Step 6: Run explicit secret and forbidden-runtime scans**
 
@@ -1955,5 +1955,5 @@ If final corrections touched implementation files, stage each inspected file exp
 - [ ] Customer booking pages reflect updated statuses without receiving admin history.
 - [ ] The admin console works in Indonesian and English with keyboard, focus, touch, zoom, narrow-screen, and reduced-motion support.
 - [ ] No payment, deletion, catalog CRUD, availability, notifications, or customer-management behavior was added.
-- [ ] Laravel, Vue, Playwright, TypeScript, build, cache, format, audit, secret, and forbidden-runtime gates pass.
+- [ ] Laravel, Vue, Playwright, TypeScript, build, cache, audit, secret, and forbidden-runtime gates pass, and scoped Pint and Prettier pass for every Phase 2A-owned file. Repository-wide inherited formatting failures remain tracked release debt.
 - [ ] PHP coverage reaches 80 percent when a coverage driver is available, or the missing driver is reported as a blocker.
