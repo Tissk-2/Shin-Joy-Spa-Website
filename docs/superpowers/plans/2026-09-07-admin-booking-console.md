@@ -1757,11 +1757,14 @@ git commit -m "feat: add admin booking status interface"
 
 ### Task 11: Add the real browser journey and run release gates
 
+Completed on 2026-09-09. The browser suite now covers the administrator booking journey, stale status submission, customer admin denial, and the existing auth, booking, recovery, and locale flows. Final maintained gates passed for Laravel (`297` tests, `2,734` assertions), Vue (`97` tests), Playwright (`13` tests), TypeScript, production build, route cache, config cache, secret scans, forbidden-runtime scans, scoped Pint, and scoped Prettier. The npm audit initially found a high-severity `js-yaml` advisory through ESLint tooling; `package-lock.json` now resolves `js-yaml` `4.3.2`, and a fresh elevated `npm audit` reports zero vulnerabilities. PHP coverage remains blocked because this environment has no Xdebug or PCOV driver. Composer audit remains blocked because Packagist security-advisory requests time out from this environment. Repository-wide Pint and Prettier still fail on inherited formatting debt outside the Phase 2A-owned files.
+
 **Files:**
 
 - Create: `tests/e2e/admin-bookings.spec.ts`
 - Modify: `tests/e2e/helpers/auth.ts` only if the helper is shared by more than one spec
 - Modify: implementation files only when a failing gate identifies a real defect
+- Modify: `package-lock.json` only for the audited `js-yaml` advisory fix
 
 **Interfaces:**
 
