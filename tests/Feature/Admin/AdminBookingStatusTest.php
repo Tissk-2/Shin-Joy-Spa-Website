@@ -320,8 +320,6 @@ class AdminBookingStatusTest extends TestCase
             'currentStatus' => 'pending',
             'nextStatus' => 'confirmed',
             'reason' => '  Confirmed by WhatsApp.  ',
-            'total_price_idr' => 1,
-            'role' => UserRole::Customer->value,
         ])->assertRedirect(route('admin.bookings.show', $booking, absolute: false))
             ->assertStatus(303)
             ->assertSessionHas('status', 'Status reservasi berhasil diperbarui.');
@@ -334,6 +332,27 @@ class AdminBookingStatusTest extends TestCase
             'admin_user_id' => $admin->id,
             'reason' => 'Confirmed by WhatsApp.',
         ]);
+    }
+
+    public function test_unknown_top_level_fields_are_rejected_without_changing_booking_or_audit_data(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $booking = Booking::factory()->create([
+            'status' => BookingStatus::Pending,
+            'total_price_idr' => 265000,
+        ]);
+
+        $this->actingAs($admin)
+            ->patchJson(route('admin.bookings.status.update', $booking), [
+                ...$this->validHttpPayload(),
+                'total_price_idr' => 1,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('total_price_idr');
+
+        $this->assertSame(BookingStatus::Pending, $booking->fresh()->status);
+        $this->assertSame(265000, $booking->fresh()->total_price_idr);
+        $this->assertDatabaseCount('booking_status_changes', 0);
     }
 
     /**

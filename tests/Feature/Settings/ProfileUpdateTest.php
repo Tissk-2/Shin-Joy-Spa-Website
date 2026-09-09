@@ -2,8 +2,12 @@
 
 namespace Tests\Feature\Settings;
 
+use App\Enums\UserRole;
 use App\Models\User;
+use Illuminate\Database\Query\Builder;
+use Illuminate\Database\Query\Grammars\SQLiteGrammar;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
@@ -102,6 +106,108 @@ class ProfileUpdateTest extends TestCase
 
         $this->assertGuest();
         $this->assertNull($user->fresh());
+    }
+
+    public function test_final_administrator_cannot_delete_their_account(): void
+    {
+        $admin = User::factory()->admin()->create();
+
+        $this->actingAs($admin)
+            ->from('/settings/profile')
+            ->delete('/settings/profile', [
+                'password' => 'password',
+            ])
+            ->assertRedirect('/settings/profile')
+            ->assertSessionHasErrors('password');
+
+        $this->assertAuthenticatedAs($admin);
+        $this->assertSame(UserRole::Admin, $admin->fresh()?->role);
+    }
+
+    public function test_account_deletion_uses_the_fresh_persisted_role_when_the_session_user_is_stale(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user);
+        User::query()->whereKey($user->id)->update(['role' => UserRole::Admin->value]);
+
+        $this->assertSame(UserRole::Customer, $user->role);
+
+        $this->from('/settings/profile')
+            ->delete('/settings/profile', [
+                'password' => 'password',
+            ])
+            ->assertRedirect('/settings/profile')
+            ->assertSessionHasErrors('password');
+
+        $this->assertAuthenticatedAs($user);
+        $this->assertSame(UserRole::Admin, $user->fresh()?->role);
+    }
+
+    public function test_administrator_can_delete_their_account_when_another_administrator_remains(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $remainingAdmin = User::factory()->admin()->create();
+
+        $this->actingAs($admin)
+            ->delete('/settings/profile', [
+                'password' => 'password',
+            ])
+            ->assertSessionHasNoErrors()
+            ->assertRedirect('/');
+
+        $this->assertGuest();
+        $this->assertNull($admin->fresh());
+        $this->assertSame(UserRole::Admin, $remainingAdmin->fresh()?->role);
+    }
+
+    public function test_administrator_account_deletion_locks_the_admin_set_and_fresh_target_in_a_transaction(): void
+    {
+        $admin = User::factory()->admin()->create();
+        User::factory()->admin()->create();
+        $connection = DB::connection();
+        $baselineTransactionLevel = DB::transactionLevel();
+        $transactionLevelAtDeletion = null;
+        $originalGrammar = $connection->getQueryGrammar();
+        $recordingGrammar = new class($connection) extends SQLiteGrammar
+        {
+            /** @var list<array{from: string|null, lock: string|bool|null}> */
+            public array $compiledSelects = [];
+
+            public function compileSelect(Builder $query)
+            {
+                $this->compiledSelects[] = [
+                    'from' => $query->from,
+                    'lock' => $query->lock,
+                ];
+
+                return parent::compileSelect($query);
+            }
+        };
+
+        User::deleting(function (User $deleting) use ($admin, &$transactionLevelAtDeletion): void {
+            if ($deleting->is($admin)) {
+                $transactionLevelAtDeletion = DB::transactionLevel();
+            }
+        });
+        $connection->setQueryGrammar($recordingGrammar);
+
+        try {
+            $this->actingAs($admin)->delete('/settings/profile', [
+                'password' => 'password',
+            ])->assertRedirect('/');
+        } finally {
+            $connection->setQueryGrammar($originalGrammar);
+            User::flushEventListeners();
+        }
+
+        $lockedUserSelects = array_values(array_filter(
+            $recordingGrammar->compiledSelects,
+            fn (array $select): bool => $select['from'] === 'users' && $select['lock'] === true,
+        ));
+
+        $this->assertSame($baselineTransactionLevel + 1, $transactionLevelAtDeletion);
+        $this->assertCount(2, $lockedUserSelects);
     }
 
     public function test_correct_password_must_be_provided_to_delete_account()

@@ -6,9 +6,13 @@ use App\Enums\BookingStatus;
 use App\Models\Booking;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 final class UpdateBookingStatusRequest extends FormRequest
 {
+    /** @var list<string> */
+    private const ALLOWED_FIELDS = ['currentStatus', 'nextStatus', 'reason'];
+
     protected function prepareForValidation(): void
     {
         $this->merge([
@@ -34,6 +38,22 @@ final class UpdateBookingStatusRequest extends FormRequest
             'currentStatus' => ['required', Rule::enum(BookingStatus::class)],
             'nextStatus' => ['required', Rule::enum(BookingStatus::class)],
             'reason' => ['nullable', 'string', 'max:500'],
+        ];
+    }
+
+    /**
+     * @return list<callable(Validator): void>
+     */
+    public function after(): array
+    {
+        return [
+            function (Validator $validator): void {
+                $unknownFields = array_diff(array_keys($this->all()), self::ALLOWED_FIELDS);
+
+                foreach ($unknownFields as $field) {
+                    $validator->errors()->add($field, __('admin.status.unsupported_field'));
+                }
+            },
         ];
     }
 }
