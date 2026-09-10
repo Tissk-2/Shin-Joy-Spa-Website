@@ -236,12 +236,9 @@ Run:
 
 ```bash
 php artisan test tests/Feature/Admin/CatalogSchemaTest.php tests/Feature/ServiceCatalogPersistenceTest.php
-php artisan migrate:fresh --seed --force --no-interaction
-php artisan migrate:rollback --step=1 --force --no-interaction
-php artisan migrate --force --no-interaction
 ```
 
-Expected: all tests pass, official packages remain public, and the lifecycle migration rolls backward and forward without SQL errors.
+Expected: all tests pass, official packages remain public, and the schema test exercises the lifecycle migration's `down()` and `up()` methods against the isolated in-memory SQLite database without SQL errors.
 
 - [ ] **Step 7: Commit Task 1**
 
@@ -1271,11 +1268,10 @@ php artisan route:cache
 php artisan route:clear
 php artisan config:cache
 php artisan config:clear
-php artisan migrate:fresh --seed --force --no-interaction
-php artisan storage:link
+php artisan migrate:status
 ```
 
-Expected: every command succeeds, the public storage link exists, and official catalog data remains published.
+Expected: every command succeeds. Database recreation remains inside the Playwright global setup, which targets `storage/framework/testing.sqlite`. Do not run `migrate:fresh` against the developer's configured database.
 
 - [ ] **Step 4: Run formatting, secret, and forbidden-runtime scans**
 
@@ -1334,6 +1330,7 @@ At handoff, report:
 
 - commit range and current HEAD;
 - migrations added and deployment commands;
+- production instructions to back up catalog data and managed uploads, then run `php artisan migrate --force` and `php artisan storage:link`;
 - Laravel, frontend, E2E, type, build, cache, and audit results;
 - coverage percentage or the exact missing-driver blocker;
 - review findings and fixes;
