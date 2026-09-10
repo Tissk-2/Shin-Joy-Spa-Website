@@ -27,17 +27,20 @@ class ServiceCatalogPersistenceTest extends TestCase
         ServiceVariant::query()->create([
             'service_id' => $service->id, 'code' => 'nezuko-regular-90',
             'treatment_mode' => TreatmentMode::Regular, 'duration_minutes' => 90,
-            'price_idr' => 265000, 'is_active' => true, 'display_order' => 2,
+            'price_idr' => 265000, 'is_active' => true,
+            'published_at' => now(), 'display_order' => 2,
         ]);
         ServiceVariant::query()->create([
             'service_id' => $service->id, 'code' => 'nezuko-regular-60',
             'treatment_mode' => TreatmentMode::Regular, 'duration_minutes' => 60,
-            'price_idr' => 199000, 'is_active' => true, 'display_order' => 1,
+            'price_idr' => 199000, 'is_active' => true,
+            'published_at' => now(), 'display_order' => 1,
         ]);
         ServiceExtension::query()->create([
             'service_id' => $service->id, 'code' => 'nezuko-regular-extra-60',
             'treatment_mode' => TreatmentMode::Regular, 'duration_minutes' => 60,
-            'price_idr' => 75000, 'is_active' => true, 'display_order' => 1,
+            'price_idr' => 75000, 'is_active' => true,
+            'published_at' => now(), 'display_order' => 1,
         ]);
 
         $service->load(['variants' => fn ($query) => $query->active(), 'extensions' => fn ($query) => $query->active()]);
@@ -113,6 +116,7 @@ class ServiceCatalogPersistenceTest extends TestCase
             'slug' => 'package', 'name_id' => 'Paket Spa', 'name_en' => 'Spa Packages',
             'image_path' => '/img/package.jpg', 'is_active' => true, 'display_order' => 1,
         ]);
+        $this->assertNotNull(ServiceCategory::query()->where('slug', 'package')->value('published_at'));
 
         foreach ($this->officialPackages() as $slug => $attributes) {
             $service = Service::query()->where('slug', $slug)->firstOrFail();
@@ -134,6 +138,7 @@ class ServiceCatalogPersistenceTest extends TestCase
             $this->assertSame($attributes['display_order'], $service->display_order);
             $this->assertSame('package', $service->category->slug);
             $this->assertTrue($service->is_active);
+            $this->assertNotNull($service->published_at);
         }
 
         foreach ($this->officialVariants() as $row) {
@@ -145,6 +150,7 @@ class ServiceCatalogPersistenceTest extends TestCase
             $this->assertSame($row['price'], $variant->price_idr);
             $this->assertSame($row['display_order'], $variant->display_order);
             $this->assertTrue($variant->is_active);
+            $this->assertNotNull($variant->published_at);
         }
 
         foreach ($this->officialExtensions() as $row) {
@@ -156,6 +162,7 @@ class ServiceCatalogPersistenceTest extends TestCase
             $this->assertSame($row['price'], $extension->price_idr);
             $this->assertSame($row['display_order'], $extension->display_order);
             $this->assertTrue($extension->is_active);
+            $this->assertNotNull($extension->published_at);
         }
     }
 
@@ -180,7 +187,8 @@ class ServiceCatalogPersistenceTest extends TestCase
         $variantCodeCollision = ServiceVariant::query()->create([
             'service_id' => $nezuko->id, 'code' => 'nezuko-regular-60',
             'treatment_mode' => TreatmentMode::Regular, 'duration_minutes' => 45,
-            'price_idr' => 2, 'is_active' => true, 'display_order' => 98,
+            'price_idr' => 2, 'is_active' => true,
+            'published_at' => '2026-09-01 10:00:00', 'display_order' => 98,
         ]);
         $extensionCodeCollision = ServiceExtension::query()->create([
             'service_id' => $nezuko->id, 'code' => 'nezuko-regular-extra-60',
@@ -232,6 +240,8 @@ class ServiceCatalogPersistenceTest extends TestCase
         $this->assertNotSame('nezuko-regular-extra-60', $archivedExtensionCode);
         $this->assertDatabaseHas('service_variants', ['id' => $variantCodeCollision->id, 'code' => $archivedVariantCode, 'is_active' => false]);
         $this->assertDatabaseHas('service_extensions', ['id' => $extensionCodeCollision->id, 'code' => $archivedExtensionCode, 'is_active' => false]);
+        $this->assertSame('2026-09-01 10:00:00', $variantCodeCollision->fresh()->published_at?->format('Y-m-d H:i:s'));
+        $this->assertNotNull($extensionCodeCollision->fresh()->published_at);
         $this->assertDatabaseHas('service_variants', [
             'id' => $futureVariant->id, 'service_id' => $future->id, 'code' => 'future-regular-60',
             'price_idr' => 123000, 'is_active' => true,
@@ -317,24 +327,32 @@ class ServiceCatalogPersistenceTest extends TestCase
         $this->assertSame(['package'], ServiceCategory::query()->active()->pluck('slug')->all());
     }
 
-    // Production break caught: an active admin-created service with an active choice must remain private until it joins the official menu.
-    public function test_publicly_visible_scope_excludes_active_unknown_services_without_deactivating_them(): void
+    // Production break caught: a slug whitelist would hide valid packages added through the admin catalog.
+    public function test_any_published_package_can_be_publicly_visible(): void
     {
-        $this->seed(ServiceCatalogSeeder::class);
-
         $category = ServiceCategory::query()->create([
-            'slug' => 'future', 'name_id' => 'Masa Depan', 'name_en' => 'Future',
-            'image_path' => '/img/about.jpg', 'is_active' => true, 'display_order' => 99,
+            'slug' => 'body-care', 'name_id' => 'Perawatan Tubuh', 'name_en' => 'Body Care',
+            'image_path' => '/img/body.jpg', 'published_at' => now(),
+            'is_active' => true, 'display_order' => 2,
         ]);
-        $future = Service::query()->create($this->packageAttributes($category, 'future-treatment'));
+        $service = Service::query()->create([
+            'category_id' => $category->id, 'slug' => 'body-scrub-deluxe',
+            'name_id' => 'Body Scrub Deluxe', 'name_en' => 'Deluxe Body Scrub',
+            'description_id' => 'Perawatan tubuh.', 'description_en' => 'A body treatment.',
+            'long_description_id' => 'Perawatan tubuh lengkap.',
+            'long_description_en' => 'A complete body treatment.',
+            'image_path' => '/img/body.jpg', 'gallery_paths' => [],
+            'is_vip' => false, 'is_active' => true, 'published_at' => now(),
+            'display_order' => 1, 'popularity' => 0,
+        ]);
         ServiceVariant::query()->create([
-            'service_id' => $future->id, 'code' => 'future-regular-60',
+            'service_id' => $service->id, 'code' => 'body-scrub-60',
             'treatment_mode' => TreatmentMode::Regular, 'duration_minutes' => 60,
-            'price_idr' => 123000, 'is_active' => true, 'display_order' => 1,
+            'price_idr' => 175000, 'is_active' => true,
+            'published_at' => now(), 'display_order' => 1,
         ]);
 
-        $this->assertTrue($future->fresh()->is_active);
-        $this->assertSame(['nezuko', 'nezuko-vip'], Service::query()->publiclyVisible()->pluck('slug')->all());
+        $this->assertSame(['body-scrub-deluxe'], Service::query()->publiclyVisible()->pluck('slug')->all());
     }
 
     /** @return array<string, mixed> */

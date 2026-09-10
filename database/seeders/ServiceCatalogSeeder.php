@@ -7,6 +7,7 @@ use App\Models\Service;
 use App\Models\ServiceCategory;
 use App\Models\ServiceExtension;
 use App\Models\ServiceVariant;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -16,6 +17,7 @@ class ServiceCatalogSeeder extends Seeder
     public function run(): void
     {
         DB::transaction(function (): void {
+            $publishedAt = now();
             $category = ServiceCategory::query()->updateOrCreate(
                 ['slug' => 'package'],
                 [
@@ -23,6 +25,9 @@ class ServiceCatalogSeeder extends Seeder
                     'name_en' => 'Spa Packages',
                     'image_path' => '/img/package.jpg',
                     'is_active' => true,
+                    'published_at' => ServiceCategory::query()
+                        ->where('slug', 'package')
+                        ->value('published_at') ?? $publishedAt,
                     'display_order' => 1,
                 ],
             );
@@ -42,6 +47,9 @@ class ServiceCatalogSeeder extends Seeder
                         'long_description_en' => $package['description_en'],
                         'popularity' => $slug === 'nezuko' ? 100 : 99,
                         'is_active' => true,
+                        'published_at' => Service::query()
+                            ->where('slug', $slug)
+                            ->value('published_at') ?? $publishedAt,
                     ],
                 );
             }
@@ -50,8 +58,8 @@ class ServiceCatalogSeeder extends Seeder
                 ->whereIn('slug', $this->placeholderSlugs())
                 ->update(['is_active' => false]);
 
-            $this->seedVariants($services);
-            $this->seedExtensions($services);
+            $this->seedVariants($services, $publishedAt);
+            $this->seedExtensions($services, $publishedAt);
         });
     }
 
@@ -83,7 +91,7 @@ class ServiceCatalogSeeder extends Seeder
     }
 
     /** @param array<string, Service> $services */
-    private function seedVariants(array $services): void
+    private function seedVariants(array $services, CarbonInterface $publishedAt): void
     {
         $rows = [
             ['service' => 'nezuko', 'code' => 'nezuko-regular-60', 'mode' => TreatmentMode::Regular, 'duration' => 60, 'price' => 199000],
@@ -106,7 +114,7 @@ class ServiceCatalogSeeder extends Seeder
             $codeOwner = ServiceVariant::query()->where('code', $row['code'])->first();
 
             if ($codeOwner !== null && ($naturalChoice === null || ! $codeOwner->is($naturalChoice))) {
-                $this->archiveChoice($codeOwner);
+                $this->archiveChoice($codeOwner, $publishedAt);
             }
 
             ServiceVariant::query()->updateOrCreate(
@@ -120,6 +128,7 @@ class ServiceCatalogSeeder extends Seeder
                     'treatment_mode' => $row['mode'],
                     'price_idr' => $row['price'],
                     'is_active' => true,
+                    'published_at' => $naturalChoice?->published_at ?? $publishedAt,
                     'display_order' => $index + 1,
                 ],
             );
@@ -132,7 +141,7 @@ class ServiceCatalogSeeder extends Seeder
     }
 
     /** @param array<string, Service> $services */
-    private function seedExtensions(array $services): void
+    private function seedExtensions(array $services, CarbonInterface $publishedAt): void
     {
         $rows = [
             ['service' => 'nezuko', 'code' => 'nezuko-regular-extra-60', 'mode' => TreatmentMode::Regular, 'duration' => 60, 'price' => 75000],
@@ -151,7 +160,7 @@ class ServiceCatalogSeeder extends Seeder
             $codeOwner = ServiceExtension::query()->where('code', $row['code'])->first();
 
             if ($codeOwner !== null && ($naturalChoice === null || ! $codeOwner->is($naturalChoice))) {
-                $this->archiveChoice($codeOwner);
+                $this->archiveChoice($codeOwner, $publishedAt);
             }
 
             ServiceExtension::query()->updateOrCreate(
@@ -165,6 +174,7 @@ class ServiceCatalogSeeder extends Seeder
                     'treatment_mode' => $row['mode'],
                     'price_idr' => $row['price'],
                     'is_active' => true,
+                    'published_at' => $naturalChoice?->published_at ?? $publishedAt,
                     'display_order' => $index + 1,
                 ],
             );
@@ -176,11 +186,12 @@ class ServiceCatalogSeeder extends Seeder
             ->update(['is_active' => false]);
     }
 
-    private function archiveChoice(ServiceVariant|ServiceExtension $choice): void
+    private function archiveChoice(ServiceVariant|ServiceExtension $choice, CarbonInterface $publishedAt): void
     {
         $choice->update([
             'code' => sprintf('archived-%s-%s', Str::uuid(), $choice->code),
             'is_active' => false,
+            'published_at' => $choice->published_at ?? $publishedAt,
         ]);
     }
 

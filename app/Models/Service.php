@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\CatalogStatus;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -27,6 +28,8 @@ class Service extends Model
         'popularity',
         'is_vip',
         'is_active',
+        'published_at',
+        'lock_version',
         'display_order',
     ];
 
@@ -36,6 +39,8 @@ class Service extends Model
             'gallery_paths' => 'array',
             'is_vip' => 'boolean',
             'is_active' => 'boolean',
+            'published_at' => 'immutable_datetime',
+            'lock_version' => 'integer',
             'duration_minutes' => 'integer',
             'price_idr' => 'integer',
             'popularity' => 'integer',
@@ -65,11 +70,20 @@ class Service extends Model
 
     public function scopePubliclyVisible(Builder $query): void
     {
-        $query->whereIn('slug', ['nezuko', 'nezuko-vip'])
+        $query->whereNotNull('published_at')
             ->where('is_active', true)
-            ->whereHas('category', fn (Builder $categoryQuery) => $categoryQuery->where('is_active', true))
-            ->whereHas('variants', fn (Builder $variantQuery) => $variantQuery->where('is_active', true))
+            ->whereHas('category', fn (Builder $category) => $category
+                ->whereNotNull('published_at')
+                ->where('is_active', true))
+            ->whereHas('variants', fn (Builder $variant) => $variant
+                ->whereNotNull('published_at')
+                ->where('is_active', true))
             ->orderBy('display_order')
             ->orderBy('id');
+    }
+
+    public function catalogStatus(): CatalogStatus
+    {
+        return CatalogStatus::fromLifecycle($this->published_at, $this->is_active);
     }
 }
