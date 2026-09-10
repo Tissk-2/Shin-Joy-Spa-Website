@@ -11,16 +11,20 @@ use Illuminate\Support\Collection;
 class BookingSelectionResolver
 {
     /**
-     * @param Collection<int, Service> $packages
+     * @param  Collection<int, Service>  $packages
      * @return array{service: string, mode: string, duration: int|null, extension: string}
      */
     public function resolve(Request $request, Collection $packages): array
     {
         $serviceSlug = $this->stringQuery($request, 'service');
-        $service = $packages->first(fn (Service $package): bool => $package->is_active && $package->slug === $serviceSlug);
+        $service = $packages->first(fn (Service $package): bool => $package->is_active
+            && $package->published_at !== null
+            && $package->slug === $serviceSlug);
 
         $mode = $service === null ? null : $this->stringQuery($request, 'mode');
-        $variants = $service?->variants->filter(fn (ServiceVariant $variant): bool => $variant->is_active && $variant->treatment_mode->value === $mode);
+        $variants = $service?->variants->filter(fn (ServiceVariant $variant): bool => $variant->is_active
+            && $variant->published_at !== null
+            && $variant->treatment_mode->value === $mode);
         $mode = $variants?->isNotEmpty() ? $mode : null;
 
         $duration = $this->durationQuery($request);
@@ -31,6 +35,7 @@ class BookingSelectionResolver
         $extensionCode = $variant === null ? null : $this->stringQuery($request, 'extension');
         $extension = $variant === null ? null : $service->extensions->first(
             fn (ServiceExtension $candidate): bool => $candidate->is_active
+                && $candidate->published_at !== null
                 && $candidate->treatment_mode->value === $mode
                 && $candidate->code === $extensionCode,
         );

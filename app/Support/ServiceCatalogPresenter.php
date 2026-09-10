@@ -3,8 +3,10 @@
 namespace App\Support;
 
 use App\Models\Service;
+use App\Models\ServiceCategory;
 use App\Models\ServiceExtension;
 use App\Models\ServiceVariant;
+use Illuminate\Support\Facades\Storage;
 
 class ServiceCatalogPresenter
 {
@@ -40,11 +42,26 @@ class ServiceCatalogPresenter
             'longEn' => $service->long_description_en,
             'benefitId' => $service->good_for_id,
             'benefitEn' => $service->good_for_en,
-            'image' => $service->image_path,
-            'gallery' => array_map($this->galleryImagePath(...), $service->gallery_paths ?? []),
+            'image' => $this->publicImageUrl($service->image_path),
+            'gallery' => array_map($this->publicImageUrl(...), $service->gallery_paths ?? []),
             'isVip' => (bool) $service->is_vip,
             'variants' => $service->variants->map(fn (ServiceVariant $variant): array => $this->choice($variant))->values()->all(),
             'extensions' => $service->extensions->map(fn (ServiceExtension $extension): array => $this->choice($extension))->values()->all(),
+        ];
+    }
+
+    /** @return array{slug: string, nameId: string, nameEn: string, image: string, packages: list<array<string, mixed>>} */
+    public function category(ServiceCategory $category): array
+    {
+        return [
+            'slug' => $category->slug,
+            'nameId' => $category->name_id,
+            'nameEn' => $category->name_en,
+            'image' => $this->publicImageUrl($category->image_path),
+            'packages' => $category->services
+                ->map($this->package(...))
+                ->values()
+                ->all(),
         ];
     }
 
@@ -59,8 +76,14 @@ class ServiceCatalogPresenter
         ];
     }
 
-    private function galleryImagePath(string $path): string
+    private function publicImageUrl(?string $path): string
     {
-        return str_starts_with($path, '/') ? $path : '/img/'.ltrim($path, '/');
+        if ($path === null || $path === '') {
+            return '';
+        }
+
+        return str_starts_with($path, '/')
+            ? $path
+            : Storage::disk('public')->url($path);
     }
 }

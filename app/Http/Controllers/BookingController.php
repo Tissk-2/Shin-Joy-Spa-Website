@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Actions\CreateBooking;
 use App\Http\Requests\StoreBookingRequest;
 use App\Models\Booking;
-use App\Models\Service;
+use App\Queries\PublicCatalogQuery;
 use App\Support\BookingPresenter;
 use App\Support\BookingSelectionResolver;
 use App\Support\ServiceCatalogPresenter;
@@ -27,15 +27,13 @@ class BookingController extends Controller
         return inertia('bookings/Index', $groups);
     }
 
-    public function create(Request $request, ServiceCatalogPresenter $presenter, BookingSelectionResolver $selectionResolver): Response
-    {
-        $services = Service::query()
-            ->publiclyVisible()
-            ->with([
-                'variants' => fn ($query) => $query->active(),
-                'extensions' => fn ($query) => $query->active(),
-            ])
-            ->get();
+    public function create(
+        Request $request,
+        PublicCatalogQuery $catalog,
+        ServiceCatalogPresenter $presenter,
+        BookingSelectionResolver $selectionResolver,
+    ): Response {
+        $services = $catalog->categories()->flatMap->services;
 
         return inertia('Booking', [
             'packages' => $services->map($presenter->package(...))->values(),

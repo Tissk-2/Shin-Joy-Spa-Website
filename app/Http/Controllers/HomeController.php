@@ -2,22 +2,22 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Service;
+use App\Queries\PublicCatalogQuery;
 use App\Support\ServiceCatalogPresenter;
 use Inertia\Response;
 
 class HomeController extends Controller
 {
-    public function index(ServiceCatalogPresenter $presenter): Response
+    public function index(PublicCatalogQuery $catalog, ServiceCatalogPresenter $presenter): Response
     {
+        $categories = $catalog->categories();
+
         return inertia('Home', [
-            'packages' => Service::query()
-                ->publiclyVisible()
-                ->with([
-                    'variants' => fn ($query) => $query->active(),
-                    'extensions' => fn ($query) => $query->active(),
-                ])
-                ->get()
+            'categories' => $categories
+                ->map($presenter->category(...))
+                ->values(),
+            'packages' => $categories
+                ->flatMap->services
                 ->map($presenter->package(...))
                 ->values(),
         ]);

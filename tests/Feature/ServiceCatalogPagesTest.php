@@ -3,11 +3,13 @@
 namespace Tests\Feature;
 
 use App\Models\Service;
+use App\Models\ServiceCategory;
 use App\Models\ServiceExtension;
 use App\Models\ServiceVariant;
 use App\Models\User;
 use Database\Seeders\ServiceCatalogSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
@@ -22,7 +24,7 @@ class ServiceCatalogPagesTest extends TestCase
         $this->seed(ServiceCatalogSeeder::class);
     }
 
-    // Production break caught: serializing category/scalar services or inactive choices would expose an obsolete or unsafe menu contract.
+    // Production break caught: removing the transitional flat prop or omitting grouped categories would break a public page during the catalog rollout.
     public function test_home_exposes_only_active_package_choices_in_the_exact_public_shape(): void
     {
         $nezuko = Service::query()->where('slug', 'nezuko')->firstOrFail();
@@ -49,6 +51,8 @@ class ServiceCatalogPagesTest extends TestCase
 
         $response->assertOk()->assertInertia(fn (Assert $page) => $page
             ->component('Home')
+            ->where('categories.0.slug', 'package')
+            ->has('categories', 1)
             ->where('packages.0.slug', 'nezuko')
             ->where('packages.1.slug', 'nezuko-vip')
             ->where('packages.0.variants.1.price', 265000)
@@ -64,7 +68,11 @@ class ServiceCatalogPagesTest extends TestCase
         ], array_keys($package));
         $this->assertSame(['code', 'mode', 'duration', 'price'], array_keys($package['variants'][0]));
         $this->assertSame(['code', 'mode', 'duration', 'price'], array_keys($package['extensions'][0]));
-        $this->assertSame(['/img/massage.jpg', '/img/oil.jpg', '/img/about.jpg'], $package['gallery']);
+        $this->assertSame([
+            'http://localhost/storage/massage.jpg',
+            'http://localhost/storage/oil.jpg',
+            'http://localhost/storage/about.jpg',
+        ], $package['gallery']);
         $this->assertSame(['nezuko-regular-60', 'nezuko-regular-90', 'nezuko-regular-120', 'nezuko-double-60'], array_column($package['variants'], 'code'));
         $this->assertSame(['nezuko-regular-extra-60', 'nezuko-double-extra-30'], array_column($package['extensions'], 'code'));
         $this->assertIsInt($package['variants'][0]['duration']);
@@ -75,8 +83,48 @@ class ServiceCatalogPagesTest extends TestCase
         $this->assertArrayNotHasKey('updated_at', $package['extensions'][0]);
     }
 
-    // Production break caught: detail pages must not leak a related collection or expose inactive choices through an otherwise public package.
-    public function test_service_detail_exposes_the_package_and_only_the_opposite_package_link(): void
+    // Production break caught: returning a redirect, flat catalog, draft record, unstable ordering, or internal columns violates the public menu boundary.
+    public function test_services_index_exposes_grouped_published_catalog_in_deterministic_safe_shape(): void
+    {
+        ServiceCategory::query()->where('slug', 'package')->update(['display_order' => 2]);
+        $massage = $this->createCategory('massage', 1, imagePath: 'catalog/categories/massage.jpg');
+        $this->createService($massage, 'balinese-60', 1, imagePath: 'catalog/services/balinese.jpg');
+        $this->createService($massage, 'draft-treatment', 0, published: false);
+        $draftCategory = $this->createCategory('draft-category', 0, published: false);
+        $this->createService($draftCategory, 'published-under-draft', 1);
+
+        $response = $this->get(route('services.index'));
+
+        $response->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->component('Services')
+            ->has('categories', 2)
+            ->where('categories.0.slug', 'massage')
+            ->where('categories.0.packages.0.slug', 'balinese-60')
+            ->where('categories.1.slug', 'package')
+            ->where('categories.1.packages.0.slug', 'nezuko')
+            ->missing('categories.0.id')
+            ->missing('categories.0.published_at')
+            ->missing('categories.0.packages.0.id')
+            ->missing('categories.0.packages.0.published_at'));
+
+        $categories = $response->inertiaProps('categories');
+        $this->assertSame(['slug', 'nameId', 'nameEn', 'image', 'packages'], array_keys($categories[0]));
+        $this->assertSame([
+            'slug', 'nameId', 'nameEn', 'descId', 'descEn', 'longId', 'longEn',
+            'benefitId', 'benefitEn', 'image', 'gallery', 'isVip', 'variants', 'extensions',
+        ], array_keys($categories[0]['packages'][0]));
+        $this->assertSame('http://localhost/storage/catalog/categories/massage.jpg', $categories[0]['image']);
+        $this->assertSame('http://localhost/storage/catalog/services/balinese.jpg', $categories[0]['packages'][0]['image']);
+        $this->assertSame('http://localhost/storage/catalog/services/balinese-detail.jpg', $categories[0]['packages'][0]['gallery'][0]);
+        $this->assertSame(['massage', 'package'], array_column($categories, 'slug'));
+        $this->assertSame(['balinese-60'], array_column($categories[0]['packages'], 'slug'));
+
+        $this->get(route('services.show', 'draft-treatment'))->assertNotFound();
+        $this->get(route('services.show', 'published-under-draft'))->assertNotFound();
+    }
+
+    // Production break caught: detail pages must expose safe same-category related links while retaining the transitional comparison link.
+    public function test_service_detail_exposes_the_package_related_links_and_transitional_comparison(): void
     {
         $nezuko = Service::query()->where('slug', 'nezuko')->firstOrFail();
         ServiceVariant::query()->where('service_id', $nezuko->id)->where('code', 'nezuko-regular-90')->update(['is_active' => false]);
@@ -88,12 +136,16 @@ class ServiceCatalogPagesTest extends TestCase
             ->where('service.slug', 'nezuko')
             ->where('service.variants.0.code', 'nezuko-regular-60')
             ->where('comparison.slug', 'nezuko-vip')
+            ->where('related.0.slug', 'nezuko-vip')
             ->has('service.variants', 3)
+            ->has('related', 1)
             ->missing('category')
-            ->missing('related'));
+        );
 
         $props = $response->viewData('page')['props'];
         $this->assertSame(['slug', 'nameId', 'nameEn', 'isVip'], array_keys($props['comparison']));
+        $this->assertSame(['slug', 'nameId', 'nameEn', 'isVip'], array_keys($props['related'][0]));
+        $this->assertArrayNotHasKey('categorySlug', $props['related'][0]);
         $this->assertSame(['nezuko-regular-60', 'nezuko-regular-120', 'nezuko-double-60'], array_column($props['service']['variants'], 'code'));
         $this->assertArrayNotHasKey('id', $props['service']);
 
@@ -101,8 +153,8 @@ class ServiceCatalogPagesTest extends TestCase
         $this->get('/services/not_valid')->assertNotFound();
     }
 
-    // Production break caught: the VIP route must present its own exact active package choices and only the reverse comparison link.
-    public function test_vip_service_detail_exposes_exact_active_choices_and_the_standard_comparison_link(): void
+    // Production break caught: the VIP route must present exact public choices plus the reverse related and comparison links.
+    public function test_vip_service_detail_exposes_exact_active_choices_and_reverse_links(): void
     {
         $response = $this->get('/services/nezuko-vip');
 
@@ -111,10 +163,12 @@ class ServiceCatalogPagesTest extends TestCase
             ->where('service.slug', 'nezuko-vip')
             ->where('service.isVip', true)
             ->where('comparison.slug', 'nezuko')
+            ->where('related.0.slug', 'nezuko')
             ->has('service.variants', 4)
             ->has('service.extensions', 2)
+            ->has('related', 1)
             ->missing('category')
-            ->missing('related'));
+        );
 
         $props = $response->viewData('page')['props'];
         $service = $props['service'];
@@ -124,6 +178,7 @@ class ServiceCatalogPagesTest extends TestCase
             'benefitId', 'benefitEn', 'image', 'gallery', 'isVip', 'variants', 'extensions',
         ], array_keys($service));
         $this->assertSame(['slug', 'nameId', 'nameEn', 'isVip'], array_keys($props['comparison']));
+        $this->assertSame(['slug', 'nameId', 'nameEn', 'isVip'], array_keys($props['related'][0]));
         $this->assertSame([
             ['code' => 'nezuko-vip-regular-60', 'mode' => 'regular', 'duration' => 60, 'price' => 299000],
             ['code' => 'nezuko-vip-regular-90', 'mode' => 'regular', 'duration' => 90, 'price' => 349000],
@@ -134,6 +189,47 @@ class ServiceCatalogPagesTest extends TestCase
             ['code' => 'nezuko-vip-regular-extra-60', 'mode' => 'regular', 'duration' => 60, 'price' => 100000],
             ['code' => 'nezuko-vip-double-extra-30', 'mode' => 'double_therapist', 'duration' => 30, 'price' => 100000],
         ], $service['extensions']);
+    }
+
+    // Production break caught: a global related query or missing limit would recommend another category or return an unbounded list.
+    public function test_service_detail_related_links_are_same_category_ordered_and_limited_to_three(): void
+    {
+        $package = ServiceCategory::query()->where('slug', 'package')->firstOrFail();
+        $foreign = $this->createCategory('facial', 0);
+        $this->createService($foreign, 'foreign-first', 0);
+        $this->createService($package, 'package-third', 3);
+        $this->createService($package, 'package-fourth', 4);
+        $this->createService($package, 'package-fifth', 5);
+
+        $response = $this->get(route('services.show', 'nezuko'));
+
+        $response->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->has('related', 3)
+            ->where('related.0.slug', 'nezuko-vip')
+            ->where('related.1.slug', 'package-third')
+            ->where('related.2.slug', 'package-fourth'));
+
+        $related = $response->inertiaProps('related');
+        $this->assertSame(['nezuko-vip', 'package-third', 'package-fourth'], array_column($related, 'slug'));
+        foreach ($related as $link) {
+            $this->assertSame(['slug', 'nameId', 'nameEn', 'isVip'], array_keys($link));
+            $this->assertArrayNotHasKey('categorySlug', $link);
+        }
+    }
+
+    // Production break caught: lazy-loading services or choices would make public menu query counts grow with catalog size.
+    public function test_services_index_query_count_does_not_grow_with_more_packages(): void
+    {
+        $baseline = $this->requestQueryCount(route('services.index'));
+        $package = ServiceCategory::query()->where('slug', 'package')->firstOrFail();
+
+        foreach (range(3, 7) as $order) {
+            $this->createService($package, "package-{$order}", $order);
+        }
+
+        $expanded = $this->requestQueryCount(route('services.index'));
+
+        $this->assertSame($baseline, $expanded);
     }
 
     // Production break caught: booking must resolve only active, internally consistent server-side choices after account verification.
@@ -243,5 +339,78 @@ class ServiceCatalogPagesTest extends TestCase
                 ->where('selection.mode', '')
                 ->where('selection.duration', null)
                 ->where('selection.extension', ''));
+    }
+
+    private function createCategory(
+        string $slug,
+        int $displayOrder,
+        bool $published = true,
+        string $imagePath = '/img/category.jpg',
+    ): ServiceCategory {
+        return ServiceCategory::query()->create([
+            'slug' => $slug,
+            'name_id' => ucfirst(str_replace('-', ' ', $slug)),
+            'name_en' => ucfirst(str_replace('-', ' ', $slug)),
+            'image_path' => $imagePath,
+            'is_active' => true,
+            'published_at' => $published ? now() : null,
+            'display_order' => $displayOrder,
+        ]);
+    }
+
+    private function createService(
+        ServiceCategory $category,
+        string $slug,
+        int $displayOrder,
+        bool $published = true,
+        string $imagePath = '/img/service.jpg',
+    ): Service {
+        $service = Service::query()->create([
+            'category_id' => $category->id,
+            'slug' => $slug,
+            'name_id' => ucfirst(str_replace('-', ' ', $slug)),
+            'name_en' => ucfirst(str_replace('-', ' ', $slug)),
+            'description_id' => 'Deskripsi',
+            'description_en' => 'Description',
+            'long_description_id' => 'Deskripsi panjang',
+            'long_description_en' => 'Long description',
+            'good_for_id' => null,
+            'good_for_en' => null,
+            'duration_minutes' => null,
+            'price_idr' => null,
+            'image_path' => $imagePath,
+            'gallery_paths' => ['catalog/services/balinese-detail.jpg'],
+            'popularity' => 1,
+            'is_vip' => false,
+            'is_active' => true,
+            'published_at' => $published ? now() : null,
+            'display_order' => $displayOrder,
+        ]);
+
+        ServiceVariant::query()->create([
+            'service_id' => $service->id,
+            'code' => "{$slug}-regular-60",
+            'treatment_mode' => 'regular',
+            'duration_minutes' => 60,
+            'price_idr' => 199000,
+            'is_active' => true,
+            'published_at' => now(),
+            'display_order' => 1,
+        ]);
+
+        return $service;
+    }
+
+    private function requestQueryCount(string $url): int
+    {
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+
+        $this->get($url)->assertOk();
+        $count = count(DB::getQueryLog());
+
+        DB::disableQueryLog();
+
+        return $count;
     }
 }

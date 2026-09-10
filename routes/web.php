@@ -16,7 +16,7 @@ use Illuminate\Validation\Rule;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
 
-Route::redirect('/services', '/#menu');
+Route::get('/services', [ServiceController::class, 'index'])->name('services.index');
 
 Route::get('/services/{slug}', [ServiceController::class, 'show'])
     ->where('slug', '[a-z0-9-]+')

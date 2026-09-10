@@ -6,23 +6,24 @@ use App\Models\Service;
 use App\Models\ServiceExtension;
 use App\Models\ServiceVariant;
 use App\Models\User;
+use App\Queries\PublicCatalogQuery;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Validation\ValidationException;
 
 class BookingQuoteResolver
 {
+    public function __construct(private readonly PublicCatalogQuery $catalog) {}
+
     /**
      * @param  array<string, mixed>  $data
      */
     public function resolve(User $user, array $data): ResolvedBookingQuote
     {
-        $service = Service::query()
-            ->publiclyVisible()
-            ->with([
-                'variants' => fn ($query) => $query->active(),
-                'extensions' => fn ($query) => $query->active(),
-            ])
-            ->where('slug', $data['service'])
-            ->first();
+        try {
+            $service = $this->catalog->findService($data['service']);
+        } catch (ModelNotFoundException) {
+            $service = null;
+        }
 
         if (! $service instanceof Service) {
             throw ValidationException::withMessages([

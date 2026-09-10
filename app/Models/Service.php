@@ -82,6 +82,14 @@ class Service extends Model
             ->orderBy('id');
     }
 
+    public function scopeWithPublicChoices(Builder $query): void
+    {
+        $query->with([
+            'variants' => fn (HasMany $variants) => $variants->active(),
+            'extensions' => fn (HasMany $extensions) => $extensions->active(),
+        ]);
+    }
+
     public function catalogStatus(): CatalogStatus
     {
         return CatalogStatus::fromLifecycle($this->published_at, $this->is_active);

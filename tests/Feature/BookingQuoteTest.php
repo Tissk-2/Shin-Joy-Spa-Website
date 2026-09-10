@@ -200,6 +200,26 @@ class BookingQuoteTest extends TestCase
         ], $user, 'extension');
     }
 
+    // Production break caught: an archived child choice must not remain quoteable through its still-published parent package.
+    public function test_resolver_rejects_archived_child_choices_while_the_parent_remains_published(): void
+    {
+        $this->seed(ServiceCatalogSeeder::class);
+        $user = User::factory()->create();
+
+        ServiceVariant::query()->where('code', 'nezuko-regular-90')->update([
+            'is_active' => false,
+            'published_at' => now(),
+        ]);
+        $this->assertQuoteFails([], $user, 'duration');
+
+        $this->seed(ServiceCatalogSeeder::class);
+        ServiceExtension::query()->where('code', 'nezuko-regular-extra-60')->update([
+            'is_active' => false,
+            'published_at' => now(),
+        ]);
+        $this->assertQuoteFails([], $user, 'extension');
+    }
+
     // Production break caught: array-shaped and malformed booking fields must stop before quote resolution.
     public function test_store_request_rejects_malformed_or_array_shaped_boundary_fields(): void
     {

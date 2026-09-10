@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Enums\UserRole;
 use App\Models\Service;
+use App\Models\ServiceExtension;
 use App\Models\ServiceVariant;
 use App\Models\User;
 use Database\Seeders\ServiceCatalogSeeder;
@@ -74,6 +75,43 @@ class InertiaSharedDataTest extends TestCase
         $this->seed(ServiceCatalogSeeder::class);
         $nezuko = Service::query()->where('slug', 'nezuko')->firstOrFail();
         ServiceVariant::query()->where('service_id', $nezuko->id)->update(['is_active' => false]);
+        $draft = Service::query()->create([
+            'category_id' => $nezuko->category_id,
+            'slug' => 'draft-shared-link',
+            'name_id' => 'Draf',
+            'name_en' => 'Draft',
+            'description_id' => 'Draf',
+            'description_en' => 'Draft',
+            'long_description_id' => 'Draf',
+            'long_description_en' => 'Draft',
+            'image_path' => '/img/massage.jpg',
+            'gallery_paths' => [],
+            'popularity' => 0,
+            'is_vip' => false,
+            'is_active' => true,
+            'published_at' => null,
+            'display_order' => 99,
+        ]);
+        ServiceVariant::query()->create([
+            'service_id' => $draft->id,
+            'code' => 'draft-shared-link-regular-60',
+            'treatment_mode' => 'regular',
+            'duration_minutes' => 60,
+            'price_idr' => 199000,
+            'is_active' => true,
+            'published_at' => now(),
+            'display_order' => 1,
+        ]);
+        ServiceExtension::query()->create([
+            'service_id' => $draft->id,
+            'code' => 'draft-shared-link-extra-30',
+            'treatment_mode' => 'regular',
+            'duration_minutes' => 30,
+            'price_idr' => 50000,
+            'is_active' => true,
+            'published_at' => now(),
+            'display_order' => 1,
+        ]);
 
         $response = $this->get(route('home'));
 

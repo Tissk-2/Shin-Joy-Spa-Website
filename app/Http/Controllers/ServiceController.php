@@ -2,31 +2,31 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Service;
+use App\Queries\PublicCatalogQuery;
 use App\Support\ServiceCatalogPresenter;
 use Inertia\Response;
 
 class ServiceController extends Controller
 {
-    public function show(string $slug, ServiceCatalogPresenter $presenter): Response
+    public function index(PublicCatalogQuery $catalog, ServiceCatalogPresenter $presenter): Response
     {
-        $service = Service::query()
-            ->publiclyVisible()
-            ->with([
-                'variants' => fn ($query) => $query->active(),
-                'extensions' => fn ($query) => $query->active(),
-            ])
-            ->where('slug', $slug)
-            ->firstOrFail();
+        return inertia('Services', [
+            'categories' => $catalog->categories()
+                ->map($presenter->category(...))
+                ->values(),
+        ]);
+    }
 
-        $comparison = Service::query()
-            ->publiclyVisible()
-            ->whereKeyNot($service)
-            ->first();
+    public function show(string $slug, PublicCatalogQuery $catalog, ServiceCatalogPresenter $presenter): Response
+    {
+        $service = $catalog->findService($slug);
+        $related = $catalog->related($service);
+        $comparison = $related->first();
 
         return inertia('ServiceDetail', [
             'service' => $presenter->package($service),
             'comparison' => $comparison ? $presenter->link($comparison) : null,
+            'related' => $related->map($presenter->link(...))->values(),
         ]);
     }
 }

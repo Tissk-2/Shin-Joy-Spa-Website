@@ -2,7 +2,7 @@
 
 namespace App\Http\Middleware;
 
-use App\Models\Service;
+use App\Queries\PublicCatalogQuery;
 use App\Support\ServiceCatalogPresenter;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -39,6 +39,7 @@ class HandleInertiaRequests extends Middleware
     {
         $user = $request->user()?->fresh();
         $presenter = app(ServiceCatalogPresenter::class);
+        $catalog = app(PublicCatalogQuery::class);
 
         return [
             ...parent::share($request),
@@ -57,9 +58,9 @@ class HandleInertiaRequests extends Middleware
                 'status' => fn (): ?string => $request->session()->get('status'),
             ],
             'catalog' => [
-                'packages' => fn (): array => Service::query()
-                    ->publiclyVisible()
-                    ->get()
+                'packages' => fn (): array => $catalog
+                    ->categories()
+                    ->flatMap->services
                     ->map($presenter->link(...))
                     ->values()
                     ->all(),
