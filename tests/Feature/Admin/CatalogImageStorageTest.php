@@ -161,9 +161,11 @@ class CatalogImageStorageTest extends TestCase
     {
         Storage::fake('public');
         $disk = Storage::disk('public');
-        $managedPath = 'catalog/packages/safe/image.jpg';
+        $managedPath = 'catalog/packages/8b16caa7-8007-41f1-8928-22f93b38f9c0/a4d9f22e-727a-4a4f-b392-1c4e9af674b1.jpg';
+        $unownedCatalogPath = 'catalog/services/8b16caa7-8007-41f1-8928-22f93b38f9c0/a4d9f22e-727a-4a4f-b392-1c4e9af674b1.jpg';
         $legacyPath = 'img/massage.jpg';
         $disk->put($managedPath, 'managed');
+        $disk->put($unownedCatalogPath, 'unowned');
         $disk->put($legacyPath, 'legacy');
 
         $storage = app(CatalogImageStorage::class);
@@ -172,18 +174,20 @@ class CatalogImageStorageTest extends TestCase
             $managedPath,
             '/img/massage.jpg',
             $legacyPath,
+            $unownedCatalogPath,
             'catalog/packages/../img/massage.jpg',
             null,
         ]);
         $storage->deleteManaged([$managedPath]);
 
         $disk->assertMissing($managedPath);
+        $disk->assertExists($unownedCatalogPath);
         $disk->assertExists($legacyPath);
     }
 
     public function test_cleanup_logs_and_swallows_a_false_disk_result(): void
     {
-        $path = 'catalog/packages/safe/image.jpg';
+        $path = 'catalog/packages/8b16caa7-8007-41f1-8928-22f93b38f9c0/a4d9f22e-727a-4a4f-b392-1c4e9af674b1.jpg';
         $disk = Mockery::mock(Filesystem::class);
         $disk->shouldReceive('delete')->once()->with($path)->andReturnFalse();
         $filesystems = Mockery::mock(FilesystemManager::class);
@@ -200,7 +204,7 @@ class CatalogImageStorageTest extends TestCase
 
     public function test_cleanup_logs_and_swallows_disk_exceptions(): void
     {
-        $path = 'catalog/categories/safe/image.png';
+        $path = 'catalog/categories/8b16caa7-8007-41f1-8928-22f93b38f9c0/a4d9f22e-727a-4a4f-b392-1c4e9af674b1.png';
         $disk = Mockery::mock(Filesystem::class);
         $disk->shouldReceive('delete')->once()->with($path)->andThrow(new RuntimeException('disk unavailable'));
         $filesystems = Mockery::mock(FilesystemManager::class);
@@ -273,7 +277,7 @@ class CatalogImageStorageTest extends TestCase
     }
 
     #[DataProvider('managedPathProvider')]
-    public function test_only_normalized_relative_catalog_paths_are_managed(?string $path, bool $expected): void
+    public function test_only_generated_catalog_image_paths_are_managed(?string $path, bool $expected): void
     {
         $this->assertSame($expected, (new ManagedCatalogPath)->isManaged($path));
     }
@@ -281,19 +285,33 @@ class CatalogImageStorageTest extends TestCase
     /** @return iterable<string, array{0: string|null, 1: bool}> */
     public static function managedPathProvider(): iterable
     {
-        yield 'generated category path' => ['catalog/categories/a/image.jpg', true];
-        yield 'generated package path' => ['catalog/packages/a/image.webp', true];
+        $directoryUuid = '8b16caa7-8007-41f1-8928-22f93b38f9c0';
+        $filenameUuid = 'a4d9f22e-727a-4a4f-b392-1c4e9af674b1';
+
+        yield 'generated category JPEG path' => ["catalog/categories/{$directoryUuid}/{$filenameUuid}.jpg", true];
+        yield 'generated package JPEG alias path' => ["catalog/packages/{$directoryUuid}/{$filenameUuid}.jpeg", true];
+        yield 'generated category PNG path' => ["catalog/categories/{$directoryUuid}/{$filenameUuid}.png", true];
+        yield 'generated package WebP path' => ["catalog/packages/{$directoryUuid}/{$filenameUuid}.webp", true];
         yield 'null' => [null, false];
         yield 'empty' => ['', false];
         yield 'catalog directory itself' => ['catalog', false];
         yield 'catalog directory with trailing slash' => ['catalog/', false];
-        yield 'absolute catalog path' => ['/catalog/packages/a/image.jpg', false];
+        yield 'unknown catalog scope' => ["catalog/services/{$directoryUuid}/{$filenameUuid}.jpg", false];
+        yield 'non UUID directory' => ["catalog/packages/not-a-uuid/{$filenameUuid}.jpg", false];
+        yield 'non UUID filename' => ["catalog/packages/{$directoryUuid}/image.jpg", false];
+        yield 'unsupported extension' => ["catalog/packages/{$directoryUuid}/{$filenameUuid}.gif", false];
+        yield 'uppercase extension' => ["catalog/packages/{$directoryUuid}/{$filenameUuid}.JPG", false];
+        yield 'uppercase UUID' => ["catalog/packages/8B16CAA7-8007-41F1-8928-22F93B38F9C0/{$filenameUuid}.jpg", false];
+        yield 'non version 4 UUID directory' => ["catalog/packages/8b16caa7-8007-11f1-8928-22f93b38f9c0/{$filenameUuid}.jpg", false];
+        yield 'path too shallow' => ["catalog/packages/{$filenameUuid}.jpg", false];
+        yield 'path too deep' => ["catalog/packages/{$directoryUuid}/nested/{$filenameUuid}.jpg", false];
+        yield 'absolute catalog path' => ["/catalog/packages/{$directoryUuid}/{$filenameUuid}.jpg", false];
         yield 'legacy public asset' => ['/img/massage.jpg', false];
         yield 'relative legacy asset' => ['img/massage.jpg', false];
-        yield 'parent traversal' => ['catalog/packages/../image.jpg', false];
-        yield 'current directory traversal' => ['catalog/packages/./image.jpg', false];
-        yield 'duplicate separator' => ['catalog/packages//image.jpg', false];
-        yield 'backslash traversal' => ['catalog\\packages\\..\\image.jpg', false];
+        yield 'parent traversal' => ["catalog/packages/../{$filenameUuid}.jpg", false];
+        yield 'current directory traversal' => ["catalog/packages/./{$filenameUuid}.jpg", false];
+        yield 'duplicate separator' => ["catalog/packages//{$filenameUuid}.jpg", false];
+        yield 'backslash traversal' => ["catalog\\packages\\{$directoryUuid}\\{$filenameUuid}.jpg", false];
         yield 'https URL' => ['https://example.test/catalog/packages/image.jpg', false];
         yield 'protocol-relative URL' => ['//example.test/catalog/packages/image.jpg', false];
         yield 'windows absolute path' => ['C:\\catalog\\packages\\image.jpg', false];

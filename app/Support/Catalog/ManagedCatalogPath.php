@@ -6,6 +6,8 @@ use Illuminate\Validation\ValidationException;
 
 class ManagedCatalogPath
 {
+    private const UUID_V4_PATTERN = '[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}';
+
     public function retentionId(string $path): string
     {
         return hash_hmac('sha256', $path, (string) config('app.key'));
@@ -41,22 +43,16 @@ class ManagedCatalogPath
 
     public function isManaged(?string $path): bool
     {
-        if ($path === null
-            || ! str_starts_with($path, 'catalog/')
-            || str_contains($path, '\\')
-            || preg_match('/[\x00-\x1F\x7F]/', $path) === 1) {
+        if ($path === null) {
             return false;
         }
 
-        $segments = explode('/', $path);
+        $uuid = self::UUID_V4_PATTERN;
 
-        foreach ($segments as $segment) {
-            if ($segment === '' || $segment === '.' || $segment === '..') {
-                return false;
-            }
-        }
-
-        return count($segments) > 1;
+        return preg_match(
+            "#\\Acatalog/(?:categories|packages)/{$uuid}/{$uuid}\\.(?:jpe?g|png|webp)\\z#",
+            $path,
+        ) === 1;
     }
 
     /** @throws ValidationException */
