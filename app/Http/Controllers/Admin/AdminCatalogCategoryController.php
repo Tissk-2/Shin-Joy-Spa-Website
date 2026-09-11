@@ -61,7 +61,7 @@ final class AdminCatalogCategoryController extends Controller
         ServiceCategory $category,
         ChangeCategoryLifecycle $changeLifecycle,
     ): RedirectResponse {
-        $changeLifecycle($category, $request->version(), CatalogStatus::Published);
+        $changeLifecycle->restore($category, $request->version());
 
         return to_route('admin.catalog.index', status: 303);
     }
@@ -71,7 +71,7 @@ final class AdminCatalogCategoryController extends Controller
         ServiceCategory $category,
         CatalogImageStorage $images,
     ): RedirectResponse {
-        $oldPath = DB::transaction(function () use ($request, $category): ?string {
+        DB::transaction(function () use ($request, $category, $images): void {
             $locked = ServiceCategory::query()
                 ->whereKey($category->getKey())
                 ->lockForUpdate()
@@ -93,11 +93,8 @@ final class AdminCatalogCategoryController extends Controller
             $locked->lock_version = $locked->lock_version + 1;
             $locked->save();
             $locked->delete();
-
-            return $path;
+            DB::afterCommit(fn () => $images->deleteManaged([$path]));
         });
-
-        $images->deleteManaged([$oldPath]);
 
         return to_route('admin.catalog.index', status: 303);
     }

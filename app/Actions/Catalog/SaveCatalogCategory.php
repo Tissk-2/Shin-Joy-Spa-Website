@@ -32,6 +32,7 @@ final class SaveCatalogCategory
                 $category->published_at = null;
                 $category->lock_version = 0;
                 $category->save();
+                $this->compensateUploadAfterRollback($newPath);
 
                 return $category;
             });
@@ -46,7 +47,6 @@ final class SaveCatalogCategory
         CatalogCategoryData $data,
     ): ServiceCategory {
         $newPath = $data->image === null ? null : $this->images->store($data->image, 'categories');
-        $oldPath = null;
 
         try {
             $updated = DB::transaction(function () use (
@@ -54,7 +54,6 @@ final class SaveCatalogCategory
                 $version,
                 $data,
                 $newPath,
-                &$oldPath,
             ): ServiceCategory {
                 $locked = ServiceCategory::query()
                     ->whereKey($category->getKey())
@@ -81,15 +80,13 @@ final class SaveCatalogCategory
                 $locked->image_path = $nextPath;
                 $locked->lock_version = $locked->lock_version + 1;
                 $locked->save();
+                $this->compensateUploadAfterRollback($newPath);
+                $this->cleanReplacedImageAfterCommit($oldPath, $nextPath);
 
                 return $locked;
             });
         } catch (Throwable $exception) {
             $this->compensateAndRethrow($newPath, $exception);
-        }
-
-        if ($oldPath !== null && $oldPath !== $updated->image_path) {
-            $this->images->deleteManaged([$oldPath]);
         }
 
         return $updated;
@@ -129,6 +126,20 @@ final class SaveCatalogCategory
             throw ValidationException::withMessages([
                 'version' => self::staleValidationMessage(),
             ]);
+        }
+    }
+
+    private function compensateUploadAfterRollback(?string $newPath): void
+    {
+        if ($newPath !== null) {
+            DB::afterRollBack(fn () => $this->images->deleteManaged([$newPath]));
+        }
+    }
+
+    private function cleanReplacedImageAfterCommit(?string $oldPath, ?string $nextPath): void
+    {
+        if ($oldPath !== null && $oldPath !== $nextPath) {
+            DB::afterCommit(fn () => $this->images->deleteManaged([$oldPath]));
         }
     }
 
