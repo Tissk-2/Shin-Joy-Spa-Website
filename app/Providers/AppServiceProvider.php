@@ -44,5 +44,10 @@ class AppServiceProvider extends ServiceProvider
             Limit::perMinute(30)->by('admin:'.$request->user()?->getAuthIdentifier().'|ip:'.$request->ip()),
             Limit::perHour(100)->by('ip:'.$request->ip()),
         ]);
+
+        RateLimiter::for('catalog-write', fn (Request $request): array => [
+            Limit::perMinute(20)->by('admin:'.$request->user()?->getAuthIdentifier().'|ip:'.$request->ip()),
+            Limit::perHour(100)->by('ip:'.$request->ip()),
+        ]);
     }
 }
