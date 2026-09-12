@@ -7,12 +7,17 @@ use App\Models\Service;
 use App\Models\ServiceExtension;
 use App\Models\ServiceVariant;
 use Illuminate\Database\QueryException;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Validation\ValidationException;
 
 final class CatalogCollisionReporter
 {
     public function report(QueryException $exception, CatalogPackageData $data, ?Service $service = null): never
     {
+        if (! $exception instanceof UniqueConstraintViolationException) {
+            throw $exception;
+        }
+
         $slugOwner = Service::query()->where('slug', $data->slug)->first();
         if ($slugOwner !== null && ($service === null || $slugOwner->id !== $service->id)) {
             throw ValidationException::withMessages([

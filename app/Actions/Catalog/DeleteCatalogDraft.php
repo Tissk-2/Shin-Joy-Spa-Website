@@ -22,8 +22,8 @@ final class DeleteCatalogDraft
                 ]);
             }
 
-            $variantIds = $locked->variants()->pluck('id');
-            $extensionIds = $locked->extensions()->pluck('id');
+            $variantIds = $locked->variants()->lockForUpdate()->get(['id'])->modelKeys();
+            $extensionIds = $locked->extensions()->lockForUpdate()->get(['id'])->modelKeys();
             $referenced = Booking::query()
                 ->where('service_id', $locked->id)
                 ->orWhereIn('service_variant_id', $variantIds)

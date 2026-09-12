@@ -14,7 +14,7 @@ use App\Support\Catalog\CatalogImageStorage;
 use App\Support\Catalog\ManagedCatalogPath;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\QueryException;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
@@ -51,7 +51,7 @@ final class SaveCatalogPackage
 
                 return $service;
             });
-        } catch (QueryException $exception) {
+        } catch (UniqueConstraintViolationException $exception) {
             $this->images->deleteManaged($newPaths);
             $this->collisions->report($exception, $data);
         } catch (Throwable $exception) {
@@ -115,7 +115,7 @@ final class SaveCatalogPackage
 
                 return $locked;
             });
-        } catch (QueryException $exception) {
+        } catch (UniqueConstraintViolationException $exception) {
             $this->images->deleteManaged($newPaths);
             $this->collisions->report($exception, $data, $service);
         } catch (Throwable $exception) {

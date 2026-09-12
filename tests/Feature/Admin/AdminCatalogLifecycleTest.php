@@ -2,13 +2,17 @@
 
 namespace Tests\Feature\Admin;
 
+use App\Actions\Catalog\DeleteCatalogDraft;
 use App\Models\Booking;
 use App\Models\Service;
 use App\Models\ServiceCategory;
 use App\Models\ServiceExtension;
 use App\Models\ServiceVariant;
 use App\Models\User;
+use Illuminate\Database\Query\Builder;
+use Illuminate\Database\Query\Grammars\SQLiteGrammar;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -142,6 +146,89 @@ class AdminCatalogLifecycleTest extends TestCase
             ->assertUnprocessable()->assertJsonValidationErrors('status');
         $this->assertNotNull($referenced->fresh());
         $this->assertNotNull($child->fresh());
+    }
+
+    // Production break caught: deletion must lock every child row before checking for booking references.
+    public function test_draft_deletion_locks_package_and_children_before_the_reference_check(): void
+    {
+        $service = $this->draftPackage($this->publishedCategory(), ['slug' => 'lock-delete']);
+        ServiceVariant::query()->create([
+            'service_id' => $service->id,
+            'code' => 'lock-delete-regular-60',
+            'treatment_mode' => 'regular',
+            'duration_minutes' => 60,
+            'price_idr' => 180000,
+            'is_active' => true,
+            'published_at' => null,
+            'display_order' => 0,
+        ]);
+        ServiceExtension::query()->create([
+            'service_id' => $service->id,
+            'code' => 'lock-delete-extra-30',
+            'treatment_mode' => 'regular',
+            'duration_minutes' => 30,
+            'price_idr' => 50000,
+            'is_active' => true,
+            'published_at' => null,
+            'display_order' => 0,
+        ]);
+
+        $connection = DB::connection();
+        $originalGrammar = $connection->getQueryGrammar();
+        $outerTransactionLevel = $connection->transactionLevel();
+        // SQLite omits FOR UPDATE SQL; observe the real builder lock intent before compilation.
+        $recordingGrammar = new class($connection) extends SQLiteGrammar
+        {
+            /** @var list<array{from: string|null, lock: string|bool|null, transaction: int}> */
+            public array $compiledSelects = [];
+
+            public ?int $selectCountAtDelete = null;
+
+            public function compileSelect(Builder $query)
+            {
+                $this->compiledSelects[] = [
+                    'from' => $query->from,
+                    'lock' => $query->lock,
+                    'transaction' => $query->getConnection()->transactionLevel(),
+                ];
+
+                return parent::compileSelect($query);
+            }
+
+            public function compileDelete(Builder $query)
+            {
+                $this->selectCountAtDelete = count($this->compiledSelects);
+
+                return parent::compileDelete($query);
+            }
+        };
+        $connection->setQueryGrammar($recordingGrammar);
+
+        try {
+            app(DeleteCatalogDraft::class)($service, 0);
+        } finally {
+            $connection->setQueryGrammar($originalGrammar);
+        }
+
+        $lockedTables = array_column(array_values(array_filter(
+            $recordingGrammar->compiledSelects,
+            fn (array $select): bool => $select['lock'] === true,
+        )), 'from');
+        $this->assertSame(
+            ['services', 'service_variants', 'service_extensions'],
+            array_values(array_intersect($lockedTables, ['services', 'service_variants', 'service_extensions'])),
+        );
+
+        $queriedTables = array_column($recordingGrammar->compiledSelects, 'from');
+        $bookingQuery = array_search('bookings', $queriedTables, true);
+        $this->assertIsInt($bookingQuery);
+        $this->assertLessThan($bookingQuery, array_search('service_variants', $queriedTables, true));
+        $this->assertLessThan($bookingQuery, array_search('service_extensions', $queriedTables, true));
+        $this->assertGreaterThan($bookingQuery, $recordingGrammar->selectCountAtDelete);
+        foreach ($recordingGrammar->compiledSelects as $select) {
+            $this->assertSame($outerTransactionLevel + 1, $select['transaction']);
+        }
+        $this->assertNull($service->fresh());
     }
 
     // Production break caught: every package mutation route must retain policy authorization and catalog throttling.

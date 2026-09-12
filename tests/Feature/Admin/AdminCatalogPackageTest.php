@@ -9,15 +9,19 @@ use App\Enums\TreatmentMode;
 use App\Models\Booking;
 use App\Models\Service;
 use App\Models\ServiceCategory;
+use App\Models\ServiceExtension;
 use App\Models\ServiceVariant;
 use App\Models\User;
+use App\Support\Catalog\CatalogCollisionReporter;
 use App\Support\Catalog\ManagedCatalogPath;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Inertia\Testing\AssertableInertia as Assert;
+use RuntimeException;
 use Tests\TestCase;
 
 class AdminCatalogPackageTest extends TestCase
@@ -341,6 +345,62 @@ class AdminCatalogPackageTest extends TestCase
         } catch (ValidationException $exception) {
             $this->assertSame(['variants.1.code'], array_keys($exception->errors()));
         }
+
+        ServiceExtension::query()->create([
+            'service_id' => $owner->id,
+            'code' => 'occupied-extension-code',
+            'treatment_mode' => TreatmentMode::DoubleTherapist,
+            'duration_minutes' => 30,
+            'price_idr' => 75000,
+            'is_active' => true,
+            'published_at' => null,
+            'display_order' => 0,
+        ]);
+        $extensions = [
+            new CatalogChoiceData(null, 'free-extension-code', TreatmentMode::Regular, 30, 50000, true, 0),
+            new CatalogChoiceData(null, 'occupied-extension-code', TreatmentMode::DoubleTherapist, 45, 75000, true, 1),
+        ];
+
+        try {
+            app(SaveCatalogPackage::class)->create($this->packageData($category, slug: 'extension-package', extensions: $extensions));
+            $this->fail('Expected extension-code collision validation.');
+        } catch (ValidationException $exception) {
+            $this->assertSame(['extensions.1.code'], array_keys($exception->errors()));
+        }
+    }
+
+    // Production break caught: ordinary database failures must never be disguised as validation collisions.
+    public function test_non_unique_query_exception_is_rethrown_even_when_matching_identifiers_exist(): void
+    {
+        $category = $this->category();
+        $owner = $this->service($category, ['slug' => 'matching-slug']);
+        $this->variant($owner, 'matching-variant', 60);
+        ServiceExtension::query()->create([
+            'service_id' => $owner->id,
+            'code' => 'matching-extension',
+            'treatment_mode' => TreatmentMode::Regular,
+            'duration_minutes' => 30,
+            'price_idr' => 50000,
+            'is_active' => true,
+            'display_order' => 0,
+        ]);
+
+        foreach ([
+            $this->packageData($category, slug: 'matching-slug'),
+            $this->packageData($category, variants: [new CatalogChoiceData(null, 'matching-variant', TreatmentMode::Regular, 60, 180000, true, 0)]),
+            $this->packageData($category, extensions: [new CatalogChoiceData(null, 'matching-extension', TreatmentMode::Regular, 30, 50000, true, 0)]),
+        ] as $data) {
+            foreach (['database connection failed', 'FOREIGN KEY constraint failed'] as $message) {
+                $exception = new QueryException('sqlite', 'insert failed', [], new RuntimeException($message));
+
+                try {
+                    app(CatalogCollisionReporter::class)->report($exception, $data);
+                    $this->fail('Expected the original non-unique database exception.');
+                } catch (QueryException $caught) {
+                    $this->assertSame($exception, $caught);
+                }
+            }
+        }
     }
 
     // Production break caught: gallery references and the shared six-image boundary must reject forged or excess input.
@@ -473,6 +533,7 @@ class AdminCatalogPackageTest extends TestCase
     /**
      * @param  list<UploadedFile>  $gallery
      * @param  list<CatalogChoiceData>|null  $variants
+     * @param  list<CatalogChoiceData>|null  $extensions
      */
     private function packageData(
         ServiceCategory $category,
@@ -480,6 +541,7 @@ class AdminCatalogPackageTest extends TestCase
         ?UploadedFile $cover = null,
         array $gallery = [],
         ?array $variants = null,
+        ?array $extensions = null,
     ): CatalogPackageData {
         return new CatalogPackageData(
             categoryId: $category->id,
@@ -499,7 +561,7 @@ class AdminCatalogPackageTest extends TestCase
             retainedGalleryIds: [],
             galleryUploads: $gallery,
             variants: $variants ?? [],
-            extensions: [],
+            extensions: $extensions ?? [],
         );
     }
 
