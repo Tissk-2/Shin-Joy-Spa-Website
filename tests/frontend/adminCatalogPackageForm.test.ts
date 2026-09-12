@@ -261,6 +261,11 @@ describe("admin package form", () => {
       },
     });
     expect(wrapper.text()).toContain("This option does not belong");
+    const row = wrapper.get('[data-choice-row="extensions.0"]');
+    expect(row.attributes("aria-invalid")).toBe("true");
+    expect(row.attributes("aria-describedby")).toContain(
+      "extensions.0.id-error",
+    );
     const active = wrapper.get<HTMLInputElement>(
       '[name="extensions.0.isActive"]',
     );

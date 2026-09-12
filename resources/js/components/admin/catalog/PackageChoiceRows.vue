@@ -74,6 +74,13 @@ function remove(index: number): void {
       v-for="(row, index) in rows"
       :key="row.clientKey"
       class="catalog-choice-row"
+      role="group"
+      :data-choice-row="`${kind}.${index}`"
+      :aria-label="`${tr(heading)} ${index + 1}`"
+      :aria-invalid="!!error(index, 'id')"
+      :aria-describedby="
+        error(index, 'id') ? `${key(index, 'id')}-error` : undefined
+      "
     >
       <p
         v-if="error(index, 'id')"
