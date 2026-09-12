@@ -16,7 +16,11 @@ const loggingOut = ref(false);
 const currentUser = computed(() => page.props.auth.user);
 
 function isActiveAdminLink(href: string): boolean {
-  return page.url === href || page.url.startsWith(`${href}?`);
+  return (
+    page.url === href ||
+    page.url.startsWith(`${href}?`) ||
+    page.url.startsWith(`${href}/`)
+  );
 }
 
 function logout(): void {

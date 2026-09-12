@@ -115,6 +115,27 @@ describe("administrator layout", () => {
     expect(catalog.attributes("aria-current")).toBeUndefined();
   });
 
+  it("keeps the matching section current for bounded child paths only", async () => {
+    const wrapper = mount(AdminLayout, { props: { title: "Catalog" } });
+    const bookings = wrapper.get('nav a[href="/admin/bookings"]');
+    const catalog = wrapper.get('nav a[href="/admin/catalog"]');
+
+    inertia.page.url = "/admin/bookings/SJ-2026-001";
+    await wrapper.vm.$nextTick();
+    expect(bookings.attributes("aria-current")).toBe("page");
+    expect(catalog.attributes("aria-current")).toBeUndefined();
+
+    inertia.page.url = "/admin/catalog/packages/create";
+    await wrapper.vm.$nextTick();
+    expect(bookings.attributes("aria-current")).toBeUndefined();
+    expect(catalog.attributes("aria-current")).toBe("page");
+
+    inertia.page.url = "/admin/catalogue";
+    await wrapper.vm.$nextTick();
+    expect(bookings.attributes("aria-current")).toBeUndefined();
+    expect(catalog.attributes("aria-current")).toBeUndefined();
+  });
+
   it("offers paired locale controls through the server locale action", async () => {
     const wrapper = mount(AdminLayout, { props: { title: "Bookings" } });
     const localeGroup = wrapper.get('[role="group"]');
