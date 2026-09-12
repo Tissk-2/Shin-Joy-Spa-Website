@@ -15,6 +15,10 @@ const { language, setLanguage, tr } = useLanguage();
 const loggingOut = ref(false);
 const currentUser = computed(() => page.props.auth.user);
 
+function isActiveAdminLink(href: string): boolean {
+  return page.url === href || page.url.startsWith(`${href}?`);
+}
+
 function logout(): void {
   if (loggingOut.value) return;
 
@@ -97,10 +101,31 @@ function logout(): void {
       <nav class="px-4 pb-5 lg:px-5" :aria-label="tr('ad.panel')">
         <Link
           href="/admin/bookings"
-          class="flex min-h-11 items-center rounded-lg border border-[#f2c477]/45 bg-white/10 px-4 py-3 font-semibold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#f2c477]"
-          aria-current="page"
+          class="flex min-h-11 items-center rounded-lg border px-4 py-3 font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#f2c477]"
+          :class="
+            isActiveAdminLink('/admin/bookings')
+              ? 'border-[#f2c477]/45 bg-white/10 text-white'
+              : 'border-transparent text-[#efd9e5] hover:bg-white/10 hover:text-white'
+          "
+          :aria-current="
+            isActiveAdminLink('/admin/bookings') ? 'page' : undefined
+          "
         >
           {{ tr("ad.nav.bookings") }}
+        </Link>
+        <Link
+          href="/admin/catalog"
+          class="mt-2 flex min-h-11 items-center rounded-lg border px-4 py-3 font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#f2c477]"
+          :class="
+            isActiveAdminLink('/admin/catalog')
+              ? 'border-[#f2c477]/45 bg-white/10 text-white'
+              : 'border-transparent text-[#efd9e5] hover:bg-white/10 hover:text-white'
+          "
+          :aria-current="
+            isActiveAdminLink('/admin/catalog') ? 'page' : undefined
+          "
+        >
+          {{ tr("ad.nav.catalog") }}
         </Link>
         <Link
           href="/"

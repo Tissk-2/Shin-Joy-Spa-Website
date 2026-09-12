@@ -98,6 +98,23 @@ describe("administrator layout", () => {
     );
   });
 
+  it("keeps Catalog as a separate admin destination and marks only the current section", async () => {
+    inertia.page.url = "/admin/catalog";
+    const wrapper = mount(AdminLayout, { props: { title: "Catalog" } });
+
+    const bookings = wrapper.get('nav a[href="/admin/bookings"]');
+    const catalog = wrapper.get('nav a[href="/admin/catalog"]');
+
+    expect(bookings.attributes("aria-current")).toBeUndefined();
+    expect(catalog.text()).toBe("Catalog");
+    expect(catalog.attributes("aria-current")).toBe("page");
+
+    inertia.page.url = "/admin/bookings";
+    await wrapper.vm.$nextTick();
+    expect(bookings.attributes("aria-current")).toBe("page");
+    expect(catalog.attributes("aria-current")).toBeUndefined();
+  });
+
   it("offers paired locale controls through the server locale action", async () => {
     const wrapper = mount(AdminLayout, { props: { title: "Bookings" } });
     const localeGroup = wrapper.get('[role="group"]');

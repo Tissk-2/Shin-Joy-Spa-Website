@@ -7,6 +7,52 @@ export type TreatmentMode = "regular" | "double_therapist";
 
 export type BookingStatus = "pending" | "confirmed" | "completed" | "cancelled";
 
+export type CatalogStatus = "draft" | "published" | "archived";
+
+export interface AdminCatalogAbilities {
+  readonly update: boolean;
+  readonly publish: boolean;
+  readonly archive: boolean;
+  readonly restore: boolean;
+  readonly delete: boolean;
+}
+
+export interface AdminCatalogCategoryData {
+  readonly slug: string;
+  readonly nameId: string;
+  readonly nameEn: string;
+  readonly image: string | null;
+  readonly status: CatalogStatus;
+  readonly packageCount: number;
+  readonly displayOrder: number;
+  readonly can: Readonly<AdminCatalogAbilities>;
+}
+
+export interface AdminCatalogPackageData {
+  readonly slug: string;
+  readonly categorySlug: string;
+  readonly nameId: string;
+  readonly nameEn: string;
+  readonly image: string | null;
+  readonly gallery: readonly Readonly<{ retentionId: string; url: string }>[];
+  readonly isVip: boolean;
+  readonly status: CatalogStatus;
+  readonly variantCount: number;
+  readonly extensionCount: number;
+  readonly optionCount: number;
+  readonly displayOrder: number;
+  readonly can: Readonly<AdminCatalogAbilities>;
+}
+
+export interface AdminCatalogIndexProps {
+  readonly categories: readonly AdminCatalogCategoryData[];
+  readonly packages: readonly AdminCatalogPackageData[];
+  readonly can: Readonly<{
+    createCategory: boolean;
+    createPackage: boolean;
+  }>;
+}
+
 export interface PackageVariantData {
   code: string;
   mode: TreatmentMode;

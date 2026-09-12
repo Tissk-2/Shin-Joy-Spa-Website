@@ -2,6 +2,7 @@
 @import "./legacy.css";
 @import "./menu.css";
 @import "./admin.css";
+@import "./admin-catalog.css";
 
 @font-face {
   font-family: "Marcellus";
