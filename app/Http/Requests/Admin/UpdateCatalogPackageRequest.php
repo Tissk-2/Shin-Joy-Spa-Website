@@ -51,6 +51,11 @@ class UpdateCatalogPackageRequest extends FormRequest
 
         foreach (['variants', 'extensions'] as $collection) {
             $rows = $this->input($collection);
+            if ($rows === '[]') {
+                $normalized[$collection] = [];
+
+                continue;
+            }
             if (! is_array($rows)) {
                 continue;
             }

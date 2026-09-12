@@ -164,6 +164,17 @@ describe("category editor request and media boundary", () => {
       "slug",
     ]);
   });
+  it("does not mark a create-mode local image clear as removal of a server image", async () => {
+    const wrapper = await editor();
+    await selectFile(
+      wrapper,
+      new File(["image"], "draft.jpg", { type: "image/jpeg" }),
+    );
+    await wrapper.get("[data-image-remove]").trigger("click");
+    expect(wrapper.text()).not.toContain("Image removal is pending");
+    await wrapper.get("[data-category-editor] form").trigger("submit");
+    expect((inertia.requests[0].data as FormData).get("removeImage")).toBe("0");
+  });
   it.each(["draft", "published", "archived"] as const)(
     "uses exact update multipart contract and the %s slug rule",
     async (status) => {

@@ -84,7 +84,7 @@ class AdminCatalogIndexTest extends TestCase
             array_keys($categories[0]),
         );
         $this->assertSame([
-            'slug', 'categorySlug', 'nameId', 'nameEn', 'image', 'gallery', 'isVip',
+            'version', 'slug', 'categorySlug', 'nameId', 'nameEn', 'image', 'gallery', 'isVip',
             'status', 'variantCount', 'extensionCount', 'optionCount', 'displayOrder', 'can',
         ], array_keys($packages[0]));
         $this->assertSame(
@@ -121,6 +121,7 @@ class AdminCatalogIndexTest extends TestCase
         $this->assertSame(3, $packages[0]['optionCount']);
         $this->assertSame('archived', $packages[0]['status']);
         $this->assertTrue($packages[0]['isVip']);
+        $this->assertSame(13, $packages[0]['version']);
 
         $this->assertForbiddenKeysAreAbsent(['categories' => $categories, 'packages' => $packages]);
         $this->assertStringNotContainsString('PRIVATE-BOOKING-CUSTOMER-CANARY', json_encode($packages, JSON_THROW_ON_ERROR));

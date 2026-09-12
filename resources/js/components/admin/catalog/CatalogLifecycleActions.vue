@@ -4,21 +4,34 @@ import { DialogContent, DialogOverlay, DialogPortal } from "radix-vue";
 import { computed, nextTick, ref } from "vue";
 import { Dialog, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { useLanguage } from "@/composables/useLanguage";
-import type { AdminCatalogCategoryData } from "@/types";
+import type {
+  AdminCatalogCategoryData,
+  AdminCatalogPackageData,
+  AdminCatalogPackageFormData,
+} from "@/types";
 
 const props = withDefaults(
-  defineProps<{ category: AdminCatalogCategoryData; disabled?: boolean }>(),
+  defineProps<{
+    category?: AdminCatalogCategoryData;
+    package?: AdminCatalogPackageData | AdminCatalogPackageFormData;
+    disabled?: boolean;
+  }>(),
   { disabled: false },
 );
 const { language, tr } = useLanguage();
 const actions = ["publish", "archive", "restore", "delete"] as const;
 type Action = (typeof actions)[number];
 const availableActions = computed(() =>
-  actions.filter((action) => props.category.can[action]),
+  actions.filter((action) => record.value.can[action]),
 );
+const record = computed(() => props.category ?? props.package!);
+const recordType = computed(() => (props.category ? "category" : "package"));
 const selection = ref<{
   action: Action;
-  category: AdminCatalogCategoryData;
+  record:
+    | AdminCatalogCategoryData
+    | AdminCatalogPackageData
+    | AdminCatalogPackageFormData;
 } | null>(null);
 const processing = ref(false);
 const errors = ref<Record<string, string>>({});
@@ -26,15 +39,15 @@ const heading = ref<HTMLHeadingElement | null>(null);
 const trigger = ref<HTMLButtonElement | null>(null);
 const name = computed(() =>
   language.value === "id"
-    ? selection.value?.category.nameId
-    : selection.value?.category.nameEn,
+    ? selection.value?.record.nameId
+    : selection.value?.record.nameEn,
 );
 
 function open(action: Action, event: MouseEvent): void {
-  if (processing.value || props.disabled || !props.category.can[action]) return;
+  if (processing.value || props.disabled || !record.value.can[action]) return;
   trigger.value = event.currentTarget as HTMLButtonElement;
   errors.value = {};
-  selection.value = { action, category: props.category };
+  selection.value = { action, record: record.value };
 }
 
 function close(open = false): void {
@@ -51,9 +64,11 @@ function restoreFocus(event: Event): void {
 
 function confirm(): void {
   if (processing.value || !selection.value) return;
-  const { action, category } = selection.value;
-  const url = `/admin/catalog/categories/${encodeURIComponent(category.slug)}`;
-  const data = { version: category.version };
+  const { action, record: selectedRecord } = selection.value;
+  const collection =
+    recordType.value === "category" ? "categories" : "packages";
+  const url = `/admin/catalog/${collection}/${encodeURIComponent(selectedRecord.slug)}`;
+  const data = { version: selectedRecord.version };
   errors.value = {};
   processing.value = true;
   const options = {
@@ -80,7 +95,7 @@ function confirm(): void {
     type="button"
     class="catalog-control"
     :disabled="disabled || processing"
-    :data-catalog-action="`${category.slug}-${action}`"
+    :data-catalog-action="`${record.slug}-${action}`"
     @click="open(action, $event)"
   >
     {{ tr(`ad.catalog.${action}`) }}
@@ -108,13 +123,14 @@ function confirm(): void {
         <DialogTitle as-child
           ><h2 ref="heading" tabindex="-1">
             {{
-              selection && tr(`ad.catalog.lifecycle.${selection.action}.title`)
+              selection &&
+              tr(`ad.catalog.lifecycle.${recordType}.${selection.action}.title`)
             }}
           </h2></DialogTitle
         >
         <DialogDescription>{{
           selection &&
-          tr(`ad.catalog.lifecycle.${selection.action}.body`, {
+          tr(`ad.catalog.lifecycle.${recordType}.${selection.action}.body`, {
             name: name ?? "",
           })
         }}</DialogDescription>
@@ -148,7 +164,9 @@ function confirm(): void {
             >
               {{
                 selection &&
-                tr(`ad.catalog.lifecycle.${selection.action}.confirm`)
+                tr(
+                  `ad.catalog.lifecycle.${recordType}.${selection.action}.confirm`,
+                )
               }}
             </button>
           </div>

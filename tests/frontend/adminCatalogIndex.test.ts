@@ -75,6 +75,7 @@ const categories = [
 
 const packages = [
   {
+    version: 13,
     slug: "warm-stone",
     categorySlug: "body-care",
     nameId: "Batu Hangat",
@@ -96,6 +97,7 @@ const packages = [
     },
   },
   {
+    version: 14,
     slug: "calm-facial",
     categorySlug: "face-care",
     nameId: "Facial Tenang",
@@ -225,6 +227,23 @@ describe("admin catalog index", () => {
     expect(
       restricted.find('a[href="/admin/catalog/packages/create"]').exists(),
     ).toBe(false);
+  });
+
+  it("sends a package lifecycle action with the projected nonzero version", async () => {
+    const wrapper = mountIndex({}, true);
+    await wrapper
+      .get('[data-catalog-action="warm-stone-archive"]')
+      .trigger("click");
+    document
+      .querySelector<HTMLButtonElement>("[data-lifecycle-confirm]")!
+      .click();
+    expect(inertia.posts).toEqual([
+      {
+        url: "/admin/catalog/packages/warm-stone/archive",
+        data: { version: 13 },
+      },
+    ]);
+    wrapper.unmount();
   });
 
   it("announces accessible empty sections and creation hooks for zero catalog records", () => {

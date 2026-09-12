@@ -133,6 +133,7 @@ final class AdminCatalogPresenter
     private function package(Service $service, ServiceCategory $category): array
     {
         return [
+            'version' => (int) $service->lock_version,
             'slug' => $service->slug,
             'categorySlug' => $category->slug,
             'nameId' => $service->name_id,

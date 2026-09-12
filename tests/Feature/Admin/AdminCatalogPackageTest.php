@@ -234,6 +234,36 @@ class AdminCatalogPackageTest extends TestCase
         $this->assertSame('stable-regular-60', $variant->fresh()->code);
     }
 
+    public function test_multipart_empty_choice_sentinel_is_narrowly_normalized(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $category = $this->category();
+
+        $this->actingAs($admin)->post('/admin/catalog/packages', [
+            ...$this->payload($category, ['slug' => 'multipart-empty-choices']),
+            'variants' => '[]',
+            'extensions' => '[]',
+        ])->assertStatus(303);
+
+        $saved = Service::query()->where('slug', 'multipart-empty-choices')->firstOrFail();
+        $this->assertCount(0, $saved->variants);
+        $this->assertCount(0, $saved->extensions);
+
+        foreach (['[ ]', '{"code":"forged"}', 'not-an-array'] as $invalid) {
+            $this->actingAs($admin)->post('/admin/catalog/packages', [
+                ...$this->payload($category, ['slug' => 'invalid-'.md5($invalid)]),
+                'variants' => $invalid,
+                'extensions' => [],
+            ])->assertSessionHasErrors('variants');
+        }
+
+        $this->actingAs($admin)->post('/admin/catalog/packages', [
+            ...$this->payload($category, ['slug' => 'invalid-object-like']),
+            'variants' => ['code' => 'forged'],
+            'extensions' => [],
+        ])->assertSessionHasErrors('variants.code');
+    }
+
     // Production break caught: a live package edit must not commit an incomplete public aggregate.
     public function test_active_published_package_edits_must_remain_publishable(): void
     {

@@ -9,7 +9,6 @@ import CatalogStatusBadge from "@/components/admin/catalog/CatalogStatusBadge.vu
 import { useLanguage } from "@/composables/useLanguage";
 import AdminLayout from "@/layouts/admin/AdminLayout.vue";
 import type {
-  AdminCatalogAbilities,
   AdminCatalogCategoryData,
   AdminCatalogIndexProps,
   AdminCatalogPackageData,
@@ -17,7 +16,6 @@ import type {
 
 const props = defineProps<AdminCatalogIndexProps>();
 const { language, tr } = useLanguage();
-const lifecycleActions = ["publish", "archive", "restore", "delete"] as const;
 const editor = ref<{
   category: AdminCatalogCategoryData | null;
   key: number;
@@ -55,16 +53,6 @@ function otherName(
   record: AdminCatalogCategoryData | AdminCatalogPackageData,
 ): string {
   return language.value === "id" ? record.nameEn : record.nameId;
-}
-
-function actionLabel(action: keyof AdminCatalogAbilities): string {
-  return tr(`ad.catalog.${action}`);
-}
-
-function availableActions(
-  can: Readonly<AdminCatalogAbilities>,
-): readonly (typeof lifecycleActions)[number][] {
-  return lifecycleActions.filter((action) => can[action]);
 }
 
 function packageHiddenByCategory(
@@ -252,15 +240,7 @@ function packageHiddenByCategory(
                   >
                     {{ tr("ad.catalog.editPackage") }}
                   </Link>
-                  <button
-                    v-for="action in availableActions(packageItem.can)"
-                    :key="action"
-                    class="catalog-control"
-                    type="button"
-                    :data-catalog-action="`${packageItem.slug}-${action}`"
-                  >
-                    {{ actionLabel(action) }}
-                  </button>
+                  <CatalogLifecycleActions :package="packageItem" />
                 </div>
               </div>
             </li>

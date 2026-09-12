@@ -43,10 +43,11 @@ function selectImage(event: Event): void {
 
 function removeImage(): void {
   if (props.disabled) return;
+  const removesServerImage = props.currentImage !== null;
   revokePreview();
   if (input.value) input.value.value = "";
   emit("change", null);
-  emit("update:removed", true);
+  emit("update:removed", removesServerImage);
 }
 
 onBeforeUnmount(revokePreview);

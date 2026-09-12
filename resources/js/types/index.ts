@@ -30,6 +30,7 @@ export interface AdminCatalogCategoryData {
 }
 
 export interface AdminCatalogPackageData {
+  readonly version: number;
   readonly slug: string;
   readonly categorySlug: string;
   readonly nameId: string;
@@ -43,6 +44,70 @@ export interface AdminCatalogPackageData {
   readonly optionCount: number;
   readonly displayOrder: number;
   readonly can: Readonly<AdminCatalogAbilities>;
+}
+
+export interface AdminCatalogCategoryOption {
+  readonly id: number;
+  readonly slug: string;
+  readonly nameId: string;
+  readonly nameEn: string;
+  readonly status: CatalogStatus;
+}
+
+export interface AdminCatalogGalleryItem {
+  readonly retentionId: string;
+  readonly url: string;
+}
+
+export interface AdminCatalogChoiceData {
+  readonly id: number;
+  readonly code: string;
+  readonly mode: TreatmentMode;
+  readonly durationMinutes: number;
+  readonly priceIdr: number;
+  readonly isActive: boolean;
+  readonly displayOrder: number;
+  readonly isPublished: boolean;
+}
+
+export interface CatalogChoiceInput {
+  readonly clientKey: string;
+  readonly id?: number;
+  readonly code: string;
+  readonly mode: TreatmentMode;
+  readonly durationMinutes: string;
+  readonly priceIdr: string;
+  readonly isActive: boolean;
+  readonly displayOrder: string;
+  readonly isPublished: boolean;
+}
+
+export interface AdminCatalogPackageFormData {
+  readonly version: number | null;
+  readonly categoryId: number | null;
+  readonly slug: string;
+  readonly nameId: string;
+  readonly nameEn: string;
+  readonly descId: string | null;
+  readonly descEn: string | null;
+  readonly longId: string | null;
+  readonly longEn: string | null;
+  readonly benefitId: string | null;
+  readonly benefitEn: string | null;
+  readonly isVip: boolean;
+  readonly displayOrder: number;
+  readonly cover: string | null;
+  readonly gallery: readonly AdminCatalogGalleryItem[];
+  readonly variants: readonly AdminCatalogChoiceData[];
+  readonly extensions: readonly AdminCatalogChoiceData[];
+  readonly status: CatalogStatus;
+  readonly isPublished: boolean;
+  readonly can: Readonly<AdminCatalogAbilities>;
+}
+
+export interface AdminCatalogPackageFormProps {
+  readonly categories: readonly AdminCatalogCategoryOption[];
+  readonly package: AdminCatalogPackageFormData;
 }
 
 export interface AdminCatalogIndexProps {
