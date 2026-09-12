@@ -350,6 +350,7 @@ export default {
     "ad.catalog.form.categoryNameEn": "Nama kategori dalam Bahasa Inggris",
     "ad.catalog.form.packageNameId": "Nama paket dalam Bahasa Indonesia",
     "ad.catalog.form.packageNameEn": "Nama paket dalam Bahasa Inggris",
+    "ad.catalog.form.packageSlug": "Slug paket",
     "ad.catalog.form.cover": "Foto sampul",
     "ad.catalog.form.gallery": "Galeri foto",
     "ad.catalog.upload.help":
@@ -864,6 +865,7 @@ export default {
     "ad.catalog.form.categoryNameEn": "English category name",
     "ad.catalog.form.packageNameId": "Indonesian package name",
     "ad.catalog.form.packageNameEn": "English package name",
+    "ad.catalog.form.packageSlug": "Package slug",
     "ad.catalog.form.cover": "Cover image",
     "ad.catalog.form.gallery": "Image gallery",
     "ad.catalog.upload.help":

@@ -75,6 +75,14 @@ function remove(index: number): void {
       :key="row.clientKey"
       class="catalog-choice-row"
     >
+      <p
+        v-if="error(index, 'id')"
+        :id="`${key(index, 'id')}-error`"
+        class="catalog-error"
+        role="alert"
+      >
+        {{ error(index, "id") }}
+      </p>
       <div
         v-for="field in [
           'code',
@@ -147,6 +155,12 @@ function remove(index: number): void {
           :name="key(index, 'isActive')"
           type="checkbox"
           :checked="row.isActive"
+          :aria-invalid="!!error(index, 'isActive')"
+          :aria-describedby="
+            error(index, 'isActive')
+              ? `${key(index, 'isActive')}-error`
+              : undefined
+          "
           @change="
             update(
               index,
@@ -157,6 +171,13 @@ function remove(index: number): void {
         />
         {{ tr("ad.catalog.form.active") }}</label
       >
+      <p
+        v-if="error(index, 'isActive')"
+        :id="`${key(index, 'isActive')}-error`"
+        class="catalog-error"
+      >
+        {{ error(index, "isActive") }}
+      </p>
       <button
         type="button"
         class="catalog-control"

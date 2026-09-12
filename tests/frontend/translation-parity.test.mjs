@@ -69,6 +69,7 @@ test("catalog navigation, forms and lifecycle actions require paired functional 
       "form.categoryNameEn",
       "form.packageNameId",
       "form.packageNameEn",
+      "form.packageSlug",
       "form.cover",
       "form.gallery",
       "upload.help",

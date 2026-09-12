@@ -59,6 +59,24 @@ const processing = ref(false);
 const errors = ref<Record<string, string>>({});
 const lockedSlug = packageItem.isPublished;
 const isEdit = packageItem.version !== null;
+const labelKeys: Readonly<Record<string, string>> = {
+  categoryId: "categoryId",
+  slug: "packageSlug",
+  nameId: "packageNameId",
+  nameEn: "packageNameEn",
+};
+function labelKey(field: string): string {
+  return labelKeys[field] ?? field;
+}
+function renderedChoiceError(field: string): boolean {
+  const match =
+    /^(variants|extensions)\.(\d+)\.(id|code|mode|durationMinutes|priceIdr|isActive|displayOrder)$/.exec(
+      field,
+    );
+  if (!match) return false;
+  const rows = match[1] === "variants" ? variants.value : extensions.value;
+  return Number(match[2]) < rows.length;
+}
 const extraErrors = computed(() =>
   Object.entries(errors.value).filter(
     ([field]) =>
@@ -80,9 +98,7 @@ const extraErrors = computed(() =>
         "galleryUploads",
         "retainedGalleryIds",
         "removeCover",
-      ].includes(field) &&
-      !field.startsWith("variants.") &&
-      !field.startsWith("extensions."),
+      ].includes(field) && !renderedChoiceError(field),
   ),
 );
 function fieldError(field: string): string | undefined {
@@ -211,7 +227,7 @@ function retainedIds(ids: readonly string[]): void {
               class="catalog-field"
             >
               <label :for="`catalog-package-${field}`">{{
-                tr(`ad.catalog.form.${field}`)
+                tr(`ad.catalog.form.${labelKey(field)}`)
               }}</label>
               <select
                 v-if="field === 'categoryId'"

@@ -96,6 +96,31 @@ afterEach(() => {
 });
 
 describe("admin package form", () => {
+  it("uses package-specific bilingual identity and slug labels", async () => {
+    const wrapper = mountForm();
+    expect(wrapper.get('label[for="catalog-package-nameId"]').text()).toBe(
+      "Indonesian package name",
+    );
+    expect(wrapper.get('label[for="catalog-package-nameEn"]').text()).toBe(
+      "English package name",
+    );
+    expect(wrapper.get('label[for="catalog-package-slug"]').text()).toBe(
+      "Package slug",
+    );
+
+    inertia.page.props.locale = "id";
+    await nextTick();
+    expect(wrapper.get('label[for="catalog-package-nameId"]').text()).toBe(
+      "Nama paket dalam Bahasa Indonesia",
+    );
+    expect(wrapper.get('label[for="catalog-package-nameEn"]').text()).toBe(
+      "Nama paket dalam Bahasa Inggris",
+    );
+    expect(wrapper.get('label[for="catalog-package-slug"]').text()).toBe(
+      "Slug paket",
+    );
+  });
+
   it("submits only the approved create multipart contract and exact empty collection sentinels", async () => {
     const wrapper = mountForm();
     await wrapper.get('[name="categoryId"]').setValue("5");
@@ -212,6 +237,73 @@ describe("admin package form", () => {
     ).toBe("true");
   });
 
+  it("keeps nested identifier and active-state errors visible and associated", () => {
+    const wrapper = mount(PackageChoiceRows, {
+      props: {
+        kind: "extensions",
+        rows: [
+          {
+            clientKey: "existing-extension",
+            id: 8,
+            code: "extra",
+            mode: "regular",
+            durationMinutes: "30",
+            priceIdr: "50000",
+            isActive: true,
+            displayOrder: "0",
+            isPublished: false,
+          },
+        ],
+        errors: {
+          "extensions.0.id": "This option does not belong to this package.",
+          "extensions.0.isActive": "This option cannot be active.",
+        },
+      },
+    });
+    expect(wrapper.text()).toContain("This option does not belong");
+    const active = wrapper.get<HTMLInputElement>(
+      '[name="extensions.0.isActive"]',
+    );
+    expect(active.attributes("aria-invalid")).toBe("true");
+    expect(active.attributes("aria-describedby")).toContain(
+      "extensions.0.isActive-error",
+    );
+    expect(wrapper.get("#extensions\\.0\\.isActive-error").text()).toContain(
+      "This option cannot be active",
+    );
+  });
+
+  it("keeps variant identifier and active-state errors visible and associated", () => {
+    const wrapper = mount(PackageChoiceRows, {
+      props: {
+        kind: "variants",
+        rows: [
+          {
+            clientKey: "existing-variant",
+            id: 6,
+            code: "base",
+            mode: "regular",
+            durationMinutes: "60",
+            priceIdr: "120000",
+            isActive: false,
+            displayOrder: "0",
+            isPublished: false,
+          },
+        ],
+        errors: {
+          "variants.0.id": "This option does not belong to this package.",
+          "variants.0.isActive": "This option cannot be active.",
+        },
+      },
+    });
+    expect(wrapper.get("#variants\\.0\\.id-error").text()).toContain(
+      "This option does not belong",
+    );
+    expect(
+      wrapper.get('[name="variants.0.isActive"]').attributes("aria-invalid"),
+    ).toBe("true");
+  });
+
   it("caps gallery uploads, keeps opaque retained IDs separate, and revokes only local previews", async () => {
     const wrapper = mount(PackageGalleryInput, {
       attachTo: document.body,
@@ -247,5 +339,6 @@ describe("admin package form", () => {
     inertia.requests[0].options.onFinish();
     await nextTick();
     expect(wrapper.text()).toContain("Stale version");
+    expect(wrapper.text()).toContain("Taken");
   });
 });
