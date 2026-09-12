@@ -39,6 +39,7 @@ vi.mock("@inertiajs/vue3", async () => {
 const categories = [
   {
     slug: "body-care",
+    version: 7,
     nameId: "Perawatan Tubuh",
     nameEn: "Body Care",
     image: null,
@@ -55,6 +56,7 @@ const categories = [
   },
   {
     slug: "face-care",
+    version: 3,
     nameId: "Perawatan Wajah",
     nameEn: "Face Care",
     image: null,
@@ -256,6 +258,29 @@ describe("admin catalog index", () => {
       "utf8",
     );
     expect(source).not.toMatch(/localStorage|sessionStorage|vue-router|v-html/);
+    wrapper.unmount();
+  });
+
+  it("opens one populated editor and returns focus to its exact trigger on cancel", async () => {
+    const wrapper = mountIndex({}, true);
+    const add = wrapper.get<HTMLButtonElement>(
+      '[data-catalog-create="category"]',
+    );
+    add.element.focus();
+    await add.trigger("click");
+    expect(wrapper.findAll("[data-category-editor]")).toHaveLength(1);
+    expect(document.activeElement?.id).toBe("catalog-category-editor-title");
+    const edit = wrapper.get('[data-catalog-action="body-care-edit"]');
+    await edit.trigger("click");
+    expect(wrapper.findAll("[data-category-editor]")).toHaveLength(1);
+    expect(wrapper.get<HTMLInputElement>('[name="nameEn"]').element.value).toBe(
+      "Body Care",
+    );
+    await wrapper.get("[data-category-cancel]").trigger("click");
+    await wrapper.vm.$nextTick();
+    expect(wrapper.find("[data-category-editor]").exists()).toBe(false);
+    expect(document.activeElement).toBe(edit.element);
+    expect(inertia.posts).toHaveLength(0);
     wrapper.unmount();
   });
 });

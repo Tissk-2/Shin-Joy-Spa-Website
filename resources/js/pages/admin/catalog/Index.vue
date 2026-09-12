@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { Link } from "@inertiajs/vue3";
-import { computed } from "vue";
+import { computed, nextTick, ref } from "vue";
+
+import CategoryEditor from "@/components/admin/catalog/CategoryEditor.vue";
+import CatalogLifecycleActions from "@/components/admin/catalog/CatalogLifecycleActions.vue";
 
 import CatalogStatusBadge from "@/components/admin/catalog/CatalogStatusBadge.vue";
 import { useLanguage } from "@/composables/useLanguage";
@@ -15,6 +18,28 @@ import type {
 const props = defineProps<AdminCatalogIndexProps>();
 const { language, tr } = useLanguage();
 const lifecycleActions = ["publish", "archive", "restore", "delete"] as const;
+const editor = ref<{
+  category: AdminCatalogCategoryData | null;
+  key: number;
+} | null>(null);
+const editorProcessing = ref(false);
+const editorTrigger = ref<HTMLButtonElement | null>(null);
+let editorKey = 0;
+
+function openEditor(
+  category: AdminCatalogCategoryData | null,
+  event: MouseEvent,
+): void {
+  if (editorProcessing.value) return;
+  editorTrigger.value = event.currentTarget as HTMLButtonElement;
+  editor.value = { category, key: ++editorKey };
+}
+
+function closeEditor(): void {
+  if (editorProcessing.value) return;
+  editor.value = null;
+  void nextTick(() => editorTrigger.value?.focus());
+}
 
 const categoryBySlug = computed(
   () => new Map(props.categories.map((category) => [category.slug, category])),
@@ -75,10 +100,21 @@ function packageHiddenByCategory(
               class="catalog-control catalog-control--primary"
               type="button"
               data-catalog-create="category"
+              :disabled="editorProcessing"
+              @click="openEditor(null, $event)"
             >
               {{ tr("ad.catalog.createCategory") }}
             </button>
           </div>
+
+          <CategoryEditor
+            v-if="editor"
+            :key="editor.key"
+            :category="editor.category"
+            @processing="editorProcessing = $event"
+            @saved="closeEditor"
+            @cancel="closeEditor"
+          />
 
           <p
             v-if="!props.categories.length"
@@ -117,18 +153,15 @@ function packageHiddenByCategory(
                     class="catalog-control"
                     type="button"
                     :data-catalog-action="`${category.slug}-edit`"
+                    :disabled="editorProcessing"
+                    @click="openEditor(category, $event)"
                   >
                     {{ tr("ad.catalog.editCategory") }}
                   </button>
-                  <button
-                    v-for="action in availableActions(category.can)"
-                    :key="action"
-                    class="catalog-control"
-                    type="button"
-                    :data-catalog-action="`${category.slug}-${action}`"
-                  >
-                    {{ actionLabel(action) }}
-                  </button>
+                  <CatalogLifecycleActions
+                    :category="category"
+                    :disabled="editorProcessing"
+                  />
                 </div>
               </div>
             </li>

@@ -19,6 +19,7 @@ export interface AdminCatalogAbilities {
 
 export interface AdminCatalogCategoryData {
   readonly slug: string;
+  readonly version: number;
   readonly nameId: string;
   readonly nameEn: string;
   readonly image: string | null;

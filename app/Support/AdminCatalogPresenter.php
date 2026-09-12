@@ -118,6 +118,7 @@ final class AdminCatalogPresenter
     {
         return [
             'slug' => $category->slug,
+            'version' => (int) $category->lock_version,
             'nameId' => $category->name_id,
             'nameEn' => $category->name_en,
             'image' => $this->publicImageUrl($category->image_path),

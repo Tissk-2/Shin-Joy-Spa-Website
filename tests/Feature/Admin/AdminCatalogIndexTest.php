@@ -80,7 +80,7 @@ class AdminCatalogIndexTest extends TestCase
             array_column($packages, 'slug'),
         );
         $this->assertSame(
-            ['slug', 'nameId', 'nameEn', 'image', 'status', 'packageCount', 'displayOrder', 'can'],
+            ['slug', 'version', 'nameId', 'nameEn', 'image', 'status', 'packageCount', 'displayOrder', 'can'],
             array_keys($categories[0]),
         );
         $this->assertSame([
@@ -103,6 +103,7 @@ class AdminCatalogIndexTest extends TestCase
         $this->assertSame('http://localhost/storage/catalog/categories/first.jpg', $categories[0]['image']);
         $this->assertNull($categories[1]['image']);
         $this->assertSame('published', $categories[0]['status']);
+        $this->assertSame(7, $categories[0]['version']);
         $this->assertSame('draft', $categories[1]['status']);
         $this->assertSame(3, $categories[0]['packageCount']);
         $this->assertSame('http://localhost/storage/catalog/packages/first-cover.jpg', $packages[0]['image']);

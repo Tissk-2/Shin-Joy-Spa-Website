@@ -355,6 +355,46 @@ export default {
     "ad.catalog.upload.help":
       "Unggah gambar yang jelas dan sesuai untuk menu perawatan.",
     "ad.catalog.processing": "Menyimpan katalog...",
+    "ad.catalog.form.createTitle": "Tambah kategori",
+    "ad.catalog.form.editTitle": "Ubah kategori",
+    "ad.catalog.form.slug": "Slug kategori",
+    "ad.catalog.form.slugHelp":
+      "Gunakan huruf kecil, angka, dan tanda hubung, misalnya perawatan-tubuh.",
+    "ad.catalog.form.slugLocked":
+      "Slug tidak dapat diubah setelah kategori dipublikasikan.",
+    "ad.catalog.form.displayOrder": "Urutan tampilan",
+    "ad.catalog.form.orderHelp":
+      "Bilangan bulat mulai dari 0. Angka lebih kecil tampil lebih awal.",
+    "ad.catalog.form.requiredHelp":
+      "Isi nama kategori. Nama lengkap dalam kedua bahasa diperlukan untuk publikasi.",
+    "ad.catalog.form.image": "Foto kategori",
+    "ad.catalog.form.currentPreview": "Pratinjau foto kategori saat ini",
+    "ad.catalog.form.selectedPreview": "Pratinjau foto kategori yang dipilih",
+    "ad.catalog.form.replaceImage": "Ganti foto",
+    "ad.catalog.form.removeImage": "Hapus foto",
+    "ad.catalog.form.imageRemoved":
+      "Foto akan dihapus saat perubahan disimpan.",
+    "ad.catalog.form.undoRemove": "Batalkan penghapusan foto",
+    "ad.catalog.form.save": "Simpan",
+    "ad.catalog.form.create": "Buat kategori",
+    "ad.catalog.form.saveChanges": "Simpan perubahan",
+    "ad.catalog.form.cancel": "Batal",
+    "ad.catalog.lifecycle.publish.title": "Publikasikan kategori?",
+    "ad.catalog.lifecycle.publish.body":
+      "Publikasikan kategori {name} agar dapat tampil di menu publik bersama paket yang sudah dipublikasikan.",
+    "ad.catalog.lifecycle.publish.confirm": "Publikasikan kategori",
+    "ad.catalog.lifecycle.archive.title": "Arsipkan kategori?",
+    "ad.catalog.lifecycle.archive.body":
+      "Arsipkan {name} untuk menyembunyikan kategori dan paketnya sementara dari menu publik. Kategori dapat dipulihkan nanti.",
+    "ad.catalog.lifecycle.archive.confirm": "Arsipkan kategori",
+    "ad.catalog.lifecycle.restore.title": "Pulihkan kategori?",
+    "ad.catalog.lifecycle.restore.body":
+      "Pulihkan {name} agar kategori dan paket yang sudah dipublikasikan dapat tampil kembali di menu publik.",
+    "ad.catalog.lifecycle.restore.confirm": "Pulihkan kategori",
+    "ad.catalog.lifecycle.delete.title": "Hapus draf kategori?",
+    "ad.catalog.lifecycle.delete.body":
+      "Hapus permanen draf kategori {name} yang memenuhi syarat. Tindakan ini tidak dapat dibatalkan.",
+    "ad.catalog.lifecycle.delete.confirm": "Hapus draf permanen",
     "ad.booking.title": "Reservasi",
     "ad.booking.subtitle": "Cari, periksa, dan perbarui status reservasi tamu.",
     "ad.booking.reference": "Referensi",
@@ -769,6 +809,46 @@ export default {
     "ad.catalog.upload.help":
       "Upload clear images that suit the treatment menu.",
     "ad.catalog.processing": "Saving catalog...",
+    "ad.catalog.form.createTitle": "Add category",
+    "ad.catalog.form.editTitle": "Edit category",
+    "ad.catalog.form.slug": "Category slug",
+    "ad.catalog.form.slugHelp":
+      "Use lowercase letters, numbers and hyphens, for example body-care.",
+    "ad.catalog.form.slugLocked":
+      "The slug cannot change after the category has been published.",
+    "ad.catalog.form.displayOrder": "Display order",
+    "ad.catalog.form.orderHelp":
+      "A whole number starting at 0. Lower numbers appear first.",
+    "ad.catalog.form.requiredHelp":
+      "Enter the category name. Complete names in both languages are required for publication.",
+    "ad.catalog.form.image": "Category image",
+    "ad.catalog.form.currentPreview": "Current category image preview",
+    "ad.catalog.form.selectedPreview": "Selected category image preview",
+    "ad.catalog.form.replaceImage": "Replace image",
+    "ad.catalog.form.removeImage": "Remove image",
+    "ad.catalog.form.imageRemoved":
+      "The image will be removed when you save changes.",
+    "ad.catalog.form.undoRemove": "Undo image removal",
+    "ad.catalog.form.save": "Save",
+    "ad.catalog.form.create": "Create category",
+    "ad.catalog.form.saveChanges": "Save changes",
+    "ad.catalog.form.cancel": "Cancel",
+    "ad.catalog.lifecycle.publish.title": "Publish category?",
+    "ad.catalog.lifecycle.publish.body":
+      "Publish {name} so the category can appear on the public menu alongside its published packages.",
+    "ad.catalog.lifecycle.publish.confirm": "Publish category",
+    "ad.catalog.lifecycle.archive.title": "Archive category?",
+    "ad.catalog.lifecycle.archive.body":
+      "Archive {name} to temporarily hide the category and its packages from the public menu. You can restore it later.",
+    "ad.catalog.lifecycle.archive.confirm": "Archive category",
+    "ad.catalog.lifecycle.restore.title": "Restore category?",
+    "ad.catalog.lifecycle.restore.body":
+      "Restore {name} so the category and its published packages can appear on the public menu again.",
+    "ad.catalog.lifecycle.restore.confirm": "Restore category",
+    "ad.catalog.lifecycle.delete.title": "Delete draft category?",
+    "ad.catalog.lifecycle.delete.body":
+      "Permanently delete the eligible draft category {name}. This cannot be undone.",
+    "ad.catalog.lifecycle.delete.confirm": "Permanently delete draft",
     "ad.booking.title": "Bookings",
     "ad.booking.subtitle": "Find, review, and update guest booking statuses.",
     "ad.booking.reference": "Reference",

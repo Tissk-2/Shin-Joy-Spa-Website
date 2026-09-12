@@ -28,6 +28,97 @@ test("active Indonesian and English UI dictionaries have recursive key parity", 
   );
 });
 
+test("catalog navigation, forms and lifecycle actions require paired functional copy", () => {
+  const keys = [
+    "ad.nav.catalog",
+    ...[
+      "title",
+      "subtitle",
+      "categories",
+      "packages",
+      "category",
+      "package",
+      "status",
+      "status.draft",
+      "status.published",
+      "status.archived",
+      "categoryCount",
+      "packageCount",
+      "optionCount",
+      "variantCount",
+      "extensionCount",
+      "vip",
+      "createCategory",
+      "createPackage",
+      "editCategory",
+      "editPackage",
+      "publish",
+      "archive",
+      "restore",
+      "delete",
+      "hiddenByCategory",
+      "emptyCategories",
+      "emptyPackages",
+      "confirmPublish",
+      "confirmArchive",
+      "confirmRestore",
+      "confirmDelete",
+      "error.generic",
+      "error.conflict",
+      "form.categoryNameId",
+      "form.categoryNameEn",
+      "form.packageNameId",
+      "form.packageNameEn",
+      "form.cover",
+      "form.gallery",
+      "upload.help",
+      "processing",
+      "form.createTitle",
+      "form.editTitle",
+      "form.slug",
+      "form.slugHelp",
+      "form.slugLocked",
+      "form.displayOrder",
+      "form.orderHelp",
+      "form.requiredHelp",
+      "form.image",
+      "form.currentPreview",
+      "form.selectedPreview",
+      "form.replaceImage",
+      "form.removeImage",
+      "form.imageRemoved",
+      "form.undoRemove",
+      "form.save",
+      "form.create",
+      "form.saveChanges",
+      "form.cancel",
+      "lifecycle.publish.title",
+      "lifecycle.publish.body",
+      "lifecycle.publish.confirm",
+      "lifecycle.archive.title",
+      "lifecycle.archive.body",
+      "lifecycle.archive.confirm",
+      "lifecycle.restore.title",
+      "lifecycle.restore.body",
+      "lifecycle.restore.confirm",
+      "lifecycle.delete.title",
+      "lifecycle.delete.body",
+      "lifecycle.delete.confirm",
+    ].map((key) => `ad.catalog.${key}`),
+  ];
+  for (const locale of ["id", "en"]) {
+    for (const key of keys) {
+      assert.equal(
+        typeof translations[locale][key],
+        "string",
+        `${locale}.${key}`,
+      );
+      assert.notEqual(translations[locale][key].trim(), "", `${locale}.${key}`);
+      assert.doesNotMatch(translations[locale][key], /[\u2013\u2014]/);
+    }
+  }
+});
+
 test("customer booking pages keep paired keys and avoid out-of-scope promises", () => {
   for (const locale of ["id", "en"]) {
     for (const key of [
