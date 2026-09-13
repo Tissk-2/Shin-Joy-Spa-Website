@@ -21,11 +21,9 @@ class ServiceController extends Controller
     {
         $service = $catalog->findService($slug);
         $related = $catalog->related($service);
-        $comparison = $related->first();
 
         return inertia('ServiceDetail', [
             'service' => $presenter->package($service),
-            'comparison' => $comparison ? $presenter->link($comparison) : null,
             'related' => $related->map($presenter->link(...))->values(),
         ]);
     }

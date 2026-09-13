@@ -9,6 +9,7 @@ import type { PackageData } from "@/types";
 const inertia = vi.hoisted(() => ({ props: { locale: "en" } }));
 vi.mock("@inertiajs/vue3", () => ({
   Link: "a",
+  router: { post: vi.fn() },
   usePage: () => ({ props: inertia.props }),
 }));
 
@@ -262,9 +263,38 @@ describe("PackageConfigurator", () => {
     expect(wrapper.get('article[aria-label="Nezuko"]')).toBeTruthy();
     expect(wrapper.text()).toContain("Pijat lembut.");
     expect(wrapper.get('a[href="/services/nezuko"]')).toBeTruthy();
+    expect(wrapper.get("[data-starting-price]").text()).toContain(
+      "Mulai dari Rp 199.000",
+    );
     expect(wrapper.get("img").attributes("src")).toBe("/img/nezuko.jpg");
     await wrapper.get("img").trigger("error");
     expect(wrapper.get("img").attributes("src")).toContain("/img/massage.jpg");
     expect(nezuko).toEqual(original);
+  });
+
+  it("derives the starting price from unsorted variants and handles no variants safely", () => {
+    inertia.props.locale = "en";
+    const unsorted = mount(PackageMenuCard, {
+      props: {
+        servicePackage: {
+          ...nezuko,
+          variants: [
+            { code: "high", mode: "regular", duration: 90, price: 265000 },
+            { code: "low", mode: "regular", duration: 60, price: 175000 },
+          ],
+        },
+      },
+    });
+    const unavailable = mount(PackageMenuCard, {
+      props: { servicePackage: { ...nezuko, variants: [] } },
+    });
+
+    expect(unsorted.get("[data-starting-price]").text()).toContain(
+      "From Rp 175.000",
+    );
+    expect(unavailable.get("[data-starting-price]").text()).toBe(
+      "This selection is currently unavailable.",
+    );
+    expect(unavailable.text()).not.toContain("Infinity");
   });
 });

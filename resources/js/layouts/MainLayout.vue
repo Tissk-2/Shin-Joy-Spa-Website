@@ -54,8 +54,8 @@ const links = computed(() => {
     },
     {
       label: tr("nav.services"),
-      to: "/#menu",
-      active: isHashMatch("#menu"),
+      to: "/services",
+      active: currentUrl.value.path.startsWith("/services"),
     },
     { label: tr("nav.about"), to: "/#about", active: isHashMatch("#about") },
     {
@@ -511,7 +511,7 @@ onUnmounted(() => {
                 <Link href="/">{{ tr("nav.home") }}</Link>
               </li>
               <li>
-                <Link href="/#menu" @click="setMenu(false, false)">{{
+                <Link href="/services" @click="setMenu(false, false)">{{
                   tr("nav.services")
                 }}</Link>
               </li>

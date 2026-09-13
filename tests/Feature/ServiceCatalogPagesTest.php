@@ -24,7 +24,7 @@ class ServiceCatalogPagesTest extends TestCase
         $this->seed(ServiceCatalogSeeder::class);
     }
 
-    // Production break caught: removing the transitional flat prop or omitting grouped categories would break a public page during the catalog rollout.
+    // Production break caught: restoring the transitional flat prop would let Home drift away from the grouped public catalog contract.
     public function test_home_exposes_only_active_package_choices_in_the_exact_public_shape(): void
     {
         $nezuko = Service::query()->where('slug', 'nezuko')->firstOrFail();
@@ -53,14 +53,14 @@ class ServiceCatalogPagesTest extends TestCase
             ->component('Home')
             ->where('categories.0.slug', 'package')
             ->has('categories', 1)
-            ->where('packages.0.slug', 'nezuko')
-            ->where('packages.1.slug', 'nezuko-vip')
-            ->where('packages.0.variants.1.price', 265000)
-            ->where('packages.1.extensions.1.duration', 30)
-            ->has('packages', 2));
+            ->where('categories.0.packages.0.slug', 'nezuko')
+            ->where('categories.0.packages.1.slug', 'nezuko-vip')
+            ->where('categories.0.packages.0.variants.1.price', 265000)
+            ->where('categories.0.packages.1.extensions.1.duration', 30)
+            ->missing('packages'));
 
         $props = $response->viewData('page')['props'];
-        $package = $props['packages'][0];
+        $package = $props['categories'][0]['packages'][0];
 
         $this->assertSame([
             'slug', 'nameId', 'nameEn', 'descId', 'descEn', 'longId', 'longEn',
@@ -123,8 +123,8 @@ class ServiceCatalogPagesTest extends TestCase
         $this->get(route('services.show', 'published-under-draft'))->assertNotFound();
     }
 
-    // Production break caught: detail pages must expose safe same-category related links while retaining the transitional comparison link.
-    public function test_service_detail_exposes_the_package_related_links_and_transitional_comparison(): void
+    // Production break caught: detail pages must expose safe same-category related links without the transitional comparison prop.
+    public function test_service_detail_exposes_the_package_and_related_links_only(): void
     {
         $nezuko = Service::query()->where('slug', 'nezuko')->firstOrFail();
         ServiceVariant::query()->where('service_id', $nezuko->id)->where('code', 'nezuko-regular-90')->update(['is_active' => false]);
@@ -135,15 +135,14 @@ class ServiceCatalogPagesTest extends TestCase
             ->component('ServiceDetail')
             ->where('service.slug', 'nezuko')
             ->where('service.variants.0.code', 'nezuko-regular-60')
-            ->where('comparison.slug', 'nezuko-vip')
             ->where('related.0.slug', 'nezuko-vip')
             ->has('service.variants', 3)
             ->has('related', 1)
+            ->missing('comparison')
             ->missing('category')
         );
 
         $props = $response->viewData('page')['props'];
-        $this->assertSame(['slug', 'nameId', 'nameEn', 'isVip'], array_keys($props['comparison']));
         $this->assertSame(['slug', 'nameId', 'nameEn', 'isVip'], array_keys($props['related'][0]));
         $this->assertArrayNotHasKey('categorySlug', $props['related'][0]);
         $this->assertSame(['nezuko-regular-60', 'nezuko-regular-120', 'nezuko-double-60'], array_column($props['service']['variants'], 'code'));
@@ -153,7 +152,7 @@ class ServiceCatalogPagesTest extends TestCase
         $this->get('/services/not_valid')->assertNotFound();
     }
 
-    // Production break caught: the VIP route must present exact public choices plus the reverse related and comparison links.
+    // Production break caught: the VIP route must present exact public choices plus reverse related links.
     public function test_vip_service_detail_exposes_exact_active_choices_and_reverse_links(): void
     {
         $response = $this->get('/services/nezuko-vip');
@@ -162,11 +161,11 @@ class ServiceCatalogPagesTest extends TestCase
             ->component('ServiceDetail')
             ->where('service.slug', 'nezuko-vip')
             ->where('service.isVip', true)
-            ->where('comparison.slug', 'nezuko')
             ->where('related.0.slug', 'nezuko')
             ->has('service.variants', 4)
             ->has('service.extensions', 2)
             ->has('related', 1)
+            ->missing('comparison')
             ->missing('category')
         );
 
@@ -177,7 +176,6 @@ class ServiceCatalogPagesTest extends TestCase
             'slug', 'nameId', 'nameEn', 'descId', 'descEn', 'longId', 'longEn',
             'benefitId', 'benefitEn', 'image', 'gallery', 'isVip', 'variants', 'extensions',
         ], array_keys($service));
-        $this->assertSame(['slug', 'nameId', 'nameEn', 'isVip'], array_keys($props['comparison']));
         $this->assertSame(['slug', 'nameId', 'nameEn', 'isVip'], array_keys($props['related'][0]));
         $this->assertSame([
             ['code' => 'nezuko-vip-regular-60', 'mode' => 'regular', 'duration' => 60, 'price' => 299000],

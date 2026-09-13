@@ -6,7 +6,8 @@ import MainLayout from "@/layouts/MainLayout.vue";
 import Home from "@/pages/Home.vue";
 import Booking from "@/pages/Booking.vue";
 import ServiceDetail from "@/pages/ServiceDetail.vue";
-import type { PackageData } from "@/types";
+import Services from "@/pages/Services.vue";
+import type { PackageData, PublicCatalogCategoryData } from "@/types";
 
 const inertia = vi.hoisted(() => ({
   page: {
@@ -76,6 +77,37 @@ const packages: PackageData[] = [
   },
 ];
 
+const bodyPackage: PackageData = {
+  ...packages[0],
+  slug: "body-glow",
+  nameId: "Body Glow",
+  nameEn: "Body Glow",
+  descId: "Perawatan tubuh yang menyegarkan.",
+  descEn: "A refreshing body treatment.",
+  image: "/img/body-treatment.jpg",
+  variants: [
+    { code: "body-90", mode: "regular", duration: 90, price: 225000 },
+    { code: "body-60", mode: "regular", duration: 60, price: 175000 },
+  ],
+};
+
+const categories: PublicCatalogCategoryData[] = [
+  {
+    slug: "massage",
+    nameId: "Pijat",
+    nameEn: "Massage",
+    image: "/img/massage.jpg",
+    packages,
+  },
+  {
+    slug: "body-care",
+    nameId: "Perawatan Tubuh",
+    nameEn: "Body Care",
+    image: null,
+    packages: [bodyPackage],
+  },
+];
+
 beforeEach(() => {
   inertia.page.url = "/";
   inertia.page.props = {
@@ -99,18 +131,27 @@ describe("official menu homepage", () => {
     );
   });
 
-  it("renders exactly the two official package articles at the canonical menu anchor", async () => {
-    const wrapper = mount(Home, { props: { packages } });
+  it("renders every grouped category and package in the supplied order at the canonical menu anchor", async () => {
+    const wrapper = mount(Home, { props: { categories } });
     expect(wrapper.get("#menu")).toBeTruthy();
-    expect(wrapper.findAll(".package-menu-card")).toHaveLength(2);
-    expect(wrapper.text()).toContain("Rp199.000");
+    expect(wrapper.findAll("[data-catalog-category]")).toHaveLength(2);
+    expect(wrapper.findAll("[data-package-card]")).toHaveLength(3);
+    expect(
+      wrapper
+        .findAll("[data-catalog-category]")
+        .map((section) => section.attributes("data-catalog-category")),
+    ).toEqual(["massage", "body-care"]);
+    expect(wrapper.text()).toContain("Massage");
+    expect(wrapper.text()).toContain("Body Care");
+    expect(wrapper.text()).toContain("Rp 175.000");
     expect(wrapper.find(".package-menu-card__vip").text()).toBe("VIP");
     expect(wrapper.get('a[href="/services/nezuko"]')).toBeTruthy();
     expect(wrapper.get('a[href="/services/nezuko-vip"]')).toBeTruthy();
+    expect(wrapper.get('a[href="/services/body-glow"]')).toBeTruthy();
     expect(wrapper.find(".cat-grid").exists()).toBe(false);
     expect(wrapper.text()).toContain("Jalan Terusan Batubara No. 12, Lantai 2");
     expect(wrapper.text()).toContain("hot-water");
-    const cards = wrapper.findAll(".package-menu-card");
+    const cards = wrapper.findAll("[data-package-card]");
     await cards[0].get('button[data-mode="regular"]').trigger("click");
     await cards[0].get('button[data-duration="60"]').trigger("click");
     await cards[1].get('button[data-mode="regular"]').trigger("click");
@@ -119,22 +160,57 @@ describe("official menu homepage", () => {
     expect(cards[1].text()).toContain("Rp 299.000");
   });
 
-  it("switches localized menu descriptions without translating names or prices", () => {
+  it("switches localized category and package copy without changing prices", () => {
     inertia.page.props.locale = "id";
-    const indonesian = mount(Home, { props: { packages } });
+    const indonesian = mount(Home, { props: { categories } });
     inertia.page.props.locale = "en";
-    const english = mount(Home, { props: { packages } });
+    const english = mount(Home, { props: { categories } });
+    expect(indonesian.text()).toContain("Perawatan Tubuh");
     expect(indonesian.text()).toContain("Pijat lembut.");
+    expect(english.text()).toContain("Body Care");
     expect(english.text()).toContain("A gentle treatment.");
     for (const wrapper of [indonesian, english]) {
       expect(wrapper.text()).toContain("Nezuko VIP");
-      expect(wrapper.text()).toContain("Rp199.000");
+      expect(wrapper.text()).toContain("Rp 175.000");
     }
   });
 
-  it("uses Menu navigation and two package links in the shared footer", () => {
+  it("renders a localized empty state when no published category contains packages", () => {
+    inertia.page.props.locale = "en";
+    const categoriesWithoutPackages: PublicCatalogCategoryData[] = [
+      { ...categories[0], packages: [] },
+    ];
+    const home = mount(Home, {
+      props: { categories: categoriesWithoutPackages },
+    });
+    const services = mount(Services, {
+      props: { categories: categoriesWithoutPackages },
+    });
+
+    for (const wrapper of [home, services]) {
+      expect(wrapper.find("[data-catalog-empty]").exists()).toBe(true);
+      expect(wrapper.find("[data-catalog-category]").exists()).toBe(false);
+      expect(wrapper.text()).toContain("Our treatment menu is being refreshed");
+      expect(wrapper.text()).not.toContain("undefined");
+    }
+  });
+
+  it("renders the standalone services page for zero, one, and multiple categories", () => {
+    const empty = mount(Services, { props: { categories: [] } });
+    const single = mount(Services, { props: { categories: [categories[1]] } });
+    const multiple = mount(Services, { props: { categories } });
+
+    expect(empty.find("[data-catalog-empty]").exists()).toBe(true);
+    expect(single.findAll("[data-catalog-category]")).toHaveLength(1);
+    expect(single.findAll("[data-package-card]")).toHaveLength(1);
+    expect(multiple.findAll("[data-catalog-category]")).toHaveLength(2);
+    expect(multiple.findAll("[data-package-card]")).toHaveLength(3);
+  });
+
+  it("uses the catalog page for Services navigation and keeps package links in the footer", () => {
     const wrapper = mount(MainLayout, { slots: { default: "<p>content</p>" } });
-    expect(wrapper.get('a[href="/#menu"]').text()).toBe("Menu");
+    expect(wrapper.findAll('a[href="/services"]')).toHaveLength(2);
+    expect(wrapper.find('a[href="/#menu"]').exists()).toBe(false);
     expect(wrapper.get('a[href="/services/nezuko"]')).toBeTruthy();
     expect(wrapper.get('a[href="/services/nezuko-vip"]')).toBeTruthy();
   });
@@ -251,16 +327,24 @@ describe("package detail", () => {
     ],
   };
 
-  it("renders an accessible package configurator, gallery, and one opposite-package comparison", async () => {
+  it("renders an accessible package configurator, gallery, and every supplied related link", async () => {
     const wrapper = mount(ServiceDetail, {
       props: {
         service: nezuko,
-        comparison: {
-          slug: "nezuko-vip",
-          nameId: "Nezuko VIP",
-          nameEn: "Nezuko VIP",
-          isVip: true,
-        },
+        related: [
+          {
+            slug: "nezuko-vip",
+            nameId: "Nezuko VIP",
+            nameEn: "Nezuko VIP",
+            isVip: true,
+          },
+          {
+            slug: "body-glow",
+            nameId: "Body Glow",
+            nameEn: "Body Glow",
+            isVip: false,
+          },
+        ],
       },
     });
 
@@ -307,22 +391,28 @@ describe("package detail", () => {
     expect(
       wrapper.findAll('.package-detail a[href="/services/nezuko-vip"]'),
     ).toHaveLength(1);
+    expect(
+      wrapper.findAll('.package-detail a[href="/services/body-glow"]'),
+    ).toHaveLength(1);
+    expect(wrapper.text()).toContain("You may also enjoy");
     expect(wrapper.find(".svc-tag").exists()).toBe(false);
     expect(wrapper.find(".price-row").exists()).toBe(false);
     expect(wrapper.find(".svc-grid").exists()).toBe(false);
   });
 
-  it("renders the complete VIP choices, configured total, and reverse comparison", async () => {
+  it("renders the complete VIP choices, configured total, and reverse related link", async () => {
     inertia.page.props.locale = "id";
     const vip = mount(ServiceDetail, {
       props: {
         service: nezukoVip,
-        comparison: {
-          slug: "nezuko",
-          nameId: "Nezuko",
-          nameEn: "Nezuko",
-          isVip: false,
-        },
+        related: [
+          {
+            slug: "nezuko",
+            nameId: "Nezuko",
+            nameEn: "Nezuko",
+            isVip: false,
+          },
+        ],
       },
     });
     expect(vip.text()).toContain("VIP");

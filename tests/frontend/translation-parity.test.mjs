@@ -28,6 +28,29 @@ test("active Indonesian and English UI dictionaries have recursive key parity", 
   );
 });
 
+test("dynamic public catalog surfaces keep paired functional copy", () => {
+  const keys = [
+    "menu.allTitle",
+    "menu.allSub",
+    "menu.from",
+    "menu.viewDetails",
+    "menu.emptyTitle",
+    "menu.emptyBody",
+    "menu.related",
+  ];
+
+  for (const locale of ["id", "en"]) {
+    for (const key of keys) {
+      assert.equal(
+        typeof translations[locale][key],
+        "string",
+        `${locale}.${key}`,
+      );
+      assert.notEqual(translations[locale][key].trim(), "", `${locale}.${key}`);
+    }
+  }
+});
+
 test("catalog navigation, forms and lifecycle actions require paired functional copy", () => {
   const keys = [
     "ad.nav.catalog",

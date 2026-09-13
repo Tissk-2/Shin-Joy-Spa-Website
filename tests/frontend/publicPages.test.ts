@@ -49,6 +49,7 @@ describe("Laravel-owned public pages", () => {
   it("uses the Inertia shell, navigation, and document head on every page", () => {
     for (const name of [
       "Home.vue",
+      "Services.vue",
       "ServiceDetail.vue",
       "Booking.vue",
       "bookings/Index.vue",
@@ -80,6 +81,7 @@ describe("Laravel-owned public pages", () => {
   it("does not retain placeholder catalog imports or scalar service cards", () => {
     for (const name of [
       "Home.vue",
+      "Services.vue",
       "ServiceDetail.vue",
       "Booking.vue",
       "../layouts/MainLayout.vue",
@@ -94,6 +96,7 @@ describe("Laravel-owned public pages", () => {
   it("keeps browser-only storage, router, and legacy stores out of Laravel runtime", () => {
     const source = [
       "Home.vue",
+      "Services.vue",
       "ServiceDetail.vue",
       "Booking.vue",
       "bookings/Index.vue",

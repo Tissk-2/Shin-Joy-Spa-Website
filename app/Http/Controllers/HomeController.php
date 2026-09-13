@@ -16,10 +16,6 @@ class HomeController extends Controller
             'categories' => $categories
                 ->map($presenter->category(...))
                 ->values(),
-            'packages' => $categories
-                ->flatMap->services
-                ->map($presenter->package(...))
-                ->values(),
         ]);
     }
 }

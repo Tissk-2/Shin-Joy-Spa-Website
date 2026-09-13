@@ -153,6 +153,14 @@ export interface PackageData extends PackageLinkData {
   extensions: PackageExtensionData[];
 }
 
+export interface PublicCatalogCategoryData {
+  readonly slug: string;
+  readonly nameId: string;
+  readonly nameEn: string;
+  readonly image: string | null;
+  readonly packages: readonly PackageData[];
+}
+
 export interface BookingAppointmentData {
   date: string;
   time: string;

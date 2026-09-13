@@ -7,19 +7,31 @@ import faqs from "@/data/faq";
 import galleryImgs from "@/data/gallery";
 import testimonials from "@/data/testimonials";
 import MainLayout from "@/layouts/MainLayout.vue";
-import type { PackageData } from "@/types";
+import type { PublicCatalogCategoryData } from "@/types";
 
-const { packages } = defineProps<{
-  packages: PackageData[];
+const props = defineProps<{
+  categories: readonly PublicCatalogCategoryData[];
 }>();
 const { language, tr } = useLanguage();
-function packageName(index: number): string {
-  const servicePackage = packages[index];
-  if (!servicePackage) return "";
-  return language.value === "id"
-    ? servicePackage.nameId
-    : servicePackage.nameEn;
-}
+const visibleCategories = computed(() =>
+  props.categories.filter((category) => category.packages.length > 0),
+);
+const startingPrice = computed(() => {
+  const prices = visibleCategories.value.flatMap((category) =>
+    category.packages.flatMap((servicePackage) =>
+      servicePackage.variants
+        .map((variant) => variant.price)
+        .filter((price) => Number.isFinite(price) && price >= 0),
+    ),
+  );
+
+  return prices.length > 0 ? Math.min(...prices) : null;
+});
+const formattedStartingPrice = computed(() =>
+  startingPrice.value === null
+    ? ""
+    : `Rp ${new Intl.NumberFormat("id-ID").format(startingPrice.value)}`,
+);
 const gallerySpans = ["tall", "", "", "wide", "", "tall", "", "wide"];
 const title = computed(() => tr("meta.tagline"));
 
@@ -102,9 +114,14 @@ onBeforeUnmount(() => {
             tr("hero.cta2")
           }}</Link>
         </div>
-        <div class="hero__meta reveal" data-delay="4">
+        <div
+          v-if="startingPrice !== null"
+          class="hero__meta reveal"
+          data-delay="4"
+        >
           <div>
-            <b>Rp199.000</b><span>{{ tr("hero.m1l") }}</span>
+            <b>{{ formattedStartingPrice }}</b
+            ><span>{{ tr("hero.m1l") }}</span>
           </div>
         </div>
       </div>
@@ -116,7 +133,7 @@ onBeforeUnmount(() => {
 
     <section
       id="menu"
-      class="official-menu section"
+      class="official-menu public-catalog public-catalog--home section"
       aria-labelledby="menu-title"
     >
       <div class="container">
@@ -125,27 +142,40 @@ onBeforeUnmount(() => {
           <h2 id="menu-title">{{ tr("menu.title") }}</h2>
           <p>{{ tr("menu.sub") }}</p>
         </header>
-        <div class="official-menu__grid">
-          <PackageMenuCard
-            v-for="servicePackage in packages"
-            :key="servicePackage.slug"
-            :service-package="servicePackage"
-          />
+        <div
+          v-if="visibleCategories.length"
+          class="public-catalog__categories"
+        >
+          <section
+            v-for="category in visibleCategories"
+            :key="category.slug"
+            class="public-catalog__category"
+            :data-catalog-category="category.slug"
+            :aria-labelledby="`home-category-${category.slug}`"
+          >
+            <header class="public-catalog__category-heading">
+              <span
+                class="public-catalog__category-index"
+                aria-hidden="true"
+              ></span>
+              <h3 :id="`home-category-${category.slug}`">
+                {{ language === "id" ? category.nameId : category.nameEn }}
+              </h3>
+            </header>
+            <div class="official-menu__grid public-catalog__grid">
+              <PackageMenuCard
+                v-for="servicePackage in category.packages"
+                :key="servicePackage.slug"
+                :service-package="servicePackage"
+              />
+            </div>
+          </section>
+        </div>
+        <div v-else class="public-catalog__empty" data-catalog-empty>
+          <h3>{{ tr("menu.emptyTitle") }}</h3>
+          <p>{{ tr("menu.emptyBody") }}</p>
         </div>
         <p class="menu-policy" role="note">{{ tr("menu.hotWaterPolicy") }}</p>
-      </div>
-    </section>
-
-    <section class="menu-comparison section">
-      <div class="container menu-comparison__inner">
-        <h2>{{ tr("menu.comparison.title") }}</h2>
-        <p>
-          <strong>{{ packageName(0) }}</strong>
-          {{ tr("menu.comparison.standard") }}
-        </p>
-        <p>
-          <strong>{{ packageName(1) }}</strong> {{ tr("menu.comparison.vip") }}
-        </p>
       </div>
     </section>
 

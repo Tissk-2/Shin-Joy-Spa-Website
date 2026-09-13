@@ -77,6 +77,15 @@ export default {
     "menu.title": "Pilihan perawatan",
     "menu.sub":
       "Pilih paket dan durasi yang sesuai untuk waktu istirahat Anda.",
+    "menu.allTitle": "Semua perawatan",
+    "menu.allSub":
+      "Jelajahi menu resmi kami berdasarkan kategori, lalu pilih paket dan durasi yang paling sesuai.",
+    "menu.from": "Mulai dari",
+    "menu.viewDetails": "Lihat detail",
+    "menu.emptyTitle": "Menu perawatan kami sedang diperbarui",
+    "menu.emptyBody":
+      "Silakan kembali lagi atau hubungi tim kami untuk mengetahui perawatan yang tersedia.",
+    "menu.related": "Perawatan lain yang mungkin Anda sukai",
     "menu.hotWaterPolicy":
       "Jika terjadi gangguan air panas, diskon 10% dapat berlaku sebagai kebijakan informasi; konfirmasi ketersediaannya kepada tim kami.",
     "menu.regular": "Reguler",
@@ -595,6 +604,15 @@ export default {
     "menu.title": "Treatment choices",
     "menu.sub":
       "Choose the package and duration that best suits your time to rest.",
+    "menu.allTitle": "All treatments",
+    "menu.allSub":
+      "Explore our official menu by category, then choose the package and duration that suit you best.",
+    "menu.from": "From",
+    "menu.viewDetails": "View details",
+    "menu.emptyTitle": "Our treatment menu is being refreshed",
+    "menu.emptyBody":
+      "Please check back soon or contact our team to ask what is available.",
+    "menu.related": "You may also enjoy",
     "menu.hotWaterPolicy":
       "If a hot-water disruption occurs, a 10% discount may apply as an informational policy; please confirm availability with our team.",
     "menu.regular": "Regular",

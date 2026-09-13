@@ -11,7 +11,7 @@ import type { PackageData, PackageLinkData } from "@/types";
 
 const props = defineProps<{
   service: PackageData;
-  comparison: PackageLinkData | null;
+  related: readonly PackageLinkData[];
 }>();
 const { language, tr } = useLanguage();
 const selectedImage = ref(props.service.image);
@@ -38,12 +38,8 @@ const description = computed(() =>
 const benefit = computed(() =>
   language.value === "id" ? props.service.benefitId : props.service.benefitEn,
 );
-const comparisonName = computed(() => {
-  if (!props.comparison) return "";
-  return language.value === "id"
-    ? props.comparison.nameId
-    : props.comparison.nameEn;
-});
+const relatedName = (relatedPackage: PackageLinkData): string =>
+  language.value === "id" ? relatedPackage.nameId : relatedPackage.nameEn;
 const pageTitle = computed(() => `${name.value} · Shin Joy Spa Malang`);
 </script>
 
@@ -57,7 +53,7 @@ const pageTitle = computed(() => `${name.value} · Shin Joy Spa Malang`);
     >
       <div class="container">
         <nav class="breadcrumb" :aria-label="tr('nav.breadcrumb')">
-          <Link class="ulink" href="/#menu">{{ tr("nav.services") }}</Link>
+          <Link class="ulink" href="/services">{{ tr("nav.services") }}</Link>
           <span aria-hidden="true">›</span>
           <span aria-current="page">{{ name }}</span>
         </nav>
@@ -101,11 +97,26 @@ const pageTitle = computed(() => `${name.value} · Shin Joy Spa Malang`);
           </div>
         </div>
 
-        <p v-if="comparison" class="package-detail__comparison">
-          <Link class="ulink" :href="`/services/${comparison.slug}`">
-            {{ comparisonName }} <span aria-hidden="true">→</span>
-          </Link>
-        </p>
+        <aside
+          v-if="related.length"
+          class="package-detail__related"
+          aria-labelledby="related-packages-title"
+        >
+          <h2 id="related-packages-title">{{ tr("menu.related") }}</h2>
+          <ul>
+            <li v-for="relatedPackage in related" :key="relatedPackage.slug">
+              <Link class="ulink" :href="`/services/${relatedPackage.slug}`">
+                {{ relatedName(relatedPackage) }}
+                <span
+                  v-if="relatedPackage.isVip"
+                  class="package-detail__related-vip"
+                  >VIP</span
+                >
+                <span aria-hidden="true">→</span>
+              </Link>
+            </li>
+          </ul>
+        </aside>
       </div>
     </section>
   </MainLayout>
