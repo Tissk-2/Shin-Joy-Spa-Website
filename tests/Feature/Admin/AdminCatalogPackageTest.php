@@ -136,6 +136,75 @@ class AdminCatalogPackageTest extends TestCase
         $this->assertSame(0, $service->fresh()->lock_version);
     }
 
+    // Production break caught: retained historical choices must not turn a replacement identity into a database 500.
+    public function test_update_rejects_new_choices_that_duplicate_inactive_or_archived_child_identity(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $category = $this->category();
+
+        foreach ([
+            ['variants', ServiceVariant::class, 60],
+            ['extensions', ServiceExtension::class, 30],
+        ] as [$field, $model, $duration]) {
+            $archivedChoice = $field === 'variants';
+            $service = $this->service($category, [
+                'slug' => "{$field}-identity-owner",
+                'published_at' => $archivedChoice ? null : now(),
+            ]);
+            $historical = $model::query()->create([
+                'service_id' => $service->id,
+                'code' => "historical-{$field}",
+                'treatment_mode' => TreatmentMode::Regular,
+                'duration_minutes' => $duration,
+                'price_idr' => 100000,
+                'is_active' => false,
+                'published_at' => $archivedChoice ? now() : null,
+                'display_order' => 0,
+            ]);
+
+            $this->actingAs($admin)
+                ->patchJson("/admin/catalog/packages/{$service->slug}", [
+                    ...$this->payload($category, [
+                        'slug' => $service->slug,
+                        'version' => 0,
+                        $field => [$this->choice([
+                            'code' => "replacement-{$field}",
+                            'durationMinutes' => $duration,
+                        ])],
+                    ]),
+                ])
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors("{$field}.0.durationMinutes");
+
+            $this->assertDatabaseHas($historical->getTable(), [
+                'id' => $historical->id,
+                'is_active' => false,
+            ]);
+            $this->assertDatabaseMissing($historical->getTable(), [
+                'code' => "replacement-{$field}",
+            ]);
+            $this->assertSame(0, $service->fresh()->lock_version);
+        }
+    }
+
+    // Production break caught: the database identity constraint applies to inactive submitted choices too.
+    public function test_create_reports_duplicate_inactive_choice_identity_on_the_later_row(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $category = $this->category();
+
+        $this->actingAs($admin)->postJson('/admin/catalog/packages', [
+            ...$this->payload($category),
+            'variants' => [
+                $this->choice(['code' => 'inactive-first', 'isActive' => false]),
+                $this->choice(['code' => 'inactive-second', 'isActive' => false]),
+            ],
+        ])->assertUnprocessable()
+            ->assertJsonValidationErrors('variants.1.durationMinutes');
+
+        $this->assertDatabaseCount('services', 0);
+    }
+
     // Production break caught: a full form save must reconcile media and children as one versioned aggregate.
     public function test_update_reconciles_the_complete_normalized_aggregate_and_exposes_safe_edit_props(): void
     {

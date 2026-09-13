@@ -31,6 +31,8 @@ final class SaveCatalogPackage
     public function create(CatalogPackageData $data): Service
     {
         $this->validateDraft($data);
+        $this->ensureUniqueChoiceIdentities($data->variants, new Collection, 'variants');
+        $this->ensureUniqueChoiceIdentities($data->extensions, new Collection, 'extensions');
         [$newCover, $newGallery, $newPaths] = $this->storeUploads($data);
 
         try {
@@ -83,6 +85,8 @@ final class SaveCatalogPackage
                 $existingExtensions = ServiceExtension::query()->where('service_id', $locked->id)->lockForUpdate()->get();
                 $this->ensureOwnedChoiceIds($data->variants, $existingVariants, 'variants');
                 $this->ensureOwnedChoiceIds($data->extensions, $existingExtensions, 'extensions');
+                $this->ensureUniqueChoiceIdentities($data->variants, $existingVariants, 'variants');
+                $this->ensureUniqueChoiceIdentities($data->extensions, $existingExtensions, 'extensions');
 
                 $oldCover = $locked->image_path;
                 $oldGallery = $locked->gallery_paths ?? [];
@@ -237,6 +241,32 @@ final class SaveCatalogPackage
                 ]);
             }
             $seen[$choice->id] = true;
+        }
+    }
+
+    /**
+     * @param  list<CatalogChoiceData>  $choices
+     * @param  Collection<int, ServiceVariant|ServiceExtension>  $existing
+     */
+    private function ensureUniqueChoiceIdentities(array $choices, Collection $existing, string $field): void
+    {
+        $submittedIdentities = [];
+
+        foreach ($choices as $index => $choice) {
+            $identity = $choice->mode->value.':'.$choice->durationMinutes;
+            $conflict = $existing->contains(
+                fn (ServiceVariant|ServiceExtension $current): bool => $current->id !== $choice->id
+                    && $current->treatment_mode === $choice->mode
+                    && $current->duration_minutes === $choice->durationMinutes,
+            );
+
+            if ($conflict || isset($submittedIdentities[$identity])) {
+                throw ValidationException::withMessages([
+                    "{$field}.{$index}.durationMinutes" => __('validation.unique', ['attribute' => 'durationMinutes']),
+                ]);
+            }
+
+            $submittedIdentities[$identity] = true;
         }
     }
 

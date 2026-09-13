@@ -64,7 +64,6 @@ return new class extends Migration
 
         foreach (['description_id', 'description_en', 'long_description_id', 'long_description_en', 'image_path'] as $column) {
             DB::table('services')
-                ->whereNull('published_at')
                 ->whereNull($column)
                 ->update([$column => '']);
         }
@@ -83,7 +82,6 @@ return new class extends Migration
         });
 
         DB::table('service_categories')
-            ->whereNull('published_at')
             ->whereNull('image_path')
             ->update(['image_path' => '']);
 

@@ -192,6 +192,50 @@ class CatalogSchemaTest extends TestCase
         }
     }
 
+    // Production break caught: archived published rows may contain null draftable content and must still roll back.
+    public function test_lifecycle_migration_rolls_back_archived_rows_with_null_required_content(): void
+    {
+        $defaultConnection = DB::getDefaultConnection();
+        config(['database.connections.catalog_lifecycle_archived' => [
+            ...config('database.connections.sqlite'),
+            'database' => ':memory:',
+        ]]);
+        DB::purge('catalog_lifecycle_archived');
+        DB::setDefaultConnection('catalog_lifecycle_archived');
+
+        try {
+            $this->migrateLegacyCatalogSchema();
+            $migration = require database_path('migrations/2026_09_10_000000_add_catalog_publishing_lifecycle.php');
+            $migration->up();
+
+            $categoryId = DB::table('service_categories')->insertGetId([
+                'slug' => 'archived-category', 'name_id' => 'Arsip', 'name_en' => 'Archived',
+                'image_path' => null, 'published_at' => now(),
+                'is_active' => false, 'display_order' => 4,
+            ]);
+            $serviceId = DB::table('services')->insertGetId([
+                'category_id' => $categoryId, 'slug' => 'archived-treatment',
+                'name_id' => 'Arsip', 'name_en' => 'Archived',
+                'description_id' => null, 'description_en' => null,
+                'long_description_id' => null, 'long_description_en' => null,
+                'image_path' => null, 'gallery_paths' => '[]', 'popularity' => 0,
+                'is_vip' => false, 'is_active' => false, 'published_at' => now(),
+                'display_order' => 1,
+            ]);
+
+            $migration->down();
+
+            $this->assertFalse(Schema::hasColumn('services', 'published_at'));
+            $this->assertSame('', DB::table('service_categories')->where('id', $categoryId)->value('image_path'));
+            foreach (['description_id', 'description_en', 'long_description_id', 'long_description_en', 'image_path'] as $column) {
+                $this->assertSame('', DB::table('services')->where('id', $serviceId)->value($column));
+            }
+        } finally {
+            DB::purge('catalog_lifecycle_archived');
+            DB::setDefaultConnection($defaultConnection);
+        }
+    }
+
     private function migrateLegacyCatalogSchema(): void
     {
         foreach ([
