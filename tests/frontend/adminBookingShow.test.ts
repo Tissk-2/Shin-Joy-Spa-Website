@@ -7,6 +7,7 @@ import type { AdminBookingDetailData, Locale } from "@/types";
 
 const inertia = vi.hoisted(() => ({
   page: {
+    url: "/admin/bookings/SJ%2FAYU%20%231%3F",
     props: {
       auth: {
         user: {

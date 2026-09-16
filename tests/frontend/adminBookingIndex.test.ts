@@ -12,6 +12,7 @@ import type {
 
 const inertia = vi.hoisted(() => ({
   page: {
+    url: "/admin/bookings",
     props: {
       auth: {
         user: {

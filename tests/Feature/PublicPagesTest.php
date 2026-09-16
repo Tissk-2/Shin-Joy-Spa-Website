@@ -37,9 +37,28 @@ class PublicPagesTest extends TestCase
             ->assertRedirect(route('login', absolute: false));
     }
 
-    public function test_section_aliases_redirect_to_home_fragments(): void
+    public function test_services_page_and_about_section_alias_are_available(): void
     {
-        $this->get('/services')->assertRedirect('/#menu');
+        $response = $this->get('/services');
+
+        $response->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->component('Services')
+            ->has('categories', 1)
+            ->where('categories.0.slug', 'package')
+            ->has('categories.0.packages', 2)
+            ->where('categories.0.packages.0.slug', 'nezuko')
+            ->missing('categories.0.id')
+            ->missing('categories.0.published_at')
+            ->missing('categories.0.packages.0.id')
+            ->missing('categories.0.packages.0.published_at'));
+
+        $category = $response->inertiaProps('categories')[0];
+        $this->assertSame(['slug', 'nameId', 'nameEn', 'image', 'packages'], array_keys($category));
+        $this->assertSame([
+            'slug', 'nameId', 'nameEn', 'descId', 'descEn', 'longId', 'longEn',
+            'benefitId', 'benefitEn', 'image', 'gallery', 'isVip', 'variants', 'extensions',
+        ], array_keys($category['packages'][0]));
+
         $this->get('/about')->assertRedirect('/#about');
     }
 
