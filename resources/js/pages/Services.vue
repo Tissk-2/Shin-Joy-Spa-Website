@@ -36,10 +36,7 @@ const visibleCategories = computed(() =>
           <p>{{ tr("menu.allSub") }}</p>
         </header>
 
-        <div
-          v-if="visibleCategories.length"
-          class="public-catalog__categories"
-        >
+        <div v-if="visibleCategories.length" class="public-catalog__categories">
           <section
             v-for="category in visibleCategories"
             :key="category.slug"

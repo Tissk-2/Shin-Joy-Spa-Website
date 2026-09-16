@@ -142,10 +142,7 @@ onBeforeUnmount(() => {
           <h2 id="menu-title">{{ tr("menu.title") }}</h2>
           <p>{{ tr("menu.sub") }}</p>
         </header>
-        <div
-          v-if="visibleCategories.length"
-          class="public-catalog__categories"
-        >
+        <div v-if="visibleCategories.length" class="public-catalog__categories">
           <section
             v-for="category in visibleCategories"
             :key="category.slug"
