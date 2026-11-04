@@ -3,9 +3,11 @@ import { Head, router, useForm } from "@inertiajs/vue3";
 import { computed, ref } from "vue";
 import { useLanguage } from "@/composables/useLanguage";
 import AuthLayout from "@/layouts/AuthLayout.vue";
+import type { BookingAuthContext } from "@/types";
 
 const props = defineProps<{
   status?: string;
+  bookingContext?: BookingAuthContext | null;
 }>();
 
 const { tr } = useLanguage();
@@ -40,6 +42,8 @@ function logout(): void {
   <AuthLayout
     :title="tr('auth.verify.title')"
     :description="tr('auth.verify.sub')"
+    :booking-context="bookingContext"
+    booking-step="verify"
   >
     <p
       v-if="statusMessage"

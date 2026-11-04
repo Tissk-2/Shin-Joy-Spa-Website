@@ -1,9 +1,9 @@
 .official-menu,
 .menu-comparison {
-  --menu-ivory: #f7f0e5;
-  --menu-bronze: #b48a5a;
-  --menu-espresso: #2c1c14;
-  --menu-gold: #d6b36a;
+  --menu-ivory: var(--bg);
+  --menu-bronze: var(--rose);
+  --menu-espresso: var(--ink);
+  --menu-gold: var(--gold);
   background: var(--menu-ivory);
   color: var(--menu-espresso);
 }
@@ -31,37 +31,43 @@
 .official-menu__header h2,
 .menu-comparison h2,
 .package-menu-card h3 {
-  font-family: Marcellus, serif;
+  font-family: var(--font-display);
 }
 .official-menu__grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1.5rem;
+  gap: clamp(1.5rem, 3vw, 2.5rem);
+  align-items: stretch;
 }
 .package-menu-card {
   position: relative;
-  display: grid;
-  gap: 1rem;
-  padding: 1.25rem;
-  background: #ead7be;
-  border: 1px solid var(--menu-gold);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  background: var(--panel);
+  border-radius: 1.5rem;
   color: var(--menu-espresso);
 }
 .package-menu-card > img {
   width: 100%;
-  aspect-ratio: 16 / 9;
+  aspect-ratio: 4 / 3;
+  border-radius: var(--r-md);
   object-fit: cover;
 }
 .package-menu-card:has(.package-menu-card__vip) {
-  background: var(--menu-espresso);
-  color: var(--menu-ivory);
+  background: var(--panel);
+  border-color: rgba(140, 59, 67, 0.28);
+  color: var(--ink);
 }
 .package-menu-card__vip {
   width: max-content;
-  padding: 0.25rem 0.6rem;
-  border: 1px solid var(--menu-gold);
-  color: var(--menu-gold);
-  font-weight: 800;
+  padding: 0.25rem 0.75rem;
+  border: 1px solid var(--line-wine);
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  color: var(--rose);
+  font-size: 0.72rem;
+  font-weight: 700;
   letter-spacing: 0.12em;
 }
 .package-menu-card__benefit,
@@ -78,45 +84,173 @@
   gap: 0.8rem;
   max-width: 54rem;
 }
-.package-configurator button {
+.package-configurator {
+  --config-surface: var(--panel);
+  --config-ink: var(--ink);
+  --config-muted: var(--text-muted);
+  --config-border: var(--line);
+  --config-choice: var(--bg);
+  --config-selected: var(--rose);
+  --config-on-selected: #ffffff;
+  display: grid;
+  gap: 1.25rem;
+  min-width: 0;
+  width: 100%;
+  padding: clamp(1rem, 3vw, 1.5rem);
+  background: var(--config-surface);
+  color: var(--config-ink);
+  border: 1px solid var(--config-border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-card);
+}
+.package-configurator.package-configurator--vip {
+  border-color: var(--line);
+}
+.package-configurator__group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  min-width: 0;
+}
+.package-configurator__group + .package-configurator__group {
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--config-border);
+}
+.package-configurator__label {
+  flex-basis: 100%;
+  color: var(--config-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.package-configurator__group button {
+  flex: 1 1 9rem;
+  min-width: 0;
   min-height: 44px;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--config-border);
+  border-radius: var(--r-sm, 8px);
+  background: var(--config-choice);
+  color: var(--config-ink);
+  line-height: 1.5;
+  text-align: left;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+.package-configurator__group button:hover {
+  border-color: var(--config-ink);
+}
+.package-configurator__group button[aria-checked="true"] {
+  background: var(--config-selected);
+  color: var(--config-on-selected);
+  border-color: var(--config-selected);
+  box-shadow: inset 0 0 0 1px currentColor;
+  font-weight: 800;
+}
+.package-configurator__extension {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 44px;
+  color: var(--config-ink);
+  cursor: pointer;
+}
+.package-configurator__extension input {
+  flex: 0 0 auto;
+  width: 1.25rem;
+  height: 1.25rem;
+  accent-color: var(--config-selected);
+}
+.package-configurator__total,
+.package-configurator__guidance {
+  margin: 0;
+  color: var(--config-ink);
+}
+.package-configurator__total {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.package-configurator__guidance {
+  color: var(--config-muted);
 }
 .package-configurator__cta {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   min-height: 44px;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--config-selected);
+  border-radius: 9999px;
+  background: var(--config-selected);
+  color: var(--config-on-selected);
+  font-weight: 800;
+  text-align: center;
+  line-height: 1.5;
+  text-decoration: none;
+}
+.package-configurator__cta:hover:not(:disabled) {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+.package-configurator__cta:disabled {
+  background: transparent;
+  color: var(--config-muted);
+  border-color: var(--config-border);
+  border-style: dashed;
+  cursor: not-allowed;
 }
 .package-configurator button:focus-visible,
 .package-configurator__cta:focus-visible,
-.package-menu-card a:focus-visible {
-  outline: 3px solid var(--menu-gold);
+.package-configurator__extension input:focus-visible {
+  outline: 3px solid var(--config-ink);
   outline-offset: 3px;
 }
-.package-configurator__mobile-cta {
-  display: none;
+.package-menu-card a:focus-visible {
+  outline: 3px solid var(--menu-gold, #8c6b49);
+  outline-offset: 3px;
+}
+.package-detail {
+  background: var(--bg);
+  color: var(--ink);
+}
+.package-detail .breadcrumb {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+.package-detail .detail-info h1 {
+  margin: 0.75rem 0 1rem;
+}
+.package-detail .prose,
+.package-detail__benefit {
+  color: var(--text-muted);
+  line-height: 1.75;
+}
+.package-detail__benefit {
+  margin-top: 0.75rem;
+}
+.package-detail .package-configurator {
+  margin-top: 1.5rem;
+}
+.package-detail .detail-info h1,
+.package-detail .package-detail__related h2 {
+  color: inherit;
+}
+.package-detail .package-menu-card__vip {
+  display: inline-block;
+  border-color: var(--line-wine);
+  color: var(--rose);
 }
 
 @media (max-width: 959px) {
   .official-menu__grid {
     grid-template-columns: 1fr;
-  }
-}
-@media (max-width: 639px) {
-  .package-configurator__mobile-cta {
-    position: sticky;
-    bottom: 0;
-    z-index: 10;
-    display: block;
-    margin: 1rem -1.25rem -1.25rem;
-    padding: 0.75rem max(1rem, env(safe-area-inset-right))
-      calc(0.75rem + env(safe-area-inset-bottom))
-      max(1rem, env(safe-area-inset-left));
-    background: var(--menu-espresso);
-  }
-  .package-configurator__mobile-cta .package-configurator__cta {
-    display: flex;
-    width: 100%;
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -184,9 +318,15 @@
 }
 
 .booking-row__link:focus-visible,
-.booking-actions a:focus-visible {
+.booking-actions a:focus-visible,
+.booking-actions button:focus-visible {
   outline: 3px solid var(--gold-deep);
   outline-offset: 4px;
+}
+
+.booking-download-error {
+  color: var(--rose-strong);
+  font-weight: 700;
 }
 
 .booking-row__date,
@@ -199,7 +339,7 @@
 .booking-row__date,
 .booking-row__meta,
 .booking-row__total > span {
-  color: var(--muted);
+  color: var(--text-muted);
   font-size: 0.9rem;
 }
 
@@ -269,7 +409,7 @@
 
 .booking-status--cancelled {
   background: transparent;
-  color: var(--muted);
+  color: var(--text-muted);
 }
 
 .booking-vip {
@@ -286,7 +426,7 @@
   padding: 1.4rem 0;
   border-top: 1px dashed var(--line);
   border-bottom: 1px dashed var(--line);
-  color: var(--muted);
+  color: var(--text-muted);
 }
 
 .booking-detail-title {
@@ -298,7 +438,7 @@
 
 .booking-detail-title__label {
   margin: 0 0 0.4rem;
-  color: var(--muted);
+  color: var(--text-muted);
   font-size: 0.9rem;
   font-weight: 800;
 }
@@ -328,7 +468,7 @@
 .booking-appointment-band dt,
 .booking-breakdown-list dt,
 .booking-total-panel dt {
-  color: var(--muted);
+  color: var(--text-muted);
   font-size: 0.78rem;
   font-weight: 800;
 }
@@ -353,7 +493,8 @@
   padding: 1.35rem;
   border: 1px solid var(--line);
   border-radius: var(--r-md);
-  background: var(--surface);
+  background: var(--panel);
+  box-shadow: var(--shadow-card);
 }
 
 .booking-panel__header {
@@ -363,13 +504,11 @@
 
 .booking-panel__header p,
 .booking-notes-panel p {
-  color: var(--muted);
+  color: var(--text-muted);
 }
 
 .booking-total-panel {
   align-content: start;
-  border-color: var(--gold-deep);
-  background: var(--surface-2);
 }
 
 .booking-total-panel dd {

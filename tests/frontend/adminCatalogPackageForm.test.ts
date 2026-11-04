@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 
 import PackageChoiceRows from "@/components/admin/catalog/PackageChoiceRows.vue";
+import CatalogImageInput from "@/components/admin/catalog/CatalogImageInput.vue";
 import PackageGalleryInput from "@/components/admin/catalog/PackageGalleryInput.vue";
 import PackageForm from "@/pages/admin/catalog/packages/Form.vue";
 
@@ -51,6 +52,11 @@ const draftPackage = {
   benefitEn: null,
   isVip: false,
   displayOrder: 0,
+  pricingBasis: null,
+  minGuests: null,
+  maxGuests: null,
+  pricingVerified: false,
+  pricingVerifiedBy: null,
   cover: null,
   gallery: [],
   variants: [],
@@ -63,6 +69,7 @@ const draftPackage = {
     archive: false,
     restore: false,
     delete: false,
+    attestPricing: false,
   },
 } as const;
 let wrappers: VueWrapper[] = [];
@@ -79,6 +86,7 @@ function mountForm(packageItem = draftPackage) {
 }
 beforeEach(() => {
   inertia.requests = [];
+  inertia.page.props.locale = "en";
   let count = 0;
   vi.stubGlobal(
     "URL",
@@ -121,8 +129,16 @@ describe("admin package form", () => {
     );
   });
 
-  it("submits only the approved create multipart contract and exact empty collection sentinels", async () => {
-    const wrapper = mountForm();
+  it("submits only the approved update multipart contract and exact empty collection sentinels", async () => {
+    const wrapper = mountForm({
+      ...draftPackage,
+      version: 0,
+      categoryId: 5,
+      slug: "warm-stone",
+      nameId: "Batu Hangat",
+      nameEn: "Warm Stone",
+      isPublished: false,
+    });
     await wrapper.get('[name="categoryId"]').setValue("5");
     await wrapper.get('[name="slug"]').setValue(" warm-stone ");
     await wrapper.get('[name="nameId"]').setValue(" Batu Hangat ");
@@ -132,8 +148,10 @@ describe("admin package form", () => {
     await wrapper.get("form").trigger("submit");
 
     const request = inertia.requests[0];
-    expect(request.url).toBe("/admin/catalog/packages");
+    expect(request.url).toBe("/admin/catalog/packages/warm-stone");
     expect(Object.fromEntries(request.data.entries())).toEqual({
+      _method: "patch",
+      version: "0",
       categoryId: "5",
       slug: "warm-stone",
       nameId: "Batu Hangat",
@@ -146,6 +164,9 @@ describe("admin package form", () => {
       benefitEn: "",
       isVip: "1",
       displayOrder: "2",
+      pricingBasis: "",
+      minGuests: "",
+      maxGuests: "",
       removeCover: "0",
       variants: "[]",
       extensions: "[]",
@@ -210,6 +231,134 @@ describe("admin package form", () => {
       url: "/admin/catalog/packages/draft-package/publish",
       data: { version: 9 },
     });
+  });
+
+  it("posts owner attestation with the current version and pricing coverage", async () => {
+    const wrapper = mountForm({
+      ...draftPackage,
+      version: 4,
+      slug: "priced-package",
+      nameId: "Paket",
+      nameEn: "Package",
+      can: { ...draftPackage.can, attestPricing: true },
+    });
+
+    await wrapper.get('[name="pricingBasis"]').setValue("per_person");
+    await wrapper.get('[name="minGuests"]').setValue("1");
+    await wrapper.get('[name="maxGuests"]').setValue("4");
+    await wrapper.get("[data-pricing-attest]").trigger("click");
+
+    const request = inertia.requests[0];
+    expect(request.url).toBe("/admin/catalog/packages/priced-package/pricing");
+    expect(request.data).toEqual({
+      version: 4,
+      pricingBasis: "per_person",
+      minGuests: 1,
+      maxGuests: 4,
+    });
+  });
+
+  it("shows attestation only to authorized owners and exposes the verifier", () => {
+    const verifiedPackage = {
+      ...draftPackage,
+      version: 2,
+      slug: "priced-package",
+      nameId: "Paket",
+      nameEn: "Package",
+      pricingBasis: "per_booking" as const,
+      minGuests: 2,
+      maxGuests: 4,
+      pricingVerified: true,
+      pricingVerifiedBy: {
+        id: 3,
+        name: "Owner",
+        email: "owner@example.test",
+      },
+    };
+
+    const admin = mountForm(verifiedPackage);
+    expect(admin.find("[data-pricing-attest]").exists()).toBe(false);
+    expect(admin.text()).toContain("Verified");
+    expect(admin.text()).toContain("owner@example.test");
+
+    const owner = mountForm({
+      ...verifiedPackage,
+      can: { ...draftPackage.can, attestPricing: true },
+    });
+    expect(owner.find("[data-pricing-attest]").exists()).toBe(true);
+  });
+
+  it.each(["variant", "extension", "metadata", "cover", "gallery"])(
+    "requires saving unsaved %s edits before attesting stored prices",
+    async (edit) => {
+      const row = {
+        id: 7,
+        code: "base",
+        mode: "regular",
+        durationMinutes: 60,
+        priceIdr: 100000,
+        isActive: true,
+        displayOrder: 0,
+        isPublished: true,
+      };
+      const wrapper = mountForm({
+        ...draftPackage,
+        version: 1,
+        slug: "priced-package",
+        nameId: "Paket",
+        nameEn: "Package",
+        variants: [row],
+        extensions: [{ ...row, id: 8, code: "extra", durationMinutes: 30 }],
+        can: { ...draftPackage.can, attestPricing: true },
+      });
+      if (edit === "variant" || edit === "extension") {
+        await wrapper.get(`[name="${edit}s.0.priceIdr"]`).setValue("200000");
+      } else if (edit === "metadata") {
+        await wrapper.get('[name="nameEn"]').setValue("Changed package");
+      } else if (edit === "cover") {
+        wrapper
+          .getComponent(CatalogImageInput)
+          .vm.$emit("change", new File(["x"], "cover.png"));
+      } else {
+        wrapper
+          .getComponent(PackageGalleryInput)
+          .vm.$emit("update:uploads", [new File(["x"], "gallery.png")]);
+      }
+      await nextTick();
+      const button = wrapper.get<HTMLButtonElement>("[data-pricing-attest]");
+      expect(button.element.disabled).toBe(true);
+      expect(wrapper.text()).toContain(
+        "Save your other changes, then reopen this package before verifying pricing.",
+      );
+      inertia.page.props.locale = "id";
+      await nextTick();
+      expect(wrapper.text()).toContain(
+        "Simpan perubahan lainnya, lalu buka kembali paket ini sebelum memverifikasi harga.",
+      );
+      button.element.removeAttribute("disabled");
+      await button.trigger("click");
+      expect(inertia.requests).toHaveLength(0);
+    },
+  );
+
+  it("maps attestation validation errors to the pricing section", async () => {
+    const wrapper = mountForm({
+      ...draftPackage,
+      version: 1,
+      slug: "priced-package",
+      nameId: "Paket",
+      nameEn: "Package",
+      can: { ...draftPackage.can, attestPricing: true },
+    });
+
+    await wrapper.get("[data-pricing-attest]").trigger("click");
+    inertia.requests[0].options.onError({
+      maxGuests: "Guests must be between 1 and 4.",
+    });
+    inertia.requests[0].options.onFinish();
+    await nextTick();
+
+    expect(wrapper.text()).toContain("Guests must be between 1 and 4.");
   });
 
   it("emits immutable choice arrays and maps exact nested errors to their field", async () => {

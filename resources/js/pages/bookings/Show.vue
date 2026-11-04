@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { Head, Link } from "@inertiajs/vue3";
-import { computed } from "vue";
+import { computed, ref } from "vue";
+import { useContactInformation } from "@/composables/useContactInformation";
 import { useLanguage } from "@/composables/useLanguage";
 import MainLayout from "@/layouts/MainLayout.vue";
+import { downloadBookingCard } from "@/lib/bookingCard";
 import type {
   BookingChoiceData,
   BookingDetailData,
@@ -14,6 +16,9 @@ const props = defineProps<{
 }>();
 
 const { language, tr } = useLanguage();
+const contactInformation = useContactInformation();
+const downloading = ref(false);
+const downloadError = ref(false);
 
 const dateLocale = computed(() =>
   language.value === "id" ? "id-ID" : "en-GB",
@@ -62,6 +67,25 @@ function modeLabel(): string {
 
 function choiceMeta(choice: BookingChoiceData): string {
   return `${choice.choiceCode} / ${formatDuration(choice.durationMinutes)} / ${formatPrice(choice.priceIdr)}`;
+}
+
+async function downloadCard(): Promise<void> {
+  if (downloading.value) return;
+
+  downloading.value = true;
+  downloadError.value = false;
+
+  try {
+    await downloadBookingCard(
+      props.booking,
+      language.value,
+      contactInformation.value,
+    );
+  } catch {
+    downloadError.value = true;
+  } finally {
+    downloading.value = false;
+  }
 }
 </script>
 
@@ -177,7 +201,9 @@ function choiceMeta(choice: BookingChoiceData): string {
               </div>
               <div>
                 <dt>{{ tr("bookings.customerPhone") }}</dt>
-                <dd>{{ props.booking.customer.phone }}</dd>
+                <dd>
+                  {{ props.booking.customer.phone || tr("bookings.noPhone") }}
+                </dd>
               </div>
             </dl>
           </article>
@@ -189,6 +215,15 @@ function choiceMeta(choice: BookingChoiceData): string {
         </div>
 
         <div class="booking-actions">
+          <button
+            type="button"
+            class="btn btn--ghost"
+            data-testid="download-booking-card"
+            :disabled="downloading"
+            @click="downloadCard"
+          >
+            {{ tr("bookings.downloadCard") }}
+          </button>
           <Link class="btn btn--ghost" href="/bookings">{{
             tr("bookings.backToBookings")
           }}</Link>
@@ -196,6 +231,9 @@ function choiceMeta(choice: BookingChoiceData): string {
             tr("bookings.reserveAnother")
           }}</Link>
         </div>
+        <p v-if="downloadError" class="booking-download-error" role="alert">
+          {{ tr("bookings.downloadError") }}
+        </p>
       </div>
     </section>
   </MainLayout>

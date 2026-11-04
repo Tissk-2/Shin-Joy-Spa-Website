@@ -1,18 +1,18 @@
 <script setup lang="ts">
-import AppLogoIcon from '@/components/AppLogoIcon.vue';
-
-interface Props {
-    class?: string;
-}
-
-defineProps<Props>();
+defineProps<{ class?: string }>();
 </script>
 
 <template>
-    <div class="flex aspect-square size-8 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground">
-        <AppLogoIcon class="size-5 fill-current text-white dark:text-black" />
-    </div>
-    <div class="ml-1 grid flex-1 text-left text-sm">
-        <span class="mb-0.5 truncate font-semibold leading-none">Laravel Starter Kit</span>
-    </div>
+  <span
+    class="account-brand-mark flex size-8 shrink-0 items-center justify-center rounded-full border border-sidebar-border text-sidebar-primary"
+    aria-hidden="true"
+    >SJ</span
+  >
+  <span
+    :class="[
+      'account-brand ml-1 truncate text-sidebar-foreground group-data-[collapsible=icon]:hidden',
+      $props.class,
+    ]"
+    >Shin Joy Spa</span
+  >
 </template>

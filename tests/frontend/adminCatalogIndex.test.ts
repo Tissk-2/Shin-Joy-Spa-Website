@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import CatalogStatusBadge from "@/components/admin/catalog/CatalogStatusBadge.vue";
 import CatalogIndex from "@/pages/admin/catalog/Index.vue";
-import type { AppPageProps, Locale } from "@/types";
+import type { Locale } from "@/types";
 
 const inertia = vi.hoisted(() => ({
   page: {
@@ -35,43 +35,6 @@ vi.mock("@inertiajs/vue3", async () => {
     usePage: () => inertia.page,
   };
 });
-
-const categories = [
-  {
-    slug: "body-care",
-    version: 7,
-    nameId: "Perawatan Tubuh",
-    nameEn: "Body Care",
-    image: null,
-    status: "published" as const,
-    packageCount: 2,
-    displayOrder: 1,
-    can: {
-      update: true,
-      publish: false,
-      archive: true,
-      restore: false,
-      delete: false,
-    },
-  },
-  {
-    slug: "face-care",
-    version: 3,
-    nameId: "Perawatan Wajah",
-    nameEn: "Face Care",
-    image: null,
-    status: "draft" as const,
-    packageCount: 1,
-    displayOrder: 2,
-    can: {
-      update: false,
-      publish: true,
-      archive: false,
-      restore: false,
-      delete: true,
-    },
-  },
-] as const;
 
 const packages = [
   {
@@ -126,9 +89,7 @@ function mountIndex(
 ) {
   return mount(CatalogIndex, {
     props: {
-      categories,
       packages,
-      can: { createCategory: true, createPackage: true },
       ...props,
     },
     global: {
@@ -163,43 +124,30 @@ describe("admin catalog index", () => {
 
   it("orders localized primary and secondary names with their counts", async () => {
     const wrapper = mountIndex();
-    expect(wrapper.get('[data-catalog-category="body-care"]').text()).toContain(
-      "Body Care",
-    );
     expect(wrapper.get('[data-catalog-package="warm-stone"]').text()).toContain(
       "Warm Stone",
     );
-    expect(wrapper.text()).toContain("2 packages");
     expect(wrapper.text()).toContain("3 options");
     expect(wrapper.text()).toContain("VIP");
 
     inertia.page.props.locale = "id";
     await wrapper.vm.$nextTick();
-    expect(wrapper.get('[data-catalog-category="body-care"]').text()).toContain(
-      "Perawatan Tubuh",
-    );
     expect(wrapper.get('[data-catalog-package="warm-stone"]').text()).toContain(
       "Batu Hangat",
     );
-    expect(wrapper.text()).toContain("2 paket");
     expect(wrapper.text()).toContain("3 opsi");
   });
 
-  it("renders a single category and package without relying on a many-record layout", () => {
+  it("renders a single package without relying on a many-record layout", () => {
     const wrapper = mountIndex({
-      categories: categories.slice(0, 1),
       packages: packages.slice(0, 1),
     });
 
-    expect(wrapper.findAll("[data-catalog-category]")).toHaveLength(1);
     expect(wrapper.findAll("[data-catalog-package]")).toHaveLength(1);
   });
 
-  it("shows permitted controls only and warns when a published package has a non-published parent", () => {
+  it("shows permitted package controls only and offers no create or category actions", () => {
     const wrapper = mountIndex();
-    expect(
-      wrapper.get('a[href="/admin/catalog/packages/create"]'),
-    ).toBeTruthy();
     expect(
       wrapper.get('a[href="/admin/catalog/packages/warm-stone/edit"]'),
     ).toBeTruthy();
@@ -209,24 +157,16 @@ describe("admin catalog index", () => {
         .exists(),
     ).toBe(false);
     expect(
-      wrapper.get('[data-catalog-warning="calm-facial"]').text(),
-    ).toContain("hidden");
-    expect(
-      wrapper.get('[data-catalog-action="body-care-archive"]'),
+      wrapper.get('[data-catalog-action="warm-stone-archive"]'),
     ).toBeTruthy();
     expect(
-      wrapper.find('[data-catalog-action="body-care-publish"]').exists(),
+      wrapper.find('[data-catalog-action="calm-facial-publish"]').exists(),
     ).toBe(false);
-
-    const restricted = mountIndex({
-      can: { createCategory: false, createPackage: false },
-    });
-    expect(restricted.find('[data-catalog-create="category"]').exists()).toBe(
-      false,
-    );
     expect(
-      restricted.find('a[href="/admin/catalog/packages/create"]').exists(),
+      wrapper.find('a[href="/admin/catalog/packages/create"]').exists(),
     ).toBe(false);
+    expect(wrapper.find("[data-catalog-create]").exists()).toBe(false);
+    expect(wrapper.find("[data-catalog-category]").exists()).toBe(false);
   });
 
   it("sends a package lifecycle action with the projected nonzero version", async () => {
@@ -246,18 +186,15 @@ describe("admin catalog index", () => {
     wrapper.unmount();
   });
 
-  it("announces accessible empty sections and creation hooks for zero catalog records", () => {
-    const wrapper = mountIndex({ categories: [], packages: [] });
-    expect(
-      wrapper.get("[data-catalog-empty=categories]").attributes("role"),
-    ).toBe("status");
+  it("announces an accessible empty state and offers no create hooks for zero packages", () => {
+    const wrapper = mountIndex({ packages: [] });
     expect(
       wrapper.get("[data-catalog-empty=packages]").attributes("role"),
     ).toBe("status");
-    expect(wrapper.get('[data-catalog-create="category"]')).toBeTruthy();
+    expect(wrapper.find("[data-catalog-create]").exists()).toBe(false);
     expect(
-      wrapper.get('a[href="/admin/catalog/packages/create"]'),
-    ).toBeTruthy();
+      wrapper.find('a[href="/admin/catalog/packages/create"]').exists(),
+    ).toBe(false);
   });
 
   it("keeps catalog interactions keyboard reachable and avoids disallowed client-owned behavior", () => {
@@ -277,29 +214,6 @@ describe("admin catalog index", () => {
       "utf8",
     );
     expect(source).not.toMatch(/localStorage|sessionStorage|vue-router|v-html/);
-    wrapper.unmount();
-  });
-
-  it("opens one populated editor and returns focus to its exact trigger on cancel", async () => {
-    const wrapper = mountIndex({}, true);
-    const add = wrapper.get<HTMLButtonElement>(
-      '[data-catalog-create="category"]',
-    );
-    add.element.focus();
-    await add.trigger("click");
-    expect(wrapper.findAll("[data-category-editor]")).toHaveLength(1);
-    expect(document.activeElement?.id).toBe("catalog-category-editor-title");
-    const edit = wrapper.get('[data-catalog-action="body-care-edit"]');
-    await edit.trigger("click");
-    expect(wrapper.findAll("[data-category-editor]")).toHaveLength(1);
-    expect(wrapper.get<HTMLInputElement>('[name="nameEn"]').element.value).toBe(
-      "Body Care",
-    );
-    await wrapper.get("[data-category-cancel]").trigger("click");
-    await wrapper.vm.$nextTick();
-    expect(wrapper.find("[data-category-editor]").exists()).toBe(false);
-    expect(document.activeElement).toBe(edit.element);
-    expect(inertia.posts).toHaveLength(0);
     wrapper.unmount();
   });
 });

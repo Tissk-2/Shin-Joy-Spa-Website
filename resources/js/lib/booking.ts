@@ -1,6 +1,10 @@
 import type { PackageData } from "@/types";
 import { isValidPhoneNumber } from "./phone";
-import { normalizeSelection, type ServiceSelection } from "./serviceSelection";
+import {
+  normalizeSelection,
+  selectionTotal,
+  type ServiceSelection,
+} from "./serviceSelection";
 
 export interface BookingFormInput extends ServiceSelection {
   name: string;
@@ -15,6 +19,7 @@ export type BookingErrors = Partial<Record<keyof BookingFormInput, string>>;
 
 export interface BookingSubmissionInput extends BookingFormInput {
   submission_key: string;
+  expected_total_price_idr: number;
 }
 
 export interface BookingSubmissionPayload {
@@ -29,6 +34,7 @@ export interface BookingSubmissionPayload {
   guests: number;
   notes: string;
   submission_key: string;
+  expected_total_price_idr: number;
 }
 
 export const timeSlots = Object.freeze(
@@ -38,11 +44,47 @@ export const timeSlots = Object.freeze(
   }),
 );
 
+export function treatmentFitsBusinessHours(
+  time: string,
+  durationMinutes: number,
+): boolean {
+  if (
+    !timeSlots.includes(time) ||
+    !Number.isFinite(durationMinutes) ||
+    durationMinutes <= 0
+  )
+    return false;
+
+  const [hour, minute] = time.split(":").map(Number);
+  return hour * 60 + minute + durationMinutes <= 21 * 60;
+}
+
+const jakartaFormatter = new Intl.DateTimeFormat("en-GB", {
+  timeZone: "Asia/Jakarta",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+});
+
+function jakartaParts(date: Date): Record<string, string> {
+  return Object.fromEntries(
+    jakartaFormatter
+      .formatToParts(date)
+      .map(({ type, value }) => [type, value]),
+  );
+}
+
 export function todayIso(date = new Date()): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
+  const { year, month, day } = jakartaParts(date);
   return `${year}-${month}-${day}`;
+}
+
+export function jakartaTimeIso(date = new Date()): string {
+  const { hour, minute } = jakartaParts(date);
+  return `${hour}:${minute}`;
 }
 
 function isCalendarDate(value: unknown): value is string {
@@ -62,10 +104,12 @@ export function validateBooking(
   form: BookingFormInput,
   packages: readonly PackageData[],
   today = todayIso(),
+  currentTime = jakartaTimeIso(),
 ): BookingErrors {
   const errors: BookingErrors = {};
   if (!form.name.trim()) errors.name = "b.err.name";
-  if (!isValidPhoneNumber(form.phone)) errors.phone = "b.err.phone";
+  if (form.phone.trim() && !isValidPhoneNumber(form.phone))
+    errors.phone = "b.err.phone";
 
   const servicePackage = packages.find(
     (item) => typeof form.service === "string" && item.slug === form.service,
@@ -100,6 +144,23 @@ export function validateBooking(
   if (!isCalendarDate(form.date) || form.date < today)
     errors.date = "b.err.date";
   if (!timeSlots.includes(form.time)) errors.time = "b.err.time";
+  if (form.date === today && form.time <= currentTime)
+    errors.time = "b.err.time";
+  if (
+    servicePackage &&
+    !errors.mode &&
+    !errors.duration &&
+    !errors.extension &&
+    timeSlots.includes(form.time)
+  ) {
+    if (
+      !treatmentFitsBusinessHours(
+        form.time,
+        selectionTotal(servicePackage, form).duration,
+      )
+    )
+      errors.time = "b.err.time";
+  }
   return errors;
 }
 
@@ -118,5 +179,6 @@ export function buildBookingSubmissionPayload(
     guests: input.guests,
     notes: input.notes,
     submission_key: input.submission_key,
+    expected_total_price_idr: input.expected_total_price_idr,
   };
 }

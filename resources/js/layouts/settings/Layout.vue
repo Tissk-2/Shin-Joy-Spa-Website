@@ -1,56 +1,51 @@
 <script setup lang="ts">
-import Heading from '@/components/Heading.vue';
-import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
-import { type NavItem } from '@/types';
-import { Link } from '@inertiajs/vue3';
+import type { NavItem } from "@/types";
+import { Link, usePage } from "@inertiajs/vue3";
+import { computed } from "vue";
 
 const sidebarNavItems: NavItem[] = [
-    {
-        title: 'Profile',
-        href: '/settings/profile',
-    },
-    {
-        title: 'Password',
-        href: '/settings/password',
-    },
-    {
-        title: 'Appearance',
-        href: '/settings/appearance',
-    },
+  { title: "Profile", href: "/settings/profile" },
+  { title: "Password", href: "/settings/password" },
+  { title: "Appearance", href: "/settings/appearance" },
 ];
-
-const currentPath = window.location.pathname;
+const page = usePage();
+const currentPath = computed(() => page.url.split("?")[0]);
 </script>
 
 <template>
-    <div class="px-4 py-6">
-        <Heading title="Settings" description="Manage your profile and account settings" />
-
-        <div class="flex flex-col space-y-8 md:space-y-0 lg:flex-row lg:space-x-12 lg:space-y-0">
-            <aside class="w-full max-w-xl lg:w-48">
-                <nav class="flex flex-col space-x-0 space-y-1">
-                    <Button
-                        v-for="item in sidebarNavItems"
-                        :key="item.href"
-                        variant="ghost"
-                        :class="['w-full justify-start', { 'bg-muted': currentPath === item.href }]"
-                        as-child
-                    >
-                        <Link :href="item.href">
-                            {{ item.title }}
-                        </Link>
-                    </Button>
-                </nav>
-            </aside>
-
-            <Separator class="my-6 md:hidden" />
-
-            <div class="flex-1 md:max-w-2xl">
-                <section class="max-w-xl space-y-12">
-                    <slot />
-                </section>
-            </div>
-        </div>
+  <div class="settings-layout">
+    <header class="settings-heading">
+      <h1>Settings</h1>
+      <p>Manage your profile and account settings</p>
+    </header>
+    <div class="settings-grid">
+      <aside>
+        <nav class="settings-nav" aria-label="Account settings">
+          <Link
+            v-for="item in sidebarNavItems"
+            :key="item.href"
+            :href="item.href"
+            :aria-current="currentPath === item.href ? 'page' : undefined"
+            >{{ item.title }}</Link
+          >
+        </nav>
+      </aside>
+      <div class="settings-panel">
+        <section class="space-y-12"><slot /></section>
+      </div>
     </div>
+  </div>
 </template>
+
+<style scoped>
+/* These messages in the existing forms predate semantic theme colors. */
+.settings-panel :deep(.text-neutral-800) {
+  color: hsl(var(--foreground));
+}
+.settings-panel :deep(.text-neutral-600) {
+  color: hsl(var(--muted-foreground));
+}
+.settings-panel :deep(a.text-neutral-600:hover) {
+  color: hsl(var(--primary));
+}
+</style>

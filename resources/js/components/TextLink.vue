@@ -1,25 +1,25 @@
 <script setup lang="ts">
-import { Link } from '@inertiajs/vue3';
-import type { Method } from '@inertiajs/core';
+import { Link } from "@inertiajs/vue3";
+import type { Method } from "@inertiajs/core";
 
 interface Props {
-    href: string;
-    tabindex?: string | number;
-    method?: Method;
-    as?: string;
+  href: string;
+  tabindex?: string | number;
+  method?: Method;
+  as?: string;
 }
 
 defineProps<Props>();
 </script>
 
 <template>
-    <Link
-        :href="href"
-        :tabindex="tabindex"
-        :method="method"
-        :as="as"
-        class="hover:decoration-current! text-foreground underline decoration-neutral-300 underline-offset-4 transition-colors duration-300 ease-out dark:decoration-neutral-500"
-    >
-        <slot />
-    </Link>
+  <Link
+    :href="href"
+    :tabindex="tabindex"
+    :method="method"
+    :as="as"
+    class="hover:decoration-current! text-foreground underline decoration-neutral-300 underline-offset-4 transition-colors duration-300 ease-out dark:decoration-neutral-500"
+  >
+    <slot />
+  </Link>
 </template>

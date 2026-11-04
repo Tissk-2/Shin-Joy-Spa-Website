@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   bookingUrl,
+  guestCoverage,
   normalizeSelection,
   selectionTotal,
 } from "@/lib/serviceSelection";
@@ -85,5 +86,76 @@ describe("service selection", () => {
 
     image.dispatchEvent(new Event("error"));
     expect(image.src).toContain("/img/massage.jpg");
+  });
+
+  it("multiplies the verified per-person unit by the guest count", () => {
+    const verified: PackageData = {
+      ...nezuko,
+      pricingBasis: "per_person",
+      minGuests: 1,
+      maxGuests: 4,
+      pricingVerified: true,
+    };
+    const selected = normalizeSelection(verified, {
+      service: "nezuko",
+      mode: "regular",
+      duration: 90,
+      extension: "nezuko-regular-extra-60",
+    });
+
+    expect(selectionTotal(verified, selected, 1)).toEqual({
+      duration: 150,
+      price: 340000,
+    });
+    expect(selectionTotal(verified, selected, 2)).toEqual({
+      duration: 150,
+      price: 680000,
+    });
+    expect(selectionTotal(verified, selected, 3)).toEqual({
+      duration: 150,
+      price: 1020000,
+    });
+    expect(guestCoverage(verified)).toEqual({ min: 1, max: 4 });
+  });
+
+  it("keeps one verified per-booking total regardless of guests", () => {
+    const verified: PackageData = {
+      ...nezuko,
+      pricingBasis: "per_booking",
+      minGuests: 2,
+      maxGuests: 4,
+      pricingVerified: true,
+    };
+    const selected = normalizeSelection(verified, {
+      service: "nezuko",
+      mode: "regular",
+      duration: 90,
+      extension: "nezuko-regular-extra-60",
+    });
+
+    expect(selectionTotal(verified, selected, 2).price).toBe(340000);
+    expect(selectionTotal(verified, selected, 4).price).toBe(340000);
+    expect(guestCoverage(verified)).toEqual({ min: 2, max: 4 });
+  });
+
+  it("keeps legacy packages on the unit total and the full guest range", () => {
+    const selected = normalizeSelection(nezuko, {
+      service: "nezuko",
+      mode: "regular",
+      duration: 90,
+      extension: "nezuko-regular-extra-60",
+    });
+    const basisOnly: PackageData = {
+      ...nezuko,
+      pricingBasis: "per_person",
+      minGuests: 1,
+      maxGuests: 4,
+      pricingVerified: false,
+    };
+
+    expect(selectionTotal(nezuko, selected, 3).price).toBe(340000);
+    expect(selectionTotal(basisOnly, selected, 3).price).toBe(340000);
+    expect(guestCoverage(nezuko)).toEqual({ min: 1, max: 4 });
+    expect(guestCoverage(basisOnly)).toEqual({ min: 1, max: 4 });
   });
 });

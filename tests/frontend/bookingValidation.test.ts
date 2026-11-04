@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  jakartaTimeIso,
   timeSlots,
   todayIso,
   validateBooking,
@@ -54,17 +55,76 @@ const packages: PackageData[] = [
 ];
 
 describe("booking validation helpers", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-20T00:00:00.000Z"));
+  });
+
+  afterEach(() => vi.useRealTimers());
+
   it("validates phone numbers without accepting short input", () => {
     expect(isValidPhoneNumber("+62 812-3456-7890")).toBe(true);
     expect(isValidPhoneNumber("123")).toBe(false);
     expect(isValidPhoneNumber(null)).toBe(false);
   });
 
-  it("formats a local calendar date as ISO without mutating it", () => {
-    const date = new Date(2026, 7, 20, 12, 0, 0);
+  it("treats the WhatsApp number as optional when left blank", () => {
+    const validSelection = {
+      name: "Nadia",
+      service: "nezuko",
+      mode: "regular" as const,
+      duration: 90,
+      extension: "nezuko-regular-extra-60",
+      date: "2026-08-20",
+      time: "09:00",
+    };
 
-    expect(todayIso(date)).toBe("2026-08-20");
-    expect(date.getHours()).toBe(12);
+    for (const phone of ["", "   "]) {
+      expect(
+        validateBooking({ ...validSelection, phone }, packages, "2026-08-20"),
+      ).toEqual({});
+    }
+    expect(
+      validateBooking(
+        { ...validSelection, phone: "+62 812-3456-7890" },
+        packages,
+        "2026-08-20",
+      ),
+    ).toEqual({});
+  });
+
+  it("formats the Jakarta calendar date as ISO without mutating it", () => {
+    const date = new Date("2026-08-20T17:30:00.000Z");
+
+    expect(todayIso(date)).toBe("2026-08-21");
+    expect(date.toISOString()).toBe("2026-08-20T17:30:00.000Z");
+  });
+
+  it("uses Jakarta time when checking whether today's slot has elapsed", () => {
+    expect(jakartaTimeIso(new Date("2026-08-20T08:15:00.000Z"))).toBe("15:15");
+
+    const booking = {
+      name: "Nadia",
+      phone: "",
+      service: "nezuko",
+      mode: "regular" as const,
+      duration: 90,
+      extension: "",
+      date: "2026-08-20",
+      time: "15:00",
+    };
+
+    expect(validateBooking(booking, packages, "2026-08-20", "15:15")).toEqual({
+      time: "b.err.time",
+    });
+    expect(
+      validateBooking(
+        { ...booking, time: "15:30" },
+        packages,
+        "2026-08-20",
+        "15:15",
+      ),
+    ).toEqual({});
   });
 
   it("rejects incomplete, unknown, inactive, incompatible, or array-like package selections", () => {
@@ -74,7 +134,7 @@ describe("booking validation helpers", () => {
           name: " ",
           phone: "123",
           service: "missing" as string,
-          mode: "" as "",
+          mode: "" as const,
           duration: null,
           extension: "nezuko-regular-extra-60",
           date: "2026-08-19",
@@ -145,6 +205,33 @@ describe("booking validation helpers", () => {
         packages,
         "2026-08-20",
       ),
+    ).toEqual({});
+  });
+
+  it("rejects sessions ending after 21:00 including their extension", () => {
+    const booking = {
+      name: "Nadia",
+      phone: "",
+      service: "nezuko",
+      mode: "regular" as const,
+      duration: 90,
+      extension: "",
+      date: "2026-08-21",
+      time: "20:00",
+    };
+
+    expect(validateBooking(booking, packages, "2026-08-20")).toEqual({
+      time: "b.err.time",
+    });
+    expect(
+      validateBooking(
+        { ...booking, time: "19:00", extension: "nezuko-regular-extra-60" },
+        packages,
+        "2026-08-20",
+      ),
+    ).toEqual({ time: "b.err.time" });
+    expect(
+      validateBooking({ ...booking, time: "19:30" }, packages, "2026-08-20"),
     ).toEqual({});
   });
 

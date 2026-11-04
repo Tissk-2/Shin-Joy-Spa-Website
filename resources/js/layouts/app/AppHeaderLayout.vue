@@ -1,23 +1,24 @@
 <script setup lang="ts">
-import AppContent from '@/components/AppContent.vue';
-import AppHeader from '@/components/AppHeader.vue';
-import AppShell from '@/components/AppShell.vue';
-import type { BreadcrumbItemType } from '@/types';
+import AppContent from "@/components/AppContent.vue";
+import AppHeader from "@/components/AppHeader.vue";
+import AppShell from "@/components/AppShell.vue";
+import { useLanguage } from "@/composables/useLanguage";
+import type { BreadcrumbItemType } from "@/types";
 
-interface Props {
-    breadcrumbs?: BreadcrumbItemType[];
-}
-
-withDefaults(defineProps<Props>(), {
-    breadcrumbs: () => [],
+withDefaults(defineProps<{ breadcrumbs?: BreadcrumbItemType[] }>(), {
+  breadcrumbs: () => [],
 });
+const { tr } = useLanguage();
 </script>
 
 <template>
-    <AppShell class="flex-col">
-        <AppHeader :breadcrumbs="breadcrumbs" />
-        <AppContent>
-            <slot />
-        </AppContent>
+  <div class="account-shell">
+    <a href="#account-main" class="account-skip">{{ tr("ad.skip") }}</a>
+    <AppShell variant="header">
+      <AppHeader :breadcrumbs="breadcrumbs" />
+      <AppContent class="account-content" id="account-main" tabindex="-1"
+        ><slot
+      /></AppContent>
     </AppShell>
+  </div>
 </template>

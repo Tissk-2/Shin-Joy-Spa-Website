@@ -50,7 +50,6 @@ describe("Laravel-owned public pages", () => {
     for (const name of [
       "Home.vue",
       "Services.vue",
-      "ServiceDetail.vue",
       "Booking.vue",
       "bookings/Index.vue",
       "bookings/Show.vue",
@@ -82,7 +81,6 @@ describe("Laravel-owned public pages", () => {
     for (const name of [
       "Home.vue",
       "Services.vue",
-      "ServiceDetail.vue",
       "Booking.vue",
       "../layouts/MainLayout.vue",
     ]) {
@@ -97,7 +95,6 @@ describe("Laravel-owned public pages", () => {
     const source = [
       "Home.vue",
       "Services.vue",
-      "ServiceDetail.vue",
       "Booking.vue",
       "bookings/Index.vue",
       "bookings/Show.vue",

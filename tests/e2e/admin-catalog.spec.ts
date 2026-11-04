@@ -9,23 +9,24 @@ const catalogFixture = (name: string): string =>
   path.join(projectRoot, "tests/e2e/fixtures/catalog", name);
 
 const category = {
-  slug: "e2e-ritual-care",
-  nameId: "Ritual Perawatan E2E",
-  nameEn: "E2E Ritual Care",
+  slug: "package",
+  nameId: "Paket Spa",
+  nameEn: "Spa Packages",
 };
 const servicePackage = {
-  slug: "e2e-forest-reset",
-  nameId: "Pemulihan Hutan E2E",
-  nameEn: "E2E Forest Reset",
-  variantCode: "e2e-forest-regular-75",
-  extensionCode: "e2e-forest-extra-30",
-  basePrice: 190_000,
-  extensionPrice: 50_000,
+  slug: "nezuko",
+  nameId: "Nezuko",
+  nameEn: "Nezuko",
+  variantCode: "nezuko-regular-60",
+  extensionCode: "nezuko-regular-extra-60",
+  basePrice: 199_000,
+  extensionPrice: 75_000,
 };
+const bookingTotal = "Total: 120 min · Rp 274.000";
+const bookingPrice = "Rp 274.000";
 
-function catalogRow(page: Page, kind: "category" | "package"): Locator {
-  const slug = kind === "category" ? category.slug : servicePackage.slug;
-  return page.locator(`[data-catalog-${kind}="${slug}"]`);
+function packageRow(page: Page): Locator {
+  return page.locator(`[data-catalog-package="${servicePackage.slug}"]`);
 }
 
 async function expectNoHorizontalPageOverflow(page: Page): Promise<void> {
@@ -67,6 +68,21 @@ async function confirmLifecycleAction(
   await dialog.locator("[data-lifecycle-confirm]").click();
 }
 
+async function restoreArchivedPackage(page: Page): Promise<void> {
+  await page.goto("/admin/catalog");
+  const row = packageRow(page);
+  const status = await row
+    .locator("[data-catalog-status]")
+    .getAttribute("data-catalog-status");
+
+  if (status === "archived") {
+    await confirmLifecycleAction(row, "restore");
+    await expect(
+      row.locator('[data-catalog-status="published"]'),
+    ).toBeVisible();
+  }
+}
+
 async function expectPublicVisibility(
   page: Page,
   pathname: "/" | "/services",
@@ -83,7 +99,7 @@ async function expectPublicVisibility(
       publicCategory.getByText(servicePackage.nameId, { exact: true }),
     ).toBeVisible();
   } else {
-    await expect(publicCategory).toHaveCount(0);
+    await expect(publicCategory).toHaveCount(1);
     await expect(
       page.getByText(servicePackage.nameId, { exact: true }),
     ).toHaveCount(0);
@@ -110,8 +126,10 @@ async function submitHiddenPackageQuote(
       phone: "+6281234567890",
       service: servicePackage.slug,
       mode: "regular",
-      duration: 75,
+      duration: 60,
       extension: servicePackage.extensionCode,
+      expected_total_price_idr:
+        servicePackage.basePrice + servicePackage.extensionPrice,
       date: "2099-10-10",
       time: "10:30",
       guests: 1,
@@ -125,31 +143,42 @@ async function submitHiddenPackageQuote(
   });
 
   expect(response.status()).toBe(422);
-  expect(await response.json()).toMatchObject({
+  const body = await response.json();
+  expect(body).toMatchObject({
     errors: { service: [expect.any(String)] },
   });
+  expect(body.errors.expected_total_price_idr).toBeUndefined();
 }
 
 async function expectDetailVisibility(
   page: Page,
   visible: boolean,
 ): Promise<void> {
-  const response = await page.request.get(`/services/${servicePackage.slug}`);
-  expect(response.status()).toBe(visible ? 200 : 404);
+  const response = await page.request.get("/services");
+  expect(response.status()).toBe(200);
+  const body = await response.text();
 
   if (visible) {
-    await page.goto(`/services/${servicePackage.slug}`);
+    expect(body).toContain(`"slug":"${servicePackage.slug}"`);
+    await page.goto("/services");
     await expect(
-      page.getByRole("heading", { name: servicePackage.nameId }),
+      page.getByRole("heading", { name: servicePackage.nameId, exact: true }),
     ).toBeVisible();
+  } else {
+    expect(body).not.toContain(`"slug":"${servicePackage.slug}"`);
   }
 }
 
 async function fillPackageForm(page: Page): Promise<void> {
+  // Published packages lock their slug and published child codes; every other
+  // field of the seeded package stays editable through the update contract.
+  await expect(page.getByLabel(/slug paket|package slug/i)).toHaveAttribute(
+    "readonly",
+    "",
+  );
   await page
     .getByLabel(/^kategori$|^category$/i)
     .selectOption({ label: `${category.nameId} / ${category.nameEn}` });
-  await page.getByLabel(/slug paket|package slug/i).fill(servicePackage.slug);
   await page
     .getByLabel(/nama paket.*bahasa indonesia|indonesian package name/i)
     .fill(servicePackage.nameId);
@@ -158,10 +187,10 @@ async function fillPackageForm(page: Page): Promise<void> {
     .fill(servicePackage.nameEn);
   await page
     .getByLabel(/^deskripsi bahasa indonesia$|^indonesian description$/i)
-    .fill("Ritual pemulihan tenang dengan sentuhan hutan.");
+    .fill("Pijatan tenang dengan ritme khas untuk memulihkan tubuh.");
   await page
     .getByLabel(/^deskripsi bahasa inggris$|^english description$/i)
-    .fill("A calm recovery ritual with a forest-inspired touch.");
+    .fill("A calm massage with a signature rhythm that restores the body.");
   await page
     .getByLabel(
       /deskripsi panjang bahasa indonesia|indonesian long description/i,
@@ -176,7 +205,7 @@ async function fillPackageForm(page: Page): Promise<void> {
   await page
     .getByLabel(/^manfaat bahasa inggris$|^english benefit$/i)
     .fill("Helps the body feel lighter.");
-  await page.locator("#catalog-package-displayOrder").fill("41");
+  await page.locator("#catalog-package-displayOrder").fill("1");
   await page
     .getByLabel(/foto sampul|cover image/i)
     .setInputFiles(catalogFixture("cover.png"));
@@ -184,57 +213,51 @@ async function fillPackageForm(page: Page): Promise<void> {
     .getByLabel(/galeri foto|image gallery/i)
     .setInputFiles(catalogFixture("gallery.webp"));
 
-  const variants = page.getByRole("group", {
-    name: /pilihan utama|base options/i,
-  });
-  await variants
-    .getByRole("button", { name: /tambah pilihan|add option/i })
-    .click();
-  const variant = variants.locator('[data-choice-row="variants.0"]');
-  await variant.getByLabel(/^kode$|^code$/i).fill(servicePackage.variantCode);
+  const variant = page
+    .getByRole("group", { name: /pilihan utama|base options/i })
+    .locator('[data-choice-row="variants.0"]');
+  await expect(variant.getByLabel(/^kode$|^code$/i)).toHaveAttribute(
+    "readonly",
+    "",
+  );
   await variant.getByLabel(/^mode$/i).selectOption("regular");
-  await variant.getByLabel(/durasi menit|duration minutes/i).fill("75");
+  await variant.getByLabel(/durasi menit|duration minutes/i).fill("60");
   await variant
     .getByLabel(/harga idr|price idr/i)
     .fill(String(servicePackage.basePrice));
-  await variant.getByLabel(/urutan tampilan|display order/i).fill("0");
+  await variant.getByLabel(/urutan tampilan|display order/i).fill("1");
 
-  const extensions = page.getByRole("group", {
-    name: /^tambahan$|^extensions$/i,
-  });
-  await extensions
-    .getByRole("button", { name: /tambah pilihan|add option/i })
-    .click();
-  const extension = extensions.locator('[data-choice-row="extensions.0"]');
-  await extension
-    .getByLabel(/^kode$|^code$/i)
-    .fill(servicePackage.extensionCode);
+  const extension = page
+    .getByRole("group", { name: /^tambahan$|^extensions$/i })
+    .locator('[data-choice-row="extensions.0"]');
+  await expect(extension.getByLabel(/^kode$|^code$/i)).toHaveAttribute(
+    "readonly",
+    "",
+  );
   await extension.getByLabel(/^mode$/i).selectOption("regular");
-  await extension.getByLabel(/durasi menit|duration minutes/i).fill("30");
+  await extension.getByLabel(/durasi menit|duration minutes/i).fill("60");
   await extension
     .getByLabel(/harga idr|price idr/i)
     .fill(String(servicePackage.extensionPrice));
-  await extension.getByLabel(/urutan tampilan|display order/i).fill("0");
+  await extension.getByLabel(/urutan tampilan|display order/i).fill("1");
 }
 
 async function createBookingWithPublishedPrice(page: Page): Promise<void> {
   await page.goto(
-    `/booking?service=${servicePackage.slug}&mode=regular&duration=75&extension=${servicePackage.extensionCode}`,
+    `/booking?service=${servicePackage.slug}&mode=regular&duration=60&extension=${servicePackage.extensionCode}`,
   );
-  await expect(
-    page.getByText("Total: 105 min · Rp 240.000", { exact: true }),
-  ).toBeVisible();
+  await expect(page.getByText(bookingTotal, { exact: true })).toBeVisible();
   await page.getByLabel(/^tanggal$|^date$/i).fill("2099-10-10");
   await page.getByLabel(/^waktu$|^time$/i).selectOption("10:30");
   await page
     .getByRole("button", { name: /tinjau reservasi|review booking/i })
     .click();
-  await expect(page.getByText("Rp 240.000", { exact: true })).toBeVisible();
+  await expect(page.getByText(bookingPrice, { exact: true })).toBeVisible();
   await page
     .getByRole("button", { name: /konfirmasi reservasi|confirm booking/i })
     .click();
   await expect(page).toHaveURL(/\/bookings\/SJ-/);
-  await expect(page.getByText("Rp 240.000", { exact: true })).toBeVisible();
+  await expect(page.getByText(bookingPrice, { exact: true })).toBeVisible();
 }
 
 test.describe.serial("administrator catalog publishing", () => {
@@ -250,84 +273,25 @@ test.describe.serial("administrator catalog publishing", () => {
     await page.setViewportSize({ width: 320, height: 760 });
     await page.goto("/admin/catalog");
     await expectNoHorizontalPageOverflow(page);
-    const addCategory = page.getByRole("button", {
-      name: /tambah kategori|add category/i,
-    });
-    await expectHorizontallyReachable(page, addCategory);
-    await addCategory.click();
-    const categoryEditor = page.locator("[data-category-editor]");
-    await categoryEditor
-      .getByLabel(/slug kategori|category slug/i)
-      .fill(category.slug);
-    await categoryEditor
-      .getByLabel(/nama kategori.*bahasa indonesia|indonesian category name/i)
-      .fill(category.nameId);
-    await categoryEditor
-      .getByLabel(/nama kategori.*bahasa inggris|english category name/i)
-      .fill(category.nameEn);
-    await categoryEditor
-      .getByLabel(/urutan tampilan|display order/i)
-      .fill("40");
-    await categoryEditor
-      .getByLabel(/foto kategori|category image/i)
-      .setInputFiles(catalogFixture("category.jpg"));
-    await categoryEditor
-      .getByRole("button", { name: /buat kategori|create category/i })
-      .click();
-
-    const draftCategory = catalogRow(page, "category");
-    await expect(draftCategory).toBeVisible();
-    await expect(
-      draftCategory.locator('[data-catalog-status="draft"]'),
-    ).toBeVisible();
-    expect(
-      (await page.request.get(`/services/${servicePackage.slug}`)).status(),
-    ).toBe(404);
-
-    await confirmLifecycleAction(draftCategory, "publish");
-    await expect(
-      catalogRow(page, "category").locator('[data-catalog-status="published"]'),
-    ).toBeVisible();
+    const editLink = packageRow(page).locator('a[href$="/edit"]');
+    await expectHorizontallyReachable(page, editLink);
 
     await page.setViewportSize({ width: 640, height: 760 });
     // A 640 CSS-pixel viewport is the reflow equivalent of 1280 px at 200% zoom.
     await expectNoHorizontalPageOverflow(page);
-    const addPackage = page.getByRole("link", {
-      name: /tambah paket|add package/i,
-    });
-    await expectHorizontallyReachable(page, addPackage);
-    await addPackage.click();
-    await expect(page).toHaveURL("/admin/catalog/packages/create");
+    await editLink.click();
+    const editUrl = `/admin/catalog/packages/${servicePackage.slug}/edit`;
+    await expect(page).toHaveURL(editUrl);
     await expectNoHorizontalPageOverflow(page);
     await fillPackageForm(page);
-    const saveDraft = page.getByRole("button", {
-      name: /simpan draf|save draft/i,
+    const saveChanges = page.getByRole("button", {
+      name: /simpan perubahan|save changes/i,
     });
-    await expectHorizontallyReachable(page, saveDraft);
-    await saveDraft.click();
+    await expectHorizontallyReachable(page, saveChanges);
+    await saveChanges.click();
     await expect(page).toHaveURL("/admin/catalog");
     await expect(
-      catalogRow(page, "package").locator('[data-catalog-status="draft"]'),
-    ).toBeVisible();
-
-    await expectPublicVisibility(page, "/", false);
-    await expectPublicVisibility(page, "/services", false);
-    await expectDetailVisibility(page, false);
-    await page.goto(
-      `/booking?service=${servicePackage.slug}&mode=regular&duration=75&extension=${servicePackage.extensionCode}`,
-    );
-    await expect(
-      page.getByText(servicePackage.nameId, { exact: true }),
-    ).toHaveCount(0);
-    await submitHiddenPackageQuote(
-      page,
-      "11111111-1111-4111-8111-111111111111",
-    );
-
-    await page.goto("/admin/catalog");
-    await confirmLifecycleAction(catalogRow(page, "package"), "publish");
-    await expect(
-      catalogRow(page, "package").locator('[data-catalog-status="published"]'),
+      packageRow(page).locator('[data-catalog-status="published"]'),
     ).toBeVisible();
 
     await expectPublicVisibility(page, "/", true);
@@ -345,31 +309,43 @@ test.describe.serial("administrator catalog publishing", () => {
     await expect(
       page.getByText(servicePackage.nameId, { exact: true }).first(),
     ).toBeVisible();
+    await expect(
+      page.getByText(category.nameId, { exact: true }),
+    ).toBeVisible();
 
     await createBookingWithPublishedPrice(page);
 
-    await page.goto("/admin/catalog");
-    await confirmLifecycleAction(catalogRow(page, "package"), "archive");
-    await expect(
-      catalogRow(page, "package").locator('[data-catalog-status="archived"]'),
-    ).toBeVisible();
-    await expectPublicVisibility(page, "/", false);
-    await expectPublicVisibility(page, "/services", false);
-    await expectDetailVisibility(page, false);
-    await submitHiddenPackageQuote(
-      page,
-      "22222222-2222-4222-8222-222222222222",
-    );
+    try {
+      await page.goto("/admin/catalog");
+      await confirmLifecycleAction(packageRow(page), "archive");
+      await expect(
+        packageRow(page).locator('[data-catalog-status="archived"]'),
+      ).toBeVisible();
+      await expectPublicVisibility(page, "/", false);
+      await expectPublicVisibility(page, "/services", false);
+      await expectDetailVisibility(page, false);
+      await page.goto(
+        `/booking?service=${servicePackage.slug}&mode=regular&duration=60&extension=${servicePackage.extensionCode}`,
+      );
+      await expect(
+        page.getByText(servicePackage.nameId, { exact: true }),
+      ).toHaveCount(0);
+      await submitHiddenPackageQuote(
+        page,
+        "11111111-1111-4111-8111-111111111111",
+      );
 
-    await page.goto("/admin/catalog");
-    await confirmLifecycleAction(catalogRow(page, "package"), "restore");
-    await expect(
-      catalogRow(page, "package").locator('[data-catalog-status="published"]'),
-    ).toBeVisible();
-    await expectPublicVisibility(page, "/services", true);
-    await expectDetailVisibility(page, true);
+      await page.goto("/admin/catalog");
+      await confirmLifecycleAction(packageRow(page), "restore");
+      await expect(
+        packageRow(page).locator('[data-catalog-status="published"]'),
+      ).toBeVisible();
+      await expectPublicVisibility(page, "/services", true);
+      await expectDetailVisibility(page, true);
+    } finally {
+      await restoreArchivedPackage(page);
+    }
 
-    const editUrl = `/admin/catalog/packages/${servicePackage.slug}/edit`;
     await page.goto(editUrl);
     const stalePage = await context.newPage();
     await stalePage.setViewportSize({ width: 640, height: 760 });

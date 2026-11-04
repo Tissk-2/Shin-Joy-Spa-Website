@@ -1,20 +1,29 @@
 <script setup lang="ts">
 import { Link } from "@inertiajs/vue3";
 import { onMounted, onUnmounted } from "vue";
+import BookingAuthContext from "@/components/BookingAuthContext.vue";
 import { useLanguage } from "@/composables/useLanguage";
+import type { BookingAuthContext as BookingAuthContextData } from "@/types";
 
-defineProps<{
+withDefaults(defineProps<{
   title?: string;
   description?: string;
-}>();
+  bookingContext?: BookingAuthContextData | null;
+  bookingStep?: "login" | "register" | "verify";
+}>(), {
+  bookingContext: null,
+  bookingStep: "login",
+});
 
 const { language, setLanguage, tr } = useLanguage();
 
 onMounted(() => {
+  document.documentElement.classList.add("auth-page");
   document.body.classList.add("auth-body");
 });
 
 onUnmounted(() => {
+  document.documentElement.classList.remove("auth-page");
   document.body.classList.remove("auth-body");
 });
 </script>
@@ -86,6 +95,12 @@ onUnmounted(() => {
           <h1 id="auth-title">{{ title }}</h1>
           <p class="auth-sub">{{ description }}</p>
         </div>
+
+        <BookingAuthContext
+          v-if="bookingContext"
+          :booking-context="bookingContext"
+          :step="bookingStep"
+        />
 
         <slot />
       </div>

@@ -2,10 +2,11 @@ import { mount } from "@vue/test-utils";
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import PackageConfigurator from "@/components/PackageConfigurator.vue";
+import { emptySelection } from "@/lib/serviceSelection";
 import MainLayout from "@/layouts/MainLayout.vue";
 import Home from "@/pages/Home.vue";
 import Booking from "@/pages/Booking.vue";
-import ServiceDetail from "@/pages/ServiceDetail.vue";
 import Services from "@/pages/Services.vue";
 import type { PackageData, PublicCatalogCategoryData } from "@/types";
 
@@ -121,15 +122,77 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 describe("official menu homepage", () => {
-  it("keeps package CTAs as full-size anchors, including the mobile action", () => {
+  it("styles separated outlined choices and a full-width booking action", () => {
     const styles = readFileSync("resources/css/menu.css", "utf8");
+    const configuratorBlock = styles.match(
+      /\.package-configurator\s*\{[^}]*\}/,
+    )?.[0];
+
+    expect(configuratorBlock).toBeTruthy();
+    expect(configuratorBlock).toMatch(/--config-surface:\s*var\(--panel\)/);
     expect(styles).toMatch(
-      /\.package-configurator__cta\s*\{[\s\S]*display:\s*(?:inline-)?flex[\s\S]*min-height:\s*44px/,
+      /\.package-configurator__group\s*\{[^}]*gap:\s*0\.75rem/,
     );
     expect(styles).toMatch(
-      /\.package-configurator__mobile-cta\s+\.package-configurator__cta\s*\{[\s\S]*width:\s*100%/,
+      /\.package-configurator__group\s+button\s*\{[^}]*padding:[^;]+;[^}]*border:\s*1px solid/,
     );
+    expect(styles).toMatch(
+      /\.package-configurator__group\s+button\[aria-checked="true"\]\s*\{[^}]*background:/,
+    );
+    expect(styles).toMatch(
+      /\.package-configurator__cta\s*\{[^}]*display:\s*(?:inline-)?flex[^}]*min-height:\s*44px[^}]*width:\s*100%/,
+    );
+    expect(styles).toMatch(
+      /\.package-configurator__extension input:focus-visible/,
+    );
+    expect(styles).not.toContain(".package-configurator__mobile-cta");
   });
+
+  it.each([
+    [
+      "en",
+      "Choose a treatment type first",
+      "Choose a duration first",
+      "Book now",
+    ],
+    [
+      "id",
+      "Pilih jenis perawatan terlebih dahulu",
+      "Pilih durasi terlebih dahulu",
+      "Pesan sekarang",
+    ],
+  ])(
+    "guides %s selections and exposes only one booking action",
+    async (locale, chooseType, chooseDuration, book) => {
+      inertia.page.props.locale = locale;
+      const wrapper = mount(PackageConfigurator, {
+        props: {
+          servicePackage: packages[0],
+          modelValue: emptySelection("nezuko"),
+        },
+      });
+      expect(wrapper.get('[role="status"]').text()).toBe(chooseType);
+      expect(wrapper.find(".package-configurator__total").exists()).toBe(false);
+      expect(wrapper.findAll(".package-configurator__cta")).toHaveLength(1);
+      expect(
+        wrapper.get(".package-configurator__cta").attributes("disabled"),
+      ).toBeDefined();
+      expect(wrapper.findAll("button[data-duration]")).toHaveLength(0);
+
+      await wrapper.get('[data-mode="regular"]').trigger("click");
+      expect(wrapper.get('[role="status"]').text()).toBe(chooseDuration);
+      expect(wrapper.find(".package-configurator__total").exists()).toBe(false);
+      await wrapper.get('[data-duration="60"]').trigger("click");
+      expect(wrapper.get(".package-configurator__total").text()).toBe(
+        "Total: 60 min · Rp 199.000",
+      );
+      expect(wrapper.findAll(".package-configurator__cta")).toHaveLength(1);
+      expect(wrapper.get("a.package-configurator__cta").text()).toBe(book);
+      expect(
+        wrapper.get("a.package-configurator__cta").attributes("href"),
+      ).toBe("/booking?service=nezuko&mode=regular&duration=60");
+    },
+  );
 
   it("renders every grouped category and package in the supplied order at the canonical menu anchor", async () => {
     const wrapper = mount(Home, { props: { categories } });
@@ -144,18 +207,20 @@ describe("official menu homepage", () => {
     expect(wrapper.text()).toContain("Massage");
     expect(wrapper.text()).toContain("Body Care");
     expect(wrapper.text()).toContain("Rp 175.000");
-    expect(wrapper.find(".package-menu-card__vip").text()).toBe("VIP");
-    expect(wrapper.get('a[href="/services/nezuko"]')).toBeTruthy();
-    expect(wrapper.get('a[href="/services/nezuko-vip"]')).toBeTruthy();
-    expect(wrapper.get('a[href="/services/body-glow"]')).toBeTruthy();
+    expect(
+      wrapper.findAll(".package-menu-card__type").some((label) =>
+        label.text().includes("VIP"),
+      ),
+    ).toBe(true);
+    expect(wrapper.get('a[href="/booking?service=nezuko"]')).toBeTruthy();
+    expect(wrapper.get('a[href="/booking?service=nezuko-vip"]')).toBeTruthy();
+    expect(wrapper.get('a[href="/booking?service=body-glow"]')).toBeTruthy();
     expect(wrapper.find(".cat-grid").exists()).toBe(false);
     expect(wrapper.text()).toContain("Jalan Terusan Batubara No. 12, Lantai 2");
-    expect(wrapper.text()).toContain("hot-water");
+    expect(wrapper.text()).toMatch(/hot[- ]water/i);
+    expect(wrapper.findAll("address")).toHaveLength(1);
     const cards = wrapper.findAll("[data-package-card]");
-    await cards[0].get('button[data-mode="regular"]').trigger("click");
-    await cards[0].get('button[data-duration="60"]').trigger("click");
-    await cards[1].get('button[data-mode="regular"]').trigger("click");
-    await cards[1].get('button[data-duration="60"]').trigger("click");
+    expect(wrapper.find(".package-configurator").exists()).toBe(false);
     expect(cards[0].text()).toContain("Rp 199.000");
     expect(cards[1].text()).toContain("Rp 299.000");
   });
@@ -211,239 +276,8 @@ describe("official menu homepage", () => {
     const wrapper = mount(MainLayout, { slots: { default: "<p>content</p>" } });
     expect(wrapper.findAll('a[href="/services"]')).toHaveLength(2);
     expect(wrapper.find('a[href="/#menu"]').exists()).toBe(false);
-    expect(wrapper.get('a[href="/services/nezuko"]')).toBeTruthy();
-    expect(wrapper.get('a[href="/services/nezuko-vip"]')).toBeTruthy();
-  });
-});
-
-describe("package detail", () => {
-  const nezuko: PackageData = {
-    slug: "nezuko",
-    nameId: "Nezuko",
-    nameEn: "Nezuko",
-    isVip: false,
-    descId: "Pijat lembut.",
-    descEn: "A gentle treatment.",
-    longId: "Pijatan lembut yang menenangkan.",
-    longEn: "A gentle treatment combining traditional and Thai massage.",
-    benefitId: "Membantu tidur lebih nyenyak.",
-    benefitEn: "Helps improve sleep quality.",
-    image: "/img/massage.jpg",
-    gallery: ["/img/massage.jpg", "/img/oil.jpg"],
-    variants: [
-      {
-        code: "nezuko-regular-60",
-        mode: "regular",
-        duration: 60,
-        price: 199000,
-      },
-      {
-        code: "nezuko-regular-90",
-        mode: "regular",
-        duration: 90,
-        price: 265000,
-      },
-      {
-        code: "nezuko-regular-120",
-        mode: "regular",
-        duration: 120,
-        price: 315000,
-      },
-      {
-        code: "nezuko-double-60",
-        mode: "double_therapist",
-        duration: 60,
-        price: 250000,
-      },
-    ],
-    extensions: [
-      {
-        code: "nezuko-regular-extra-60",
-        mode: "regular",
-        duration: 60,
-        price: 75000,
-      },
-      {
-        code: "nezuko-double-extra-30",
-        mode: "double_therapist",
-        duration: 30,
-        price: 100000,
-      },
-    ],
-  };
-
-  const nezukoVip: PackageData = {
-    slug: "nezuko-vip",
-    nameId: "Nezuko VIP",
-    nameEn: "Nezuko VIP",
-    isVip: true,
-    descId: "Pijat sesuai kebutuhan.",
-    descEn: "A tailored treatment.",
-    longId: "Pijatan yang disesuaikan dengan kebutuhan klien.",
-    longEn: "A tailored blend adjusted to the client's needs.",
-    benefitId: "Membantu sirkulasi darah.",
-    benefitEn: "Helps support healthy circulation.",
-    image: "/img/about.jpg",
-    gallery: ["/img/about.jpg", "/img/oil.jpg"],
-    variants: [
-      {
-        code: "nezuko-vip-regular-60",
-        mode: "regular",
-        duration: 60,
-        price: 299000,
-      },
-      {
-        code: "nezuko-vip-regular-90",
-        mode: "regular",
-        duration: 90,
-        price: 349000,
-      },
-      {
-        code: "nezuko-vip-regular-120",
-        mode: "regular",
-        duration: 120,
-        price: 499000,
-      },
-      {
-        code: "nezuko-vip-double-60",
-        mode: "double_therapist",
-        duration: 60,
-        price: 350000,
-      },
-    ],
-    extensions: [
-      {
-        code: "nezuko-vip-regular-extra-60",
-        mode: "regular",
-        duration: 60,
-        price: 100000,
-      },
-      {
-        code: "nezuko-vip-double-extra-30",
-        mode: "double_therapist",
-        duration: 30,
-        price: 100000,
-      },
-    ],
-  };
-
-  it("renders an accessible package configurator, gallery, and every supplied related link", async () => {
-    const wrapper = mount(ServiceDetail, {
-      props: {
-        service: nezuko,
-        related: [
-          {
-            slug: "nezuko-vip",
-            nameId: "Nezuko VIP",
-            nameEn: "Nezuko VIP",
-            isVip: true,
-          },
-          {
-            slug: "body-glow",
-            nameId: "Body Glow",
-            nameEn: "Body Glow",
-            isVip: false,
-          },
-        ],
-      },
-    });
-
-    expect(wrapper.get('nav[aria-label="Breadcrumb"]')).toBeTruthy();
-    expect(wrapper.text()).toContain("A gentle treatment.");
-    expect(wrapper.text()).toContain("Helps improve sleep quality.");
-    expect(
-      wrapper.get('[role="radiogroup"][aria-label="Treatment type"]'),
-    ).toBeTruthy();
-    await wrapper.get('button[data-mode="regular"]').trigger("click");
-    expect(wrapper.findAll("button[data-duration]")).toHaveLength(3);
-    await wrapper.get('button[data-duration="90"]').trigger("click");
-    await wrapper.get('input[value="nezuko-regular-extra-60"]').setValue(true);
-    expect(wrapper.text()).toContain("150 min");
-    expect(wrapper.text()).toContain("Rp 340.000");
-    expect(
-      wrapper.get('a[data-booking-cta="desktop"]').attributes("href"),
-    ).toBe(
-      "/booking?service=nezuko&mode=regular&duration=90&extension=nezuko-regular-extra-60",
-    );
-    await wrapper.get('button[data-mode="double_therapist"]').trigger("click");
-    expect(wrapper.findAll("button[data-duration]")).toHaveLength(1);
-    expect(
-      wrapper.get("button[data-duration]").attributes("data-duration"),
-    ).toBe("60");
-    await wrapper.get('button[data-duration="60"]').trigger("click");
-    expect(wrapper.get("input").attributes("value")).toBe(
-      "nezuko-double-extra-30",
-    );
-    await wrapper.get('[aria-label="Nezuko 2"]').trigger("click");
-    expect(wrapper.get(".detail-media > img").attributes("src")).toBe(
-      "/img/oil.jpg",
-    );
-    const mainImage = wrapper.get(".detail-media > img");
-    await mainImage.trigger("error");
-    expect(mainImage.attributes("src")).toBe("/img/massage.jpg");
-    await mainImage.trigger("error");
-    expect(mainImage.attributes("src")).toBe("/img/massage.jpg");
-    const thumbnailImages = wrapper.findAll(".detail-thumbs img");
-    await thumbnailImages[0].trigger("error");
-    await thumbnailImages[1].trigger("error");
-    expect(thumbnailImages[0].attributes("src")).toBe("/img/massage.jpg");
-    expect(thumbnailImages[1].attributes("src")).toBe("/img/massage.jpg");
-    expect(
-      wrapper.findAll('.package-detail a[href="/services/nezuko-vip"]'),
-    ).toHaveLength(1);
-    expect(
-      wrapper.findAll('.package-detail a[href="/services/body-glow"]'),
-    ).toHaveLength(1);
-    expect(wrapper.text()).toContain("You may also enjoy");
-    expect(wrapper.find(".svc-tag").exists()).toBe(false);
-    expect(wrapper.find(".price-row").exists()).toBe(false);
-    expect(wrapper.find(".svc-grid").exists()).toBe(false);
-  });
-
-  it("renders the complete VIP choices, configured total, and reverse related link", async () => {
-    inertia.page.props.locale = "id";
-    const vip = mount(ServiceDetail, {
-      props: {
-        service: nezukoVip,
-        related: [
-          {
-            slug: "nezuko",
-            nameId: "Nezuko",
-            nameEn: "Nezuko",
-            isVip: false,
-          },
-        ],
-      },
-    });
-    expect(vip.text()).toContain("VIP");
-    expect(vip.text()).toContain("Pijat sesuai kebutuhan.");
-    expect(vip.text()).toContain("Membantu sirkulasi darah.");
-    await vip.get('button[data-mode="regular"]').trigger("click");
-    expect(
-      vip
-        .findAll("button[data-duration]")
-        .map((button) => button.attributes("data-duration")),
-    ).toEqual(["60", "90", "120"]);
-    await vip.get('button[data-duration="90"]').trigger("click");
-    await vip.get('input[value="nezuko-vip-regular-extra-60"]').setValue(true);
-    expect(vip.text()).toContain("150 min");
-    expect(vip.text()).toContain("Rp 449.000");
-    expect(vip.get('a[data-booking-cta="desktop"]').attributes("href")).toBe(
-      "/booking?service=nezuko-vip&mode=regular&duration=90&extension=nezuko-vip-regular-extra-60",
-    );
-    await vip.get('button[data-mode="double_therapist"]').trigger("click");
-    expect(
-      vip
-        .findAll("button[data-duration]")
-        .map((button) => button.attributes("data-duration")),
-    ).toEqual(["60"]);
-    await vip.get('button[data-duration="60"]').trigger("click");
-    expect(vip.get("input").attributes("value")).toBe(
-      "nezuko-vip-double-extra-30",
-    );
-    expect(
-      vip.findAll('.package-detail a[href="/services/nezuko"]'),
-    ).toHaveLength(1);
+    expect(wrapper.get('a[href="/booking?service=nezuko"]')).toBeTruthy();
+    expect(wrapper.get('a[href="/booking?service=nezuko-vip"]')).toBeTruthy();
   });
 });
 
@@ -510,9 +344,7 @@ describe("authenticated package booking", () => {
         submissionKey: "018f2f7c-9d0a-7b1b-9a45-3c1f9d0b5a10",
       },
     });
-    expect(wrapper.get<HTMLInputElement>("#f-email").element.readOnly).toBe(
-      true,
-    );
+    expect(wrapper.find("#f-email").exists()).toBe(false);
     expect(wrapper.get<HTMLInputElement>("#f-name").element.value).toBe(
       "Nadia",
     );

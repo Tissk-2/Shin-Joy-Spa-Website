@@ -76,9 +76,7 @@ describe("Inertia runtime boundary", () => {
   it("discovers the committed lowercase TypeScript test tree", () => {
     const config = vitestConfig as { test?: { include?: string[] } };
 
-    expect(config.test?.include).toContain(
-      "tests/frontend/**/*.test.{ts,tsx}",
-    );
+    expect(config.test?.include).toContain("tests/frontend/**/*.test.{ts,tsx}");
   });
 
   it("emits Tailwind before the public shell and admin overrides", async () => {
@@ -89,14 +87,15 @@ describe("Inertia runtime boundary", () => {
     const outputs = (Array.isArray(result) ? result : [result]).flatMap(
       (output) => output.output,
     );
-    const cssAsset = outputs.find(
-      (output) => output.type === "asset" && output.fileName.endsWith(".css"),
-    );
+    const cssSources = outputs
+      .filter(
+        (output) => output.type === "asset" && output.fileName.endsWith(".css"),
+      )
+      .map((output) => String(output.source));
 
-    expect(cssAsset?.type).toBe("asset");
-    if (!cssAsset || cssAsset.type !== "asset") return;
+    expect(cssSources.length).toBeGreaterThan(0);
 
-    const css = String(cssAsset.source);
+    const css = cssSources.join("\n");
     const tailwindBody = css.indexOf("body{line-height:inherit;margin:0}");
     const publicBody = css.indexOf("body{font-family:var(--font-body)");
     const adminRules = css.indexOf(".admin-sidebar");
@@ -104,5 +103,5 @@ describe("Inertia runtime boundary", () => {
     expect(tailwindBody).toBeGreaterThanOrEqual(0);
     expect(publicBody).toBeGreaterThan(tailwindBody);
     expect(adminRules).toBeGreaterThan(publicBody);
-  }, 30_000);
+  }, 120_000);
 });

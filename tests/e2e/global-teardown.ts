@@ -1,6 +1,7 @@
 import { connect } from "node:net";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import {
+  removeTestOwnedPath,
   serverRuntimeDirectory,
   serverShutdownMarkers,
   testingConfigCache,
@@ -46,11 +47,11 @@ export default async function globalTeardown(): Promise<void> {
   await Promise.all([waitForPortToClose(8000), waitForPortToClose(5174)]);
 
   for (const marker of Object.values(serverShutdownMarkers)) {
-    rmSync(marker, { force: true });
+    removeTestOwnedPath(marker);
   }
 
-  rmSync(viteHotFile, { force: true });
-  rmSync(testingConfigCache, { force: true });
-  rmSync(testingDatabase, { force: true });
-  rmSync(serverRuntimeDirectory, { force: true, recursive: true });
+  removeTestOwnedPath(viteHotFile);
+  removeTestOwnedPath(testingConfigCache);
+  removeTestOwnedPath(testingDatabase);
+  removeTestOwnedPath(serverRuntimeDirectory, { recursive: true });
 }

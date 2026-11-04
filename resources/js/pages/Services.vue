@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Head, Link } from "@inertiajs/vue3";
 import { computed } from "vue";
+import CatalogMenuFooter from "@/components/CatalogMenuFooter.vue";
 import PackageMenuCard from "@/components/PackageMenuCard.vue";
 import { useLanguage } from "@/composables/useLanguage";
 import MainLayout from "@/layouts/MainLayout.vue";
@@ -25,16 +26,14 @@ const visibleCategories = computed(() =>
       aria-labelledby="catalog-page-title"
     >
       <div class="container">
-        <nav class="breadcrumb" :aria-label="tr('nav.breadcrumb')">
+        <h1 id="catalog-page-title" class="sr-only">
+          {{ tr("menu.allTitle") }}
+        </h1>
+        <nav class="breadcrumb sr-only" :aria-label="tr('nav.breadcrumb')">
           <Link class="ulink" href="/">{{ tr("nav.home") }}</Link>
           <span aria-hidden="true">›</span>
           <span aria-current="page">{{ tr("nav.services") }}</span>
         </nav>
-        <header class="official-menu__header">
-          <span class="eyebrow">{{ tr("menu.eyebrow") }}</span>
-          <h1 id="catalog-page-title">{{ tr("menu.allTitle") }}</h1>
-          <p>{{ tr("menu.allSub") }}</p>
-        </header>
 
         <div v-if="visibleCategories.length" class="public-catalog__categories">
           <section
@@ -66,8 +65,7 @@ const visibleCategories = computed(() =>
           <h2>{{ tr("menu.emptyTitle") }}</h2>
           <p>{{ tr("menu.emptyBody") }}</p>
         </div>
-
-        <p class="menu-policy" role="note">{{ tr("menu.hotWaterPolicy") }}</p>
+        <CatalogMenuFooter />
       </div>
     </section>
   </MainLayout>

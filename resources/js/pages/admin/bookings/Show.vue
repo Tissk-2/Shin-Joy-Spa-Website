@@ -27,7 +27,14 @@ const form = useForm({
   currentStatus: props.booking.status,
   nextStatus: "" as BookingStatus | "",
   reason: "",
+  operationalConfirmed: false,
 });
+const requiresOperational = computed(
+  () =>
+    props.booking.roomSchedulingEnabled &&
+    props.booking.status === "pending" &&
+    selectedNextStatus.value === "confirmed",
+);
 const formErrors = computed(() =>
   Object.entries(form.errors)
     .filter(([key]) => !["currentStatus", "nextStatus", "reason"].includes(key))
@@ -71,6 +78,7 @@ function openConfirmation(nextStatus: BookingStatus, event: MouseEvent): void {
   form.currentStatus = props.booking.status;
   form.nextStatus = nextStatus;
   form.reason = "";
+  form.operationalConfirmed = false;
   form.clearErrors();
   selectedNextStatus.value = nextStatus;
 }
@@ -99,6 +107,9 @@ function confirmTransition(): void {
       currentStatus: form.currentStatus,
       nextStatus: selectedNextStatus.value,
       reason: form.reason.trim() || null,
+      ...(requiresOperational.value
+        ? { operationalConfirmed: form.operationalConfirmed }
+        : {}),
     }))
     .patch(
       `/admin/bookings/${encodeURIComponent(props.booking.reference)}/status`,
@@ -268,10 +279,12 @@ function confirmTransition(): void {
                 <dt>{{ tr("bookings.customerPhone") }}</dt>
                 <dd>
                   <a
+                    v-if="booking.customer.phone"
                     class="admin-record-link"
                     :href="`tel:${encodeURIComponent(booking.customer.phone)}`"
                     >{{ booking.customer.phone }}</a
                   >
+                  <template v-else>{{ tr("ad.detail.noPhone") }}</template>
                 </dd>
               </div>
             </dl>
@@ -283,6 +296,31 @@ function confirmTransition(): void {
             </p>
           </section>
         </div>
+        <section
+          v-if="booking.assignedRoom"
+          class="admin-detail-card"
+          data-assigned-room
+        >
+          <h2>{{ tr("ad.room.title") }}</h2>
+          <p>
+            {{ booking.assignedRoom.name }} · {{ booking.assignedRoom.code }} ·
+            <template v-if="booking.assignedRoom.type"
+              >{{ booking.assignedRoom.type }} · </template
+            >{{ tr("ad.room.capacity") }}:
+            {{ booking.assignedRoom.capacity }}
+          </p>
+          <p>
+            {{ formatDate(booking.assignedRoom.startsAt, true) }} →
+            {{ formatDate(booking.assignedRoom.endsAt, true) }}
+          </p>
+          <p v-if="booking.assignedRoom.releasedAt">
+            {{ tr("ad.room.released") }}
+            {{ formatDate(booking.assignedRoom.releasedAt, true) }}
+          </p>
+          <p v-else-if="['cancelled', 'completed'].includes(booking.status)">
+            {{ tr("ad.room.retained") }}
+          </p>
+        </section>
         <section class="admin-history" aria-labelledby="admin-history-title">
           <h2 id="admin-history-title">{{ tr("ad.history.title") }}</h2>
           <p v-if="!booking.history.length">{{ tr("ad.history.empty") }}</p>
@@ -307,6 +345,13 @@ function confirmTransition(): void {
                   }}<span class="admin-record-secondary">{{
                     change.actor.email
                   }}</span>
+                </p>
+                <p
+                  v-if="change.operationalConfirmedAt"
+                  data-operational-attestation
+                >
+                  {{ tr("ad.history.operational") }}
+                  {{ formatDate(change.operationalConfirmedAt, true) }}
                 </p>
                 <p>
                   <span class="admin-record-secondary">{{
@@ -419,6 +464,24 @@ function confirmTransition(): void {
               >
                 {{ form.errors.nextStatus }}
               </p>
+              <label
+                v-if="requiresOperational"
+                for="admin-operational-confirmed"
+              >
+                <input
+                  id="admin-operational-confirmed"
+                  v-model="form.operationalConfirmed"
+                  type="checkbox"
+                  name="operationalConfirmed"
+                  :aria-invalid="Boolean(form.errors.operationalConfirmed)"
+                  :aria-describedby="
+                    form.errors.operationalConfirmed
+                      ? 'admin-status-form-error'
+                      : undefined
+                  "
+                />
+                {{ tr("ad.confirm.operational") }}
+              </label>
               <label for="admin-status-reason">{{
                 tr("ad.confirm.reason")
               }}</label>

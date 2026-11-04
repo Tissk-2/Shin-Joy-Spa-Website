@@ -101,9 +101,9 @@
   border-color: var(--admin-rose);
 }
 .catalog-control--primary {
-  border-color: var(--admin-plum);
-  background: var(--admin-plum);
-  color: var(--admin-ivory);
+  border-color: var(--admin-action);
+  background: var(--admin-action);
+  color: var(--admin-on-action);
 }
 .catalog-control:focus-visible {
   outline: 2px solid var(--admin-rose);
@@ -122,13 +122,13 @@
   line-height: 1.2;
 }
 .catalog-status--draft {
-  color: #725d65;
+  color: var(--admin-muted);
 }
 .catalog-status--published {
-  color: #4f653a;
+  color: var(--admin-success);
 }
 .catalog-status--archived {
-  color: #783d2b;
+  color: var(--admin-danger);
 }
 .catalog-package-title {
   display: flex;
@@ -141,9 +141,9 @@
   align-items: center;
   min-height: 24px;
   padding: 0.125rem 0.5rem;
-  border: 1px solid #b17a2d;
+  border: 1px solid var(--admin-gold);
   border-radius: 999px;
-  color: #77501c;
+  color: var(--admin-gold);
   font-size: 0.75rem;
   font-weight: 800;
 }
@@ -152,8 +152,8 @@
   margin: 0.75rem 0 0;
   padding: 0.75rem;
   border-left: 3px solid var(--admin-rose);
-  background: #f4e7df;
-  color: #783d2b;
+  background: var(--admin-danger-bg);
+  color: var(--admin-danger);
   font-size: 0.875rem;
   line-height: 1.5;
 }
@@ -196,12 +196,12 @@
   padding: 0.65rem 0.75rem;
   border: 1px solid var(--admin-line);
   border-radius: 0.375rem;
-  background: #fff;
+  background: var(--admin-ivory);
   color: var(--admin-ink);
   font: inherit;
 }
 .catalog-field input[readonly] {
-  background: #f4eae6;
+  background: var(--admin-canvas);
 }
 .catalog-field input:focus-visible,
 .catalog-editor h2:focus-visible,
@@ -224,10 +224,10 @@
   color: var(--admin-muted);
 }
 .catalog-error {
-  color: #8b2828;
+  color: var(--admin-danger);
 }
 .catalog-field input[aria-invalid="true"] {
-  border-color: #8b2828;
+  border-color: var(--admin-danger);
 }
 .catalog-form-actions {
   display: flex;
@@ -257,7 +257,7 @@
   padding: 0.65rem 0.75rem;
   border: 1px solid var(--admin-line);
   border-radius: 0.375rem;
-  background: #fff;
+  background: var(--admin-ivory);
   color: var(--admin-ink);
   font: inherit;
 }

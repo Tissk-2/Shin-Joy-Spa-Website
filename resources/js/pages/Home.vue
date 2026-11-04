@@ -1,57 +1,98 @@
 <script setup lang="ts">
-import { Head, Link } from "@inertiajs/vue3";
+import { Head, Link, usePage } from "@inertiajs/vue3";
 import { computed, nextTick, onBeforeUnmount, ref } from "vue";
+import CatalogMenuFooter from "@/components/CatalogMenuFooter.vue";
 import PackageMenuCard from "@/components/PackageMenuCard.vue";
+import { useContactInformation } from "@/composables/useContactInformation";
 import { useLanguage } from "@/composables/useLanguage";
 import faqs from "@/data/faq";
 import galleryImgs from "@/data/gallery";
-import testimonials from "@/data/testimonials";
 import MainLayout from "@/layouts/MainLayout.vue";
-import type { PublicCatalogCategoryData } from "@/types";
+import type { AppPageProps, PublicCatalogCategoryData } from "@/types";
 
 const props = defineProps<{
   categories: readonly PublicCatalogCategoryData[];
 }>();
 const { language, tr } = useLanguage();
+const contactInformation = useContactInformation();
+const pageProps = usePage<AppPageProps>();
+
+function c(key: string): string {
+  const override = pageProps.props.content?.[key]?.[language.value];
+  return override && override.trim() ? override : tr(key);
+}
+
 const visibleCategories = computed(() =>
   props.categories.filter((category) => category.packages.length > 0),
 );
-const startingPrice = computed(() => {
-  const prices = visibleCategories.value.flatMap((category) =>
-    category.packages.flatMap((servicePackage) =>
-      servicePackage.variants
-        .map((variant) => variant.price)
-        .filter((price) => Number.isFinite(price) && price >= 0),
-    ),
-  );
-
-  return prices.length > 0 ? Math.min(...prices) : null;
-});
-const formattedStartingPrice = computed(() =>
-  startingPrice.value === null
-    ? ""
-    : `Rp ${new Intl.NumberFormat("id-ID").format(startingPrice.value)}`,
+const statServices = computed(() =>
+  visibleCategories.value.reduce(
+    (total, category) => total + category.packages.length,
+    0,
+  ),
 );
 const gallerySpans = ["tall", "", "", "wide", "", "tall", "", "wide"];
 const title = computed(() => tr("meta.tagline"));
+
+function galleryCaption(
+  image: (typeof galleryImgs)[number] | undefined,
+): string {
+  if (!image) return "";
+  return language.value === "id" ? image.captionId : image.captionEn;
+}
 
 const lightboxIndex = ref(-1);
 const lightboxOpen = computed(() => lightboxIndex.value >= 0);
 const lightboxElement = ref<HTMLElement | null>(null);
 const lightboxCloseButton = ref<HTMLButtonElement | null>(null);
 let lastFocused: HTMLElement | null = null;
+const previousInertStates = new Map<HTMLElement, boolean>();
+
+function isolateBackgroundFromLightbox(): void {
+  const dialog = lightboxElement.value;
+  if (!dialog || previousInertStates.size > 0) return;
+
+  let branch: HTMLElement = dialog;
+  let ancestor = branch.parentElement;
+  while (ancestor) {
+    for (const sibling of Array.from(ancestor.children)) {
+      if (sibling === branch) continue;
+      const element = sibling as HTMLElement;
+      previousInertStates.set(element, element.inert);
+      element.inert = true;
+    }
+
+    if (ancestor === document.body) break;
+    branch = ancestor;
+    ancestor = ancestor.parentElement;
+  }
+}
+
+function restoreBackgroundFromLightbox(): void {
+  for (const [element, wasInert] of previousInertStates) {
+    element.inert = wasInert;
+  }
+  previousInertStates.clear();
+}
 
 function openLightbox(index: number): void {
   lastFocused = document.activeElement as HTMLElement | null;
   lightboxIndex.value = index;
   document.body.style.overflow = "hidden";
-  nextTick(() => lightboxCloseButton.value?.focus());
+  nextTick(() => {
+    isolateBackgroundFromLightbox();
+    lightboxCloseButton.value?.focus();
+  });
 }
 
 function closeLightbox(): void {
+  if (!lightboxOpen.value) return;
   lightboxIndex.value = -1;
   document.body.style.overflow = "";
-  nextTick(() => lastFocused?.focus());
+  nextTick(() => {
+    restoreBackgroundFromLightbox();
+    if (lastFocused?.isConnected) lastFocused.focus();
+  });
 }
 
 function moveLightbox(offset: number): void {
@@ -86,8 +127,42 @@ function handleLightboxKeydown(event: KeyboardEvent): void {
 
 onBeforeUnmount(() => {
   document.body.style.overflow = "";
+  restoreBackgroundFromLightbox();
 });
 </script>
+
+<style scoped>
+.hero__meta--single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.hero__meta--single > div {
+  max-width: 15rem;
+}
+
+.hero-title {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(1.85rem, 3.2vw, 2.65rem);
+  line-height: 1.2;
+  letter-spacing: 0.02em;
+}
+.hero-title__accent {
+  display: block;
+  font-family: inherit;
+  font-weight: inherit;
+  font-size: inherit;
+  letter-spacing: inherit;
+}
+@media (max-width: 420px) {
+  .hero__cta {
+    gap: 0.75rem;
+  }
+  .hero__cta .btn {
+    width: 100%;
+  }
+}
+</style>
 
 <template>
   <Head
@@ -103,9 +178,12 @@ onBeforeUnmount(() => {
       </div>
       <div class="hero__scrim"></div>
       <div class="container hero__inner">
-        <span class="eyebrow reveal">{{ tr("hero.eyebrow") }}</span>
-        <h1 class="hero-title reveal" data-delay="1">{{ tr("hero.title") }}</h1>
-        <p class="reveal" data-delay="2">{{ tr("hero.sub") }}</p>
+        <span class="eyebrow reveal">{{ c("hero.eyebrow") }}</span>
+        <h1 class="hero-title reveal" data-delay="1">
+          {{ c("hero.heading") }}
+          <span class="hero-title__accent">{{ c("hero.headingAccent") }}</span>
+        </h1>
+        <p class="reveal" data-delay="2">{{ c("hero.sub") }}</p>
         <div class="hero__cta reveal" data-delay="3">
           <Link class="btn btn--primary btn--lg" href="/booking">{{
             tr("hero.cta1")
@@ -114,13 +192,9 @@ onBeforeUnmount(() => {
             tr("hero.cta2")
           }}</Link>
         </div>
-        <div
-          v-if="startingPrice !== null"
-          class="hero__meta reveal"
-          data-delay="4"
-        >
+        <div class="hero__meta hero__meta--single reveal" data-delay="4">
           <div>
-            <b>{{ formattedStartingPrice }}</b
+            <b>{{ statServices }}</b
             ><span>{{ tr("hero.m1l") }}</span>
           </div>
         </div>
@@ -150,11 +224,7 @@ onBeforeUnmount(() => {
             :data-catalog-category="category.slug"
             :aria-labelledby="`home-category-${category.slug}`"
           >
-            <header class="public-catalog__category-heading">
-              <span
-                class="public-catalog__category-index"
-                aria-hidden="true"
-              ></span>
+            <header class="sr-only">
               <h3 :id="`home-category-${category.slug}`">
                 {{ language === "id" ? category.nameId : category.nameEn }}
               </h3>
@@ -172,7 +242,7 @@ onBeforeUnmount(() => {
           <h3>{{ tr("menu.emptyTitle") }}</h3>
           <p>{{ tr("menu.emptyBody") }}</p>
         </div>
-        <p class="menu-policy" role="note">{{ tr("menu.hotWaterPolicy") }}</p>
+        <CatalogMenuFooter />
       </div>
     </section>
 
@@ -182,27 +252,23 @@ onBeforeUnmount(() => {
           <div class="split__media reveal">
             <img
               src="/img/about.jpg"
-              :alt="tr('about.title')"
+              :alt="tr('about.imageAlt')"
               width="1200"
               height="1440"
               loading="lazy"
             />
-            <div class="badge-float">
-              <span class="num">{{ tr("about.badgen") }}</span>
-              <small>{{ tr("about.badgel") }}</small>
-            </div>
           </div>
           <div class="split__body">
-            <span class="eyebrow reveal">{{ tr("about.eyebrow") }}</span>
+            <span class="eyebrow reveal">{{ c("about.eyebrow") }}</span>
             <h2 class="reveal" data-delay="1" style="margin-top: 1rem">
-              {{ tr("about.title") }}
+              {{ c("about.title") }}
             </h2>
             <p
               class="reveal"
               data-delay="1"
-              style="margin-top: 1.2rem; color: var(--muted)"
+              style="margin-top: 1.2rem; color: var(--text-muted)"
             >
-              {{ tr("about.body") }}
+              {{ c("about.body") }}
             </p>
             <ul class="feature-list">
               <li class="reveal" data-delay="2">
@@ -275,28 +341,31 @@ onBeforeUnmount(() => {
     </section>
 
     <section id="gallery" class="section tint">
-      <div class="container container-wide">
+      <div class="container">
         <div class="section-head center">
           <span class="eyebrow center reveal">{{ tr("gallery.eyebrow") }}</span>
           <h2 class="reveal" data-delay="1">{{ tr("gallery.title") }}</h2>
           <p class="lead reveal" data-delay="2" style="margin-inline: auto">
             {{ tr("gallery.sub") }}
           </p>
+          <p class="gallery__provenance" role="note">
+            {{ tr("gallery.provenance") }}
+          </p>
         </div>
         <div class="gallery reveal">
           <a
             v-for="(image, index) in galleryImgs"
-            :key="image"
-            :class="gallerySpans[index % gallerySpans.length]"
-            :href="image"
-            :aria-label="`${tr('gallery.lbView')} ${index + 1} / ${galleryImgs.length}`"
+            :key="image.src"
+            :class="[
+              gallerySpans[index % gallerySpans.length],
+              'gallery__item',
+            ]"
+            :href="image.src"
+            :aria-label="`${tr('gallery.lbView')}: ${galleryCaption(image)}`"
             @click.prevent="openLightbox(index)"
           >
-            <img
-              :src="image"
-              :alt="`${tr('gallery.title')} ${index + 1}`"
-              loading="lazy"
-            />
+            <img :src="image.src" :alt="galleryCaption(image)" loading="lazy" />
+            <span class="gallery__caption">{{ galleryCaption(image) }}</span>
           </a>
         </div>
       </div>
@@ -332,8 +401,8 @@ onBeforeUnmount(() => {
       </button>
       <img
         class="lightbox__img"
-        :src="lightboxOpen ? galleryImgs[lightboxIndex] : ''"
-        :alt="lightboxOpen ? `${tr('gallery.title')} ${lightboxIndex + 1}` : ''"
+        :src="lightboxOpen ? (galleryImgs[lightboxIndex]?.src ?? '') : ''"
+        :alt="lightboxOpen ? galleryCaption(galleryImgs[lightboxIndex]) : ''"
       />
       <button
         type="button"
@@ -347,52 +416,6 @@ onBeforeUnmount(() => {
         {{ lightboxIndex + 1 }} / {{ galleryImgs.length }}
       </span>
     </div>
-
-    <section class="section">
-      <div class="container">
-        <div class="section-head center">
-          <span class="eyebrow center reveal">{{ tr("tst.eyebrow") }}</span>
-          <h2 class="reveal" data-delay="1">{{ tr("tst.title") }}</h2>
-        </div>
-        <div class="tst-grid">
-          <figure
-            v-for="(testimonial, index) in testimonials"
-            :key="testimonial.author"
-            class="tst reveal"
-            :data-delay="(index % 3) + 1"
-          >
-            <div class="stars" aria-hidden="true">
-              <svg
-                v-for="star in testimonial.rating"
-                :key="star"
-                viewBox="0 0 24 24"
-                fill="currentColor"
-              >
-                <path
-                  d="M12 2l2.9 6.3 6.8.7-5 4.6 1.4 6.7L12 17.8 5.9 20.3l1.4-6.7-5-4.6 6.8-.7Z"
-                />
-              </svg>
-            </div>
-            <blockquote>
-              {{
-                language === "id" ? testimonial.quoteId : testimonial.quoteEn
-              }}
-            </blockquote>
-            <figcaption>
-              <span class="avatar">{{ testimonial.initials }}</span>
-              <span class="who">
-                <b>{{ testimonial.author }}</b>
-                <span>{{
-                  language === "id"
-                    ? testimonial.serviceId
-                    : testimonial.serviceEn
-                }}</span>
-              </span>
-            </figcaption>
-          </figure>
-        </div>
-      </div>
-    </section>
 
     <section id="faq" class="section tint">
       <div class="container">
@@ -418,7 +441,7 @@ onBeforeUnmount(() => {
           <div class="split__media reveal">
             <iframe
               :title="tr('loc.title')"
-              src="https://www.google.com/maps?q=Jalan+Terusan+Batubara+No.+12,+Malang&output=embed"
+              :src="contactInformation.mapEmbedUrl"
               style="
                 width: 100%;
                 aspect-ratio: 4/5;
@@ -454,7 +477,7 @@ onBeforeUnmount(() => {
                 </span>
                 <div>
                   <b>{{ tr("loc.addresst") }}</b>
-                  <p>{{ tr("loc.address") }}</p>
+                  <p>{{ contactInformation.address }}</p>
                 </div>
               </li>
               <li class="reveal" data-delay="3">
@@ -472,7 +495,7 @@ onBeforeUnmount(() => {
                 </span>
                 <div>
                   <b>{{ tr("loc.hourst") }}</b>
-                  <p>{{ tr("loc.hours") }}</p>
+                  <p>{{ contactInformation.hours }}</p>
                 </div>
               </li>
               <li class="reveal" data-delay="4">
@@ -492,14 +515,14 @@ onBeforeUnmount(() => {
                 </span>
                 <div>
                   <b>{{ tr("loc.phonet") }}</b>
-                  <p>{{ tr("loc.phone") }}</p>
+                  <p>{{ contactInformation.phone }}</p>
                 </div>
               </li>
             </ul>
             <p style="margin-top: 1.8rem">
               <a
                 class="btn btn--ghost"
-                href="https://www.google.com/maps?q=Jalan+Terusan+Batubara+No.+12,+Malang"
+                :href="contactInformation.directionsUrl"
                 target="_blank"
                 rel="noopener"
               >
@@ -521,7 +544,7 @@ onBeforeUnmount(() => {
         <Link
           class="btn btn--gold btn--lg reveal"
           data-delay="3"
-          href="/booking"
+          href="/services"
           >{{ tr("cta.btn") }}</Link
         >
       </div>

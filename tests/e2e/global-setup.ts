@@ -3,13 +3,14 @@ import {
   existsSync,
   mkdirSync,
   readFileSync,
-  rmSync,
   statSync,
   writeFileSync,
 } from "node:fs";
 import path from "node:path";
+import { assertBuildIsFresh } from "./build-freshness";
 import {
   projectRoot,
+  removeTestOwnedPath,
   serverShutdownMarkers,
   testingConfigCache,
   testingDatabase,
@@ -90,12 +91,13 @@ function assertCatalogFixtures(): void {
 
 export default function globalSetup(): void {
   assertCatalogFixtures();
-  rmSync(viteHotFile, { force: true });
-  rmSync(testingConfigCache, { force: true });
-  rmSync(testingDatabase, { force: true });
+  assertBuildIsFresh(projectRoot);
+  removeTestOwnedPath(viteHotFile);
+  removeTestOwnedPath(testingConfigCache);
+  removeTestOwnedPath(testingDatabase);
 
   for (const marker of Object.values(serverShutdownMarkers)) {
-    rmSync(marker, { force: true });
+    removeTestOwnedPath(marker);
   }
 
   mkdirSync(path.dirname(testingDatabase), { recursive: true });

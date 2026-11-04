@@ -1,257 +1,148 @@
 <script setup lang="ts">
 import AppLogo from "@/components/AppLogo.vue";
-import AppLogoIcon from "@/components/AppLogoIcon.vue";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  NavigationMenu,
-  NavigationMenuItem,
-  NavigationMenuLink,
-  NavigationMenuList,
-  navigationMenuTriggerStyle,
-} from "@/components/ui/navigation-menu";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import UserMenuContent from "@/components/UserMenuContent.vue";
-import { getInitials } from "@/composables/useInitials";
-import type { BreadcrumbItem, NavItem, SharedData } from "@/types";
-import { Link, usePage } from "@inertiajs/vue3";
-import { BookOpen, Folder, LayoutGrid, Menu, Search } from "lucide-vue-next";
-import { computed } from "vue";
+import { SidebarTrigger } from "@/components/ui/sidebar";
+import { useLanguage } from "@/composables/useLanguage";
+import type { AppPageProps, BreadcrumbItem } from "@/types";
+import { Link, router, usePage } from "@inertiajs/vue3";
+import { computed, ref } from "vue";
 
-interface Props {
-  breadcrumbs?: BreadcrumbItem[];
-}
-
-const props = withDefaults(defineProps<Props>(), {
-  breadcrumbs: () => [],
-});
-
-const page = usePage<SharedData>();
-const auth = computed(() => page.props.auth);
-
-const isCurrentRoute = (url: string) => {
-  return page.url === url;
-};
-
-const activeItemStyles = computed(
-  () => (url: string) =>
-    isCurrentRoute(url)
-      ? "text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100"
-      : "",
+withDefaults(
+  defineProps<{ breadcrumbs?: BreadcrumbItem[]; sidebar?: boolean }>(),
+  {
+    breadcrumbs: () => [],
+    sidebar: false,
+  },
 );
-
-const mainNavItems: NavItem[] = [
-  {
-    title: "Dashboard",
-    href: "/dashboard",
-    icon: LayoutGrid,
-  },
-];
-
-const rightNavItems: NavItem[] = [
-  {
-    title: "Repository",
-    href: "https://github.com/laravel/vue-starter-kit",
-    icon: Folder,
-  },
-  {
-    title: "Documentation",
-    href: "https://laravel.com/docs/starter-kits",
-    icon: BookOpen,
-  },
-];
+const page = usePage<AppPageProps>();
+const user = computed(() => page.props.auth.user);
+const { language, setLanguage, tr } = useLanguage();
+const loggingOut = ref(false);
+const isActive = (href: string) => page.url.split("?")[0] === href;
+function logout() {
+  if (loggingOut.value) return;
+  loggingOut.value = true;
+  router.post(
+    "/logout",
+    {},
+    {
+      onFinish: () => {
+        loggingOut.value = false;
+      },
+    },
+  );
+}
 </script>
 
 <template>
-  <div>
-    <div class="border-b border-sidebar-border/80">
-      <div class="mx-auto flex h-16 items-center px-4 md:max-w-7xl">
-        <!-- Mobile Menu -->
-        <div class="lg:hidden">
-          <Sheet>
-            <SheetTrigger :as-child="true">
-              <Button variant="ghost" size="icon" class="mr-2 h-9 w-9">
-                <Menu class="h-5 w-5" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left" class="w-[300px] p-6">
-              <SheetTitle class="sr-only">Navigation Menu</SheetTitle>
-              <SheetHeader class="flex justify-start text-left">
-                <AppLogoIcon
-                  class="size-6 fill-current text-black dark:text-white"
-                />
-              </SheetHeader>
-              <div
-                class="flex flex-col justify-between h-full space-y-4 py-6 flex-1"
-              >
-                <nav class="-mx-3 space-y-1">
-                  <Link
-                    v-for="item in mainNavItems"
-                    :key="item.title"
-                    :href="item.href"
-                    class="flex items-center gap-x-3 rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent"
-                    :class="activeItemStyles(item.href)"
-                  >
-                    <component
-                      v-if="item.icon"
-                      :is="item.icon"
-                      class="h-5 w-5"
-                    />
-                    {{ item.title }}
-                  </Link>
-                </nav>
-                <div class="flex flex-col space-y-4">
-                  <a
-                    v-for="item in rightNavItems"
-                    :key="item.title"
-                    :href="item.href"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    class="flex items-center space-x-2 text-sm font-medium"
-                  >
-                    <component
-                      v-if="item.icon"
-                      :is="item.icon"
-                      class="h-5 w-5"
-                    />
-                    <span>{{ item.title }}</span>
-                  </a>
-                </div>
-              </div>
-            </SheetContent>
-          </Sheet>
-        </div>
-
-        <Link :href="route('dashboard')" class="flex items-center gap-x-2">
-          <AppLogo class="hidden h-6 xl:block" />
-        </Link>
-
-        <!-- Desktop Menu -->
-        <div class="hidden h-full lg:flex lg:flex-1">
-          <NavigationMenu class="ml-10 flex h-full items-stretch">
-            <NavigationMenuList class="flex h-full items-stretch space-x-2">
-              <NavigationMenuItem
-                v-for="(item, index) in mainNavItems"
-                :key="index"
-                class="relative flex h-full items-center"
-              >
-                <Link :href="item.href">
-                  <NavigationMenuLink
-                    :class="[
-                      navigationMenuTriggerStyle(),
-                      activeItemStyles(item.href),
-                      'h-9 cursor-pointer px-3',
-                    ]"
-                  >
-                    <component
-                      v-if="item.icon"
-                      :is="item.icon"
-                      class="mr-2 h-4 w-4"
-                    />
-                    {{ item.title }}
-                  </NavigationMenuLink>
-                </Link>
-                <div
-                  class="absolute bottom-0 left-0 h-0.5 w-full translate-y-px bg-black dark:bg-white"
-                ></div>
-              </NavigationMenuItem>
-            </NavigationMenuList>
-          </NavigationMenu>
-        </div>
-
-        <div class="ml-auto flex items-center space-x-2">
-          <div class="relative flex items-center space-x-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              class="group h-9 w-9 cursor-pointer"
+  <header class="account-topbar py-3">
+    <div class="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+      <div class="flex min-w-0 items-center gap-3">
+        <SidebarTrigger v-if="sidebar" class="h-11 w-11 shrink-0" />
+        <Link
+          v-else
+          href="/"
+          class="flex min-h-11 items-center gap-2"
+          aria-label="Shin Joy Spa"
+          ><AppLogo
+        /></Link>
+        <nav
+          v-if="breadcrumbs.length"
+          :aria-label="tr('nav.breadcrumb')"
+          class="min-w-0"
+        >
+          <ol class="flex flex-wrap items-center gap-2 text-sm">
+            <li
+              v-for="(item, index) in breadcrumbs"
+              :key="item.href"
+              class="min-w-0 break-words"
             >
-              <Search class="size-5 opacity-80 group-hover:opacity-100" />
-            </Button>
-
-            <div class="hidden space-x-1 lg:flex">
-              <template v-for="item in rightNavItems" :key="item.title">
-                <TooltipProvider :delay-duration="0">
-                  <Tooltip>
-                    <TooltipTrigger>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        as-child
-                        class="group h-9 w-9 cursor-pointer"
-                      >
-                        <a
-                          :href="item.href"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          <span class="sr-only">{{ item.title }}</span>
-                          <component
-                            :is="item.icon"
-                            class="size-5 opacity-80 group-hover:opacity-100"
-                          />
-                        </a>
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>{{ item.title }}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </template>
-            </div>
-          </div>
-
-          <DropdownMenu v-if="auth.user">
-            <DropdownMenuTrigger :as-child="true">
-              <Button
-                variant="ghost"
-                size="icon"
-                class="relative size-10 w-auto rounded-full p-1 focus-within:ring-2 focus-within:ring-primary"
+              <span
+                v-if="index"
+                aria-hidden="true"
+                class="mr-2 text-muted-foreground"
+                >/</span
               >
-                <Avatar class="size-8 overflow-hidden rounded-full">
-                  <AvatarFallback
-                    class="rounded-lg bg-neutral-200 font-semibold text-black dark:bg-neutral-700 dark:text-white"
-                  >
-                    {{ getInitials(auth.user.name) }}
-                  </AvatarFallback>
-                </Avatar>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" class="w-56">
-              <UserMenuContent :user="auth.user" />
-            </DropdownMenuContent>
-          </DropdownMenu>
+              <span
+                v-if="index === breadcrumbs.length - 1"
+                aria-current="page"
+                >{{ item.title }}</span
+              >
+              <Link
+                v-else
+                :href="item.href"
+                class="underline underline-offset-4"
+                >{{ item.title }}</Link
+              >
+            </li>
+          </ol>
+        </nav>
+      </div>
+      <div class="flex max-w-full flex-wrap items-center gap-3">
+        <Link
+          v-if="user"
+          href="/settings/profile"
+          class="min-w-0 max-w-48 truncate py-3 font-semibold"
+          >{{ user.name }}</Link
+        >
+        <div
+          role="group"
+          :aria-label="tr('auth.language')"
+          class="flex rounded-md border border-border p-1"
+        >
+          <button
+            v-for="locale in ['id', 'en'] as const"
+            :key="locale"
+            type="button"
+            class="min-h-11 min-w-11 rounded px-2 text-xs font-semibold uppercase"
+            :class="
+              language === locale
+                ? 'bg-primary text-primary-foreground'
+                : 'text-muted-foreground hover:bg-accent'
+            "
+            :aria-pressed="language === locale"
+            @click="setLanguage(locale)"
+          >
+            {{ locale }}
+          </button>
         </div>
+        <button
+          v-if="user"
+          type="button"
+          class="min-h-11 rounded-md border border-border px-3 text-sm font-semibold hover:bg-accent disabled:opacity-60"
+          :disabled="loggingOut"
+          :aria-busy="loggingOut"
+          @click="logout"
+        >
+          {{ tr("nav.logout") }}
+        </button>
+        <Link v-else href="/login" class="py-3 underline underline-offset-4">{{
+          tr("nav.login")
+        }}</Link>
       </div>
     </div>
-
-    <div
-      v-if="props.breadcrumbs.length > 1"
-      class="flex w-full border-b border-sidebar-border/70"
+    <nav
+      v-if="!sidebar"
+      class="account-header-nav mt-3"
+      :aria-label="tr('nav.primary')"
     >
-      <div
-        class="mx-auto flex h-12 w-full items-center justify-start px-4 text-neutral-500 md:max-w-7xl"
+      <Link
+        href="/bookings"
+        :aria-current="isActive('/bookings') ? 'page' : undefined"
+        >{{ tr("nav.bookings") }}</Link
       >
-        <Breadcrumbs :breadcrumbs="breadcrumbs" />
-      </div>
-    </div>
-  </div>
+      <Link
+        href="/services"
+        :aria-current="isActive('/services') ? 'page' : undefined"
+        >{{ tr("nav.services") }}</Link
+      >
+      <Link
+        href="/settings/profile"
+        :aria-current="isActive('/settings/profile') ? 'page' : undefined"
+        >{{ tr("nav.profile") }}</Link
+      >
+      <Link v-if="page.props.auth.canAccessAdmin" href="/admin/bookings">{{
+        tr("ad.panel")
+      }}</Link>
+    </nav>
+  </header>
 </template>

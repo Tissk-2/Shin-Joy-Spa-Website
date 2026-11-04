@@ -60,6 +60,8 @@ vi.mock("@inertiajs/vue3", async (importOriginal) => {
 
 const booking: AdminBookingDetailData = Object.freeze({
   reference: "SJ/AYU #1?",
+  roomSchedulingEnabled: false,
+  assignedRoom: null,
   status: "pending",
   customer: Object.freeze({
     name: "Ayu <script>alert(1)</script>",
@@ -101,6 +103,7 @@ const booking: AdminBookingDetailData = Object.freeze({
       fromStatus: "pending" as const,
       toStatus: "confirmed" as const,
       reason: "Called guest",
+      operationalConfirmedAt: null,
       createdAt: "2026-09-07T03:00:00Z",
     }),
     Object.freeze({
@@ -111,6 +114,7 @@ const booking: AdminBookingDetailData = Object.freeze({
       fromStatus: "confirmed" as const,
       toStatus: "completed" as const,
       reason: null,
+      operationalConfirmedAt: null,
       createdAt: "2026-09-06T03:00:00Z",
     }),
   ]),
@@ -193,6 +197,16 @@ describe("admin booking detail", () => {
     );
     expect(wrapper.find("main script, main img").exists()).toBe(false);
     expect(wrapper.get("[data-booking-guests]").text()).toBe("2");
+  });
+
+  // Catches dead tel: links and blank snapshot rows when the WhatsApp number is optional.
+  it("renders the dossier without a tel link when no WhatsApp number was provided", () => {
+    const wrapper = mountPage({
+      ...booking,
+      customer: { ...booking.customer, phone: "" },
+    });
+    expect(wrapper.find("a[href^='tel:']").exists()).toBe(false);
+    expect(wrapper.text()).toContain("No WhatsApp number was added.");
   });
 
   // Catches client history sorting and blank audit reasons.
@@ -437,5 +451,84 @@ describe("admin booking detail", () => {
       "Konfirmasi perubahan",
     ])
       expect(dialog().text()).toContain(text);
+  });
+});
+
+describe("room scheduling", () => {
+  it("requires an unchecked operational checkbox and submits explicit consent", async () => {
+    const wrapper = mountPage({
+      ...booking,
+      roomSchedulingEnabled: true,
+      assignedRoom: null,
+    });
+    await open(wrapper);
+    const checkbox = dialog().get<HTMLInputElement>(
+      "input[name='operationalConfirmed']",
+    );
+    expect(checkbox.element.checked).toBe(false);
+    await checkbox.setValue(true);
+    await dialog().get("form").trigger("submit");
+    expect(inertia.patches.at(-1)?.data).toMatchObject({
+      operationalConfirmed: true,
+    });
+  });
+});
+
+describe("room scheduling display", () => {
+  it.each(["en", "id"] as const)(
+    "shows safe room and persisted attestation in %s",
+    async (locale) => {
+      inertia.page.props.locale = locale;
+      const wrapper = mountPage({
+        ...booking,
+        assignedRoom: {
+          name: "Quiet Room",
+          code: "Q1",
+          type: "private",
+          capacity: 2,
+          startsAt: "2026-10-07T07:30:00Z",
+          endsAt: "2026-10-07T09:15:00Z",
+          releasedAt: null,
+        },
+        status: "cancelled",
+        history: [
+          {
+            ...booking.history[0]!,
+            operationalConfirmedAt: "2026-10-06T07:30:00Z",
+          },
+        ],
+      });
+      expect(wrapper.get("[data-assigned-room]").text()).toContain(
+        "Quiet Room",
+      );
+      expect(wrapper.get("[data-assigned-room]").text()).toContain(
+        locale === "en" ? "original cleaning end" : "pembersihan semula",
+      );
+      expect(wrapper.get("[data-operational-attestation]").text()).toContain(
+        locale === "en" ? "Therapist availability" : "Ketersediaan terapis",
+      );
+    },
+  );
+  it("resets consent on reopening and omits consent for cancellation", async () => {
+    const wrapper = mountPage({ ...booking, roomSchedulingEnabled: true });
+    await open(wrapper);
+    await dialog().get("input[name='operationalConfirmed']").setValue(true);
+    await dialog().get("[data-cancel-status]").trigger("click");
+    await settle();
+    await open(wrapper);
+    expect(
+      dialog().get<HTMLInputElement>("input[name='operationalConfirmed']")
+        .element.checked,
+    ).toBe(false);
+    await dialog().get("[data-cancel-status]").trigger("click");
+    await settle();
+    await open(wrapper, "cancelled");
+    expect(dialog().find("input[name='operationalConfirmed']").exists()).toBe(
+      false,
+    );
+    await dialog().get("form").trigger("submit");
+    expect(inertia.patches.at(-1)?.data).not.toHaveProperty(
+      "operationalConfirmed",
+    );
   });
 });

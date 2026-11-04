@@ -5,14 +5,12 @@ import { computed, nextTick, ref } from "vue";
 import { Dialog, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { useLanguage } from "@/composables/useLanguage";
 import type {
-  AdminCatalogCategoryData,
   AdminCatalogPackageData,
   AdminCatalogPackageFormData,
 } from "@/types";
 
 const props = withDefaults(
   defineProps<{
-    category?: AdminCatalogCategoryData;
     package?: AdminCatalogPackageData | AdminCatalogPackageFormData;
     disabled?: boolean;
   }>(),
@@ -24,14 +22,10 @@ type Action = (typeof actions)[number];
 const availableActions = computed(() =>
   actions.filter((action) => record.value.can[action]),
 );
-const record = computed(() => props.category ?? props.package!);
-const recordType = computed(() => (props.category ? "category" : "package"));
+const record = computed(() => props.package!);
 const selection = ref<{
   action: Action;
-  record:
-    | AdminCatalogCategoryData
-    | AdminCatalogPackageData
-    | AdminCatalogPackageFormData;
+  record: AdminCatalogPackageData | AdminCatalogPackageFormData;
 } | null>(null);
 const processing = ref(false);
 const errors = ref<Record<string, string>>({});
@@ -65,9 +59,7 @@ function restoreFocus(event: Event): void {
 function confirm(): void {
   if (processing.value || !selection.value) return;
   const { action, record: selectedRecord } = selection.value;
-  const collection =
-    recordType.value === "category" ? "categories" : "packages";
-  const url = `/admin/catalog/${collection}/${encodeURIComponent(selectedRecord.slug)}`;
+  const url = `/admin/catalog/packages/${encodeURIComponent(selectedRecord.slug)}`;
   const data = { version: selectedRecord.version };
   errors.value = {};
   processing.value = true;
@@ -124,13 +116,13 @@ function confirm(): void {
           ><h2 ref="heading" tabindex="-1">
             {{
               selection &&
-              tr(`ad.catalog.lifecycle.${recordType}.${selection.action}.title`)
+              tr(`ad.catalog.lifecycle.package.${selection.action}.title`)
             }}
           </h2></DialogTitle
         >
         <DialogDescription>{{
           selection &&
-          tr(`ad.catalog.lifecycle.${recordType}.${selection.action}.body`, {
+          tr(`ad.catalog.lifecycle.package.${selection.action}.body`, {
             name: name ?? "",
           })
         }}</DialogDescription>
@@ -164,9 +156,7 @@ function confirm(): void {
             >
               {{
                 selection &&
-                tr(
-                  `ad.catalog.lifecycle.${recordType}.${selection.action}.confirm`,
-                )
+                tr(`ad.catalog.lifecycle.package.${selection.action}.confirm`)
               }}
             </button>
           </div>

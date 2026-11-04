@@ -44,6 +44,11 @@ const values = ref({
   benefitEn: packageItem.benefitEn ?? "",
   isVip: packageItem.isVip,
   displayOrder: String(packageItem.displayOrder),
+  pricingBasis: packageItem.pricingBasis ?? "",
+  minGuests:
+    packageItem.minGuests === null ? "" : String(packageItem.minGuests),
+  maxGuests:
+    packageItem.maxGuests === null ? "" : String(packageItem.maxGuests),
 });
 const variants = ref<readonly CatalogChoiceInput[]>(
   packageItem.variants.map(choice),
@@ -55,10 +60,30 @@ const cover = ref<File | null>(null);
 const removeCover = ref(false);
 const retained = ref([...packageItem.gallery]);
 const uploads = ref<readonly File[]>([]);
+// Attestation saves only basis/coverage; every other edit must be saved first.
+function otherDraftState(): string {
+  return JSON.stringify({
+    values: Object.fromEntries(
+      Object.entries(values.value).filter(
+        ([key]) => !["pricingBasis", "minGuests", "maxGuests"].includes(key),
+      ),
+    ),
+    variants: variants.value,
+    extensions: extensions.value,
+    removeCover: removeCover.value,
+    retained: retained.value,
+  });
+}
+const initialOtherDraftState = otherDraftState();
+const hasOtherEdits = computed(
+  () =>
+    cover.value !== null ||
+    uploads.value.length > 0 ||
+    otherDraftState() !== initialOtherDraftState,
+);
 const processing = ref(false);
 const errors = ref<Record<string, string>>({});
 const lockedSlug = packageItem.isPublished;
-const isEdit = packageItem.version !== null;
 const labelKeys: Readonly<Record<string, string>> = {
   categoryId: "categoryId",
   slug: "packageSlug",
@@ -94,6 +119,10 @@ const extraErrors = computed(() =>
         "benefitEn",
         "isVip",
         "displayOrder",
+        "pricingBasis",
+        "minGuests",
+        "maxGuests",
+        "pricing",
         "cover",
         "galleryUploads",
         "retainedGalleryIds",
@@ -115,8 +144,7 @@ function appendChoiceRows(
   }
   rows.forEach((row, index) => {
     const prefix = `${name}[${index}]`;
-    if (isEdit && row.id !== undefined)
-      data.append(`${prefix}[id]`, String(row.id));
+    if (row.id !== undefined) data.append(`${prefix}[id]`, String(row.id));
     data.append(`${prefix}[code]`, row.code.trim());
     data.append(`${prefix}[mode]`, row.mode);
     data.append(`${prefix}[durationMinutes]`, row.durationMinutes);
@@ -128,10 +156,8 @@ function appendChoiceRows(
 function submit(): void {
   if (processing.value) return;
   const data = new FormData();
-  if (isEdit) {
-    data.append("_method", "patch");
-    data.append("version", String(packageItem.version));
-  }
+  data.append("_method", "patch");
+  data.append("version", String(packageItem.version));
   for (const field of [
     "categoryId",
     "slug",
@@ -144,10 +170,13 @@ function submit(): void {
     "benefitId",
     "benefitEn",
     "displayOrder",
+    "pricingBasis",
+    "minGuests",
+    "maxGuests",
   ] as const)
     data.append(field, String(values.value[field]).trim());
   data.append("isVip", values.value.isVip ? "1" : "0");
-  data.append("removeCover", isEdit && removeCover.value ? "1" : "0");
+  data.append("removeCover", removeCover.value ? "1" : "0");
   if (cover.value) data.append("cover", cover.value);
   retained.value.forEach((item) =>
     data.append("retainedGalleryIds[]", item.retentionId),
@@ -158,10 +187,36 @@ function submit(): void {
   errors.value = {};
   processing.value = true;
   router.post(
-    isEdit
-      ? `/admin/catalog/packages/${encodeURIComponent(packageItem.slug)}`
-      : "/admin/catalog/packages",
+    `/admin/catalog/packages/${encodeURIComponent(packageItem.slug)}`,
     data,
+    {
+      preserveScroll: true,
+      onError: (responseErrors) => {
+        errors.value = { ...responseErrors };
+      },
+      onFinish: () => {
+        processing.value = false;
+      },
+    },
+  );
+}
+function guestBound(value: string | number): number | null {
+  const trimmed = String(value).trim();
+  return trimmed === "" ? null : Number(trimmed);
+}
+function attest(): void {
+  if (processing.value || !packageItem.can.attestPricing || hasOtherEdits.value)
+    return;
+  errors.value = {};
+  processing.value = true;
+  router.post(
+    `/admin/catalog/packages/${encodeURIComponent(packageItem.slug)}/pricing`,
+    {
+      version: packageItem.version,
+      pricingBasis: values.value.pricingBasis,
+      minGuests: guestBound(values.value.minGuests),
+      maxGuests: guestBound(values.value.maxGuests),
+    },
     {
       preserveScroll: true,
       onError: (responseErrors) => {
@@ -183,19 +238,10 @@ function retainedIds(ids: readonly string[]): void {
 <template>
   <div class="admin-shell">
     <AdminLayout
-      :title="tr('ad.catalog.title')"
+      :title="tr('ad.catalog.form.editPackageTitle')"
       :subtitle="tr('ad.catalog.subtitle')"
     >
       <section class="catalog-editor catalog-package-form" data-package-form>
-        <h1>
-          {{
-            tr(
-              isEdit
-                ? "ad.catalog.form.editPackageTitle"
-                : "ad.catalog.form.createPackageTitle",
-            )
-          }}
-        </h1>
         <form novalidate :aria-busy="processing" @submit.prevent="submit">
           <p v-if="errors.version" class="catalog-error" role="alert">
             {{ errors.version }}
@@ -314,6 +360,148 @@ function retainedIds(ids: readonly string[]): void {
             @update:retained="retainedIds"
             @update:uploads="uploads = $event"
           />
+          <section class="catalog-pricing" data-package-pricing>
+            <h2 class="catalog-pricing__title">
+              {{ tr("ad.catalog.form.pricing") }}
+            </h2>
+            <p id="catalog-package-pricing-help" class="catalog-help">
+              {{ tr("ad.catalog.form.pricingHelp") }}
+            </p>
+            <div class="catalog-form-grid">
+              <div class="catalog-field">
+                <label for="catalog-package-pricingBasis">{{
+                  tr("ad.catalog.form.pricingBasis")
+                }}</label>
+                <select
+                  id="catalog-package-pricingBasis"
+                  v-model="values.pricingBasis"
+                  name="pricingBasis"
+                  :disabled="processing"
+                  :aria-invalid="!!fieldError('pricingBasis')"
+                  :aria-describedby="
+                    fieldError('pricingBasis')
+                      ? 'catalog-package-pricingBasis-error'
+                      : 'catalog-package-pricing-help'
+                  "
+                >
+                  <option value="">
+                    {{ tr("ad.catalog.form.pricingBasisUnset") }}
+                  </option>
+                  <option value="per_person">
+                    {{ tr("ad.catalog.form.pricingPerPerson") }}
+                  </option>
+                  <option value="per_booking">
+                    {{ tr("ad.catalog.form.pricingPerBooking") }}
+                  </option>
+                </select>
+                <p
+                  v-if="fieldError('pricingBasis')"
+                  id="catalog-package-pricingBasis-error"
+                  class="catalog-error"
+                >
+                  {{ fieldError("pricingBasis") }}
+                </p>
+              </div>
+              <div class="catalog-field">
+                <label for="catalog-package-minGuests">{{
+                  tr("ad.catalog.form.minGuests")
+                }}</label>
+                <input
+                  id="catalog-package-minGuests"
+                  v-model="values.minGuests"
+                  name="minGuests"
+                  type="number"
+                  min="1"
+                  max="4"
+                  :disabled="processing"
+                  :aria-invalid="!!fieldError('minGuests')"
+                  :aria-describedby="
+                    fieldError('minGuests')
+                      ? 'catalog-package-minGuests-error'
+                      : 'catalog-package-pricing-help'
+                  "
+                />
+                <p
+                  v-if="fieldError('minGuests')"
+                  id="catalog-package-minGuests-error"
+                  class="catalog-error"
+                >
+                  {{ fieldError("minGuests") }}
+                </p>
+              </div>
+              <div class="catalog-field">
+                <label for="catalog-package-maxGuests">{{
+                  tr("ad.catalog.form.maxGuests")
+                }}</label>
+                <input
+                  id="catalog-package-maxGuests"
+                  v-model="values.maxGuests"
+                  name="maxGuests"
+                  type="number"
+                  min="1"
+                  max="4"
+                  :disabled="processing"
+                  :aria-invalid="!!fieldError('maxGuests')"
+                  :aria-describedby="
+                    fieldError('maxGuests')
+                      ? 'catalog-package-maxGuests-error'
+                      : 'catalog-package-pricing-help'
+                  "
+                />
+                <p
+                  v-if="fieldError('maxGuests')"
+                  id="catalog-package-maxGuests-error"
+                  class="catalog-error"
+                >
+                  {{ fieldError("maxGuests") }}
+                </p>
+              </div>
+            </div>
+            <p class="catalog-pricing__status" data-pricing-status>
+              <template v-if="packageItem.pricingVerified">
+                <strong>{{ tr("ad.catalog.form.pricingVerified") }}</strong>
+                <template v-if="packageItem.pricingVerifiedBy">
+                  · {{ tr("ad.catalog.form.pricingVerifiedBy") }}
+                  {{ packageItem.pricingVerifiedBy.name }}
+                  ({{ packageItem.pricingVerifiedBy.email }})
+                </template>
+              </template>
+              <template v-else>
+                {{ tr("ad.catalog.form.pricingUnverified") }}
+              </template>
+            </p>
+            <p v-if="fieldError('pricing')" class="catalog-error">
+              {{ fieldError("pricing") }}
+            </p>
+            <button
+              v-if="packageItem.can.attestPricing"
+              type="button"
+              class="catalog-control catalog-control--primary"
+              data-pricing-attest
+              :disabled="processing || hasOtherEdits"
+              aria-describedby="pricing-attestation-help"
+              @click="attest"
+            >
+              {{ tr("ad.catalog.form.attestPricing") }}
+            </button>
+            <p
+              v-if="packageItem.can.attestPricing"
+              id="pricing-attestation-help"
+              class="catalog-help"
+              role="status"
+            >
+              {{
+                tr(
+                  hasOtherEdits
+                    ? "ad.catalog.form.pricingSaveFirst"
+                    : "ad.catalog.form.pricingAttestScope",
+                )
+              }}
+            </p>
+            <p v-else class="catalog-help">
+              {{ tr("ad.catalog.form.pricingOwnerOnly") }}
+            </p>
+          </section>
           <PackageChoiceRows
             kind="variants"
             :rows="variants"
@@ -337,17 +525,11 @@ function retainedIds(ids: readonly string[]): void {
               class="catalog-control catalog-control--primary"
               :disabled="processing"
             >
-              {{
-                tr(
-                  isEdit
-                    ? "ad.catalog.form.saveChanges"
-                    : "ad.catalog.form.saveDraft",
-                )
-              }}
+              {{ tr("ad.catalog.form.saveChanges") }}
             </button>
           </div>
         </form>
-        <div v-if="isEdit" class="catalog-actions">
+        <div class="catalog-actions">
           <CatalogLifecycleActions
             :package="packageItem"
             :disabled="processing"
@@ -357,3 +539,31 @@ function retainedIds(ids: readonly string[]): void {
     </AdminLayout>
   </div>
 </template>
+
+<style scoped>
+.catalog-pricing {
+  display: grid;
+  gap: 0.85rem;
+  padding: 1.1rem;
+  border: 1px solid #e4dcd3;
+  border-radius: 0.9rem;
+  background: #fdfbf7;
+}
+.catalog-pricing__title {
+  margin: 0;
+  font-size: 1rem;
+}
+.catalog-pricing__status {
+  margin: 0;
+  font-size: 0.85rem;
+}
+.catalog-pricing__status strong {
+  color: #8c3b43;
+}
+.catalog-pricing .catalog-help {
+  margin: 0;
+  color: #6d6259;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+</style>

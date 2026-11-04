@@ -4,6 +4,11 @@ import { computed, ref } from "vue";
 import { Eye, EyeOff } from "lucide-vue-next";
 import { useLanguage } from "@/composables/useLanguage";
 import AuthLayout from "@/layouts/AuthLayout.vue";
+import type { BookingAuthContext } from "@/types";
+
+defineProps<{
+  bookingContext?: BookingAuthContext | null;
+}>();
 
 const { tr } = useLanguage();
 const showPassword = ref(false);
@@ -40,6 +45,8 @@ function submit(): void {
   <AuthLayout
     :title="tr('auth.register.title')"
     :description="tr('auth.register.sub')"
+    :booking-context="bookingContext"
+    booking-step="register"
   >
     <form class="auth-form" novalidate @submit.prevent="submit">
       <div class="field" :class="{ invalid: form.errors.name }">

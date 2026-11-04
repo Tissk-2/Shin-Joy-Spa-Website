@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Link, usePage } from "@inertiajs/vue3";
 import { computed, ref, watch } from "vue";
+import { useLanguage } from "@/composables/useLanguage";
 
 import {
   bookingUrl,
@@ -16,20 +17,26 @@ const props = withDefaults(
     servicePackage: PackageData;
     compact?: boolean;
     showBookingLink?: boolean;
+    guests?: number;
   }>(),
-  { compact: false, showBookingLink: true },
+  { compact: false, showBookingLink: true, guests: 1 },
 );
 const emit = defineEmits<{
   "update:modelValue": [selection: ServiceSelection];
 }>();
 const page = usePage<AppPageProps>();
+const { tr } = useLanguage();
 const selection = ref(
   normalizeSelection(props.servicePackage, props.modelValue),
 );
 const locale = computed(() => page.props.locale);
 const total = computed(() =>
-  selectionTotal(props.servicePackage, selection.value),
+  selectionTotal(props.servicePackage, selection.value, props.guests),
 );
+const pricingBasisLabel = computed(() => {
+  if (!props.servicePackage.pricingVerified) return "";
+  return tr("b.totalGuests", { count: props.guests });
+});
 const href = computed(() => bookingUrl(selection.value));
 const isValid = computed(() => total.value.duration > 0);
 const modes = computed(() =>
@@ -140,6 +147,7 @@ const labels = computed(() =>
         extension: "Tambahan",
         total: "Total",
         book: "Pesan sekarang",
+        selectType: "Pilih jenis perawatan terlebih dahulu",
         select: "Pilih durasi terlebih dahulu",
       }
     : {
@@ -148,6 +156,7 @@ const labels = computed(() =>
         extension: "Extension",
         total: "Total",
         book: "Book now",
+        selectType: "Choose a treatment type first",
         select: "Choose a duration first",
       },
 );
@@ -156,7 +165,10 @@ const labels = computed(() =>
 <template>
   <section
     class="package-configurator"
-    :class="{ 'package-configurator--compact': compact }"
+    :class="{
+      'package-configurator--compact': compact,
+      'package-configurator--vip': servicePackage.isVip,
+    }"
   >
     <div
       class="package-configurator__group"
@@ -225,10 +237,18 @@ const labels = computed(() =>
       {{ extension.price.toLocaleString("id-ID") }}
     </label>
 
-    <p class="package-configurator__total" aria-live="polite">
-      {{ labels.total }}: {{ total.duration }} min · Rp
-      {{ total.price.toLocaleString("id-ID") }}
-    </p>
+    <div role="status" aria-live="polite" aria-atomic="true">
+      <p v-if="isValid" class="package-configurator__total">
+        {{ labels.total
+        }}<template v-if="pricingBasisLabel">
+          · {{ pricingBasisLabel }}</template
+        >: {{ total.duration }} min · Rp
+        {{ total.price.toLocaleString("id-ID") }}
+      </p>
+      <p v-else class="package-configurator__guidance">
+        {{ selection.mode ? labels.select : labels.selectType }}
+      </p>
+    </div>
 
     <template v-if="showBookingLink">
       <Link
@@ -245,16 +265,8 @@ const labels = computed(() =>
         disabled
         data-booking-cta="desktop"
       >
-        {{ labels.select }}
+        {{ selection.mode ? labels.select : labels.selectType }}
       </button>
-      <div class="package-configurator__mobile-cta">
-        <Link v-if="isValid" class="package-configurator__cta" :href="href">{{
-          labels.book
-        }}</Link>
-        <button v-else class="package-configurator__cta" type="button" disabled>
-          {{ labels.select }}
-        </button>
-      </div>
     </template>
   </section>
 </template>

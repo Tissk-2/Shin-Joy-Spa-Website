@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Head, Link, router, usePage } from "@inertiajs/vue3";
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
+import { useContactInformation } from "@/composables/useContactInformation";
 import { useLanguage } from "@/composables/useLanguage";
 import {
   accountInitial as deriveAccountInitial,
@@ -12,10 +13,18 @@ import type { AppPageProps } from "@/types";
 
 const page = usePage<AppPageProps>();
 const { language, setLanguage, tr } = useLanguage();
+const contactInformation = useContactInformation();
+
 const headerMenuState = ref(initialHeaderMenuState);
 const isMenuOpen = computed(() => headerMenuState.value.mobileMenuOpen);
 const isAccountMenuOpen = computed(() => headerMenuState.value.accountMenuOpen);
 const isScrolled = ref(false);
+const isMobileNavigation = ref(
+  typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(max-width: 900px)").matches,
+);
+let mobileNavigation: MediaQueryList | null = null;
 const navElement = ref<HTMLElement | null>(null);
 const navToggle = ref<HTMLButtonElement | null>(null);
 const accountMenu = ref<HTMLElement | null>(null);
@@ -128,6 +137,11 @@ function setMenu(open: boolean, restoreFocus = true): void {
   }
 }
 
+function handleNavigationBreakpoint(event: MediaQueryListEvent): void {
+  isMobileNavigation.value = event.matches;
+  if (!event.matches && isMenuOpen.value) setMenu(false, false);
+}
+
 function setAccountMenu(open: boolean, restoreFocus = true): void {
   if (open) logoutError.value = false;
   transitionMenuState({
@@ -169,6 +183,7 @@ function handleKeydown(event: KeyboardEvent): void {
     const wasMenuOpen = isMenuOpen.value;
     transitionMenuState({ type: "escape" });
     if (wasMenuOpen && !isMenuOpen.value) {
+      document.body.style.overflow = "";
       nextTick(() => navToggle.value?.focus());
     }
     return;
@@ -187,6 +202,12 @@ function handleKeydown(event: KeyboardEvent): void {
   const active = document.activeElement;
 
   if (!first || !last || !toggle) return;
+
+  if (!navElement.value?.contains(active) && active !== toggle) {
+    event.preventDefault();
+    (event.shiftKey ? last : first).focus();
+    return;
+  }
 
   if (event.shiftKey && active === first) {
     event.preventDefault();
@@ -220,6 +241,11 @@ watch(
 );
 
 onMounted(() => {
+  if (typeof window.matchMedia === "function") {
+    mobileNavigation = window.matchMedia("(max-width: 900px)");
+    isMobileNavigation.value = mobileNavigation.matches;
+    mobileNavigation.addEventListener("change", handleNavigationBreakpoint);
+  }
   window.addEventListener("scroll", handleScroll, { passive: true });
   document.addEventListener("keydown", handleKeydown);
   document.addEventListener("pointerdown", handleOutsidePointer);
@@ -227,6 +253,7 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+  mobileNavigation?.removeEventListener("change", handleNavigationBreakpoint);
   window.removeEventListener("scroll", handleScroll);
   document.removeEventListener("keydown", handleKeydown);
   document.removeEventListener("pointerdown", handleOutsidePointer);
@@ -296,6 +323,7 @@ onUnmounted(() => {
           ref="navElement"
           class="nav"
           :class="{ open: isMenuOpen }"
+          :inert="isMobileNavigation && !isMenuOpen"
           :aria-label="tr('nav.primary')"
         >
           <ul class="nav-list">
@@ -311,18 +339,9 @@ onUnmounted(() => {
             </li>
           </ul>
 
-          <Link
-            class="btn btn--primary"
-            href="/booking"
-            :aria-current="currentUrl.path === '/booking' ? 'page' : undefined"
-            @click="setMenu(false, false)"
-          >
-            {{ tr("nav.book") }}
-          </Link>
-
           <div v-if="!isAuthenticated" class="nav-auth-actions">
             <Link
-              class="btn btn--ghost"
+              class="btn btn--primary"
               href="/login"
               :aria-current="
                 currentUrl.path === '/login' || currentUrl.path === '/register'
@@ -541,7 +560,7 @@ onUnmounted(() => {
                 :key="servicePackage.slug"
               >
                 <Link
-                  :href="`/services/${servicePackage.slug}`"
+                  :href="`/booking?service=${servicePackage.slug}`"
                   @click="setMenu(false, false)"
                 >
                   {{
@@ -571,7 +590,7 @@ onUnmounted(() => {
                   />
                   <circle cx="12" cy="10" r="2.5" />
                 </svg>
-                <span>{{ tr("loc.address") }}</span>
+                <span>{{ contactInformation.address }}</span>
               </li>
               <li>
                 <svg
@@ -586,7 +605,7 @@ onUnmounted(() => {
                     stroke-linejoin="round"
                   />
                 </svg>
-                <span>{{ tr("loc.phone") }}</span>
+                <span>{{ contactInformation.phone }}</span>
               </li>
               <li>
                 <svg
@@ -599,7 +618,7 @@ onUnmounted(() => {
                   <circle cx="12" cy="12" r="9" />
                   <path d="M12 7v5l3 2" stroke-linecap="round" />
                 </svg>
-                <span>{{ tr("loc.hours") }}</span>
+                <span>{{ contactInformation.hours }}</span>
               </li>
             </ul>
           </div>

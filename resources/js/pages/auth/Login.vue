@@ -4,10 +4,12 @@ import { computed, ref } from "vue";
 import { Eye, EyeOff } from "lucide-vue-next";
 import { useLanguage } from "@/composables/useLanguage";
 import AuthLayout from "@/layouts/AuthLayout.vue";
+import type { BookingAuthContext } from "@/types";
 
 defineProps<{
   status?: string;
   canResetPassword: boolean;
+  bookingContext?: BookingAuthContext | null;
 }>();
 
 const { tr } = useLanguage();
@@ -39,6 +41,8 @@ function submit(): void {
   <AuthLayout
     :title="tr('auth.login.title')"
     :description="tr('auth.login.sub')"
+    :booking-context="bookingContext"
+    booking-step="login"
   >
     <p
       v-if="status"

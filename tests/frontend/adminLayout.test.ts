@@ -19,6 +19,7 @@ const inertia = vi.hoisted(() => ({
           email_verified_at: "2026-09-01",
         },
         canAccessAdmin: true,
+        isOwner: false,
       },
       locale: "en" as Locale,
       flash: {},
@@ -62,6 +63,7 @@ vi.mock("@inertiajs/vue3", async () => {
 describe("administrator layout", () => {
   beforeEach(() => {
     inertia.page.url = "/admin/bookings";
+    inertia.page.props.auth.isOwner = false;
     inertia.page.props.locale = "en";
     inertia.posts = [];
     inertia.finishLogout = undefined;
@@ -95,6 +97,24 @@ describe("administrator layout", () => {
     );
     expect(wrapper.get("main#main [data-admin-content]").text()).toBe(
       "Guest booking list",
+    );
+  });
+
+  it("shows booking settings only for the verified owner navigation ability", async () => {
+    const wrapper = mount(AdminLayout, { props: { title: "Bookings" } });
+    expect(wrapper.find('a[href="/admin/settings/booking"]').exists()).toBe(
+      false,
+    );
+    inertia.page.props.auth.isOwner = true;
+    inertia.page.url = "/admin/settings/booking";
+    await wrapper.vm.$nextTick();
+    expect(
+      wrapper
+        .get('a[href="/admin/settings/booking"]')
+        .attributes("aria-current"),
+    ).toBe("page");
+    expect(wrapper.get('a[href="/admin/settings/booking"]').text()).toBe(
+      "Booking settings",
     );
   });
 
@@ -235,12 +255,15 @@ describe("administrator layout", () => {
   it("declares the touch-size and visible-focus styling JSDOM cannot measure", () => {
     const wrapper = mount(AdminLayout, { props: { title: "Bookings" } });
     const controls = wrapper.findAll("a, button");
+    const styles = readFileSync("resources/css/admin.css", "utf8");
 
     expect(controls.length).toBeGreaterThan(0);
-    for (const control of controls) {
-      expect(control.classes().join(" ")).toContain("min-h-11");
-      expect(control.classes().join(" ")).toContain("focus-visible:");
-    }
+    expect(styles).toMatch(
+      /\.admin-control,\s*\n\.admin-button,\s*\n\.admin-nav-link\s*\{[^}]*min-height:\s*44px/,
+    );
+    expect(styles).toMatch(
+      /\.admin-shell :is\(a, button, input, select\):focus-visible\s*\{[^}]*outline:/,
+    );
   });
 
   it("keeps client routing and browser auth storage out of the layout", () => {

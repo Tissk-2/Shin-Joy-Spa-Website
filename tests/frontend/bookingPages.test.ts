@@ -324,6 +324,123 @@ describe("customer booking detail", () => {
     expect(wrapper.text()).toContain("Rp 340.000");
     expect(wrapper.text()).not.toContain("undefined");
   });
+
+  it("states that no WhatsApp number was provided when the phone snapshot is empty", () => {
+    const wrapper = mount(Show, {
+      props: {
+        booking: {
+          ...withoutExtension,
+          customer: { ...withoutExtension.customer, phone: "" },
+        },
+      },
+    });
+
+    expect(wrapper.text()).toContain("No WhatsApp number was added");
+    expect(wrapper.find("a[href^='tel:']").exists()).toBe(false);
+  });
+
+  it("downloads a PNG summary with the current pending status and no contact details", async () => {
+    const privateNote = "Please keep this note private.";
+    const booking = { ...withoutExtension, notes: privateNote };
+    const drawnText: string[] = [];
+    const context = {
+      fillText: vi.fn((value: string) => drawnText.push(value)),
+      measureText: vi.fn((value: string) => ({ width: value.length * 20 })),
+      fillRect: vi.fn(),
+      beginPath: vi.fn(),
+      roundRect: vi.fn(),
+      fill: vi.fn(),
+      stroke: vi.fn(),
+      moveTo: vi.fn(),
+      lineTo: vi.fn(),
+    } as unknown as CanvasRenderingContext2D;
+    const contextSpy = vi
+      .spyOn(HTMLCanvasElement.prototype, "getContext")
+      .mockReturnValue(context);
+    const blobSpy = vi
+      .spyOn(HTMLCanvasElement.prototype, "toBlob")
+      .mockImplementation((callback) => {
+        callback(new Blob(["png"], { type: "image/png" }));
+      });
+    const clickSpy = vi
+      .spyOn(HTMLAnchorElement.prototype, "click")
+      .mockImplementation(() => {});
+    const originalObjectUrl = URL.createObjectURL;
+    const originalRevokeUrl = URL.revokeObjectURL;
+    URL.createObjectURL = vi.fn(() => "blob:booking-card");
+    URL.revokeObjectURL = vi.fn();
+
+    try {
+      const wrapper = mount(Show, { props: { booking } });
+      const button = wrapper.get('button[data-testid="download-booking-card"]');
+      expect(button.text()).toBe("Download booking card (PNG)");
+
+      await button.trigger("click");
+      await vi.waitFor(() => expect(clickSpy).toHaveBeenCalledTimes(1));
+
+      const anchor = clickSpy.mock.instances[0] as HTMLAnchorElement;
+      expect(anchor.download).toBe(
+        `shin-joy-booking-${withoutExtension.reference}.png`,
+      );
+      expect(blobSpy).toHaveBeenCalledWith(expect.any(Function), "image/png");
+      expect(contextSpy).toHaveBeenCalled();
+      expect(drawnText.join("\n")).toContain("Awaiting confirmation");
+      expect(drawnText.join("\n")).toContain(withoutExtension.reference);
+      expect(drawnText.join("\n")).toContain("Calm Nezuko");
+      expect(drawnText.join("\n")).not.toContain(
+        withoutExtension.customer.name,
+      );
+      expect(drawnText.join("\n")).not.toContain(
+        withoutExtension.customer.email,
+      );
+      expect(drawnText.join("\n")).not.toContain(
+        withoutExtension.customer.phone,
+      );
+      expect(drawnText.join("\n")).not.toContain(privateNote);
+
+      await wrapper.setProps({ booking: { ...booking, status: "confirmed" } });
+      drawnText.length = 0;
+      await button.trigger("click");
+      await vi.waitFor(() => expect(clickSpy).toHaveBeenCalledTimes(2));
+      expect(drawnText.join("\n")).toContain("Confirmed");
+      expect(drawnText.join("\n")).not.toContain("Awaiting confirmation");
+
+      await switchLocale(wrapper, "id");
+      expect(button.text()).toBe("Unduh ringkasan (PNG)");
+    } finally {
+      contextSpy.mockRestore();
+      blobSpy.mockRestore();
+      clickSpy.mockRestore();
+      URL.createObjectURL = originalObjectUrl;
+      URL.revokeObjectURL = originalRevokeUrl;
+    }
+  });
+
+  it("keeps the download available and explains an image creation failure", async () => {
+    const contextSpy = vi
+      .spyOn(HTMLCanvasElement.prototype, "getContext")
+      .mockReturnValue(null);
+
+    try {
+      const wrapper = mount(Show, { props: { booking: withoutExtension } });
+      const button = wrapper.get('button[data-testid="download-booking-card"]');
+
+      await button.trigger("click");
+      await vi.waitFor(() =>
+        expect(wrapper.get('[role="alert"]').text()).toBe(
+          "Could not create the booking image. Please try again.",
+        ),
+      );
+      expect(button.attributes("disabled")).toBeUndefined();
+
+      await switchLocale(wrapper, "id");
+      expect(wrapper.get('[role="alert"]').text()).toBe(
+        "Gambar reservasi gagal dibuat. Silakan coba lagi.",
+      );
+    } finally {
+      contextSpy.mockRestore();
+    }
+  });
 });
 
 describe("customer booking navigation and profile handoff", () => {

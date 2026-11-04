@@ -167,6 +167,15 @@ test("administrator finds and confirms a real customer booking", async ({
     env: { ...process.env, ...testingEnvironment },
     stdio: "pipe",
   });
+  execFileSync(
+    "php",
+    ["tests/e2e/fixtures/staff-permissions.php", "booking-console-staff"],
+    {
+      cwd: projectRoot,
+      env: { ...process.env, ...testingEnvironment },
+      stdio: "pipe",
+    },
+  );
   await logout(page);
 
   await page.goto("/admin/login?redirect=https://attacker.example");

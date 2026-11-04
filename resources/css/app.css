@@ -20,3 +20,30 @@
   font-display: swap;
   src: url("/fonts/mulish-latin.woff2") format("woff2");
 }
+
+html,
+body {
+  --font-sans: "Mulish", ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Tailwind consumes HSL channels, not the legacy color-valued tokens. */
+:root:not(.dark) {
+  --background: 38 44% 96%;
+  --foreground: 10 20% 12%;
+  --card: 0 0% 100%;
+  --card-foreground: 10 20% 12%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 10 20% 12%;
+  --primary: 354 41% 39%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 30 31% 94%;
+  --secondary-foreground: 10 20% 12%;
+  --muted: 30 31% 94%;
+  --muted-foreground: 12 7% 39%;
+  --accent: 35 34% 86%;
+  --accent-foreground: 353 51% 29%;
+  --border: 35 30% 89%;
+  --input: 35 30% 89%;
+  --ring: 354 41% 39%;
+  --radius: 0.75rem;
+}

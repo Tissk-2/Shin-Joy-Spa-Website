@@ -2,6 +2,9 @@ import { mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import Services from "@/pages/Services.vue";
+import PackageMenuCard from "@/components/PackageMenuCard.vue";
+import faq from "@/data/faq";
+import translations from "@/data/translations";
 import type { PackageData } from "@/types";
 
 const inertia = vi.hoisted(() => ({
@@ -53,6 +56,21 @@ describe("public grouped catalog page", () => {
     Element.prototype.scrollIntoView = vi.fn();
   });
 
+  it("keeps browsing cards focused on one detail action without booking controls", () => {
+    const wrapper = mount(PackageMenuCard, {
+      props: { servicePackage: packageFixture },
+    });
+
+    expect(wrapper.findAll("a")).toHaveLength(1);
+    expect(wrapper.get("a").attributes("href")).toBe("/booking?service=balinese-60");
+    expect(wrapper.find('[role="radiogroup"]').exists()).toBe(false);
+    expect(wrapper.find("button").exists()).toBe(false);
+    expect(wrapper.get("[data-starting-price]").text()).toContain("199.000");
+    expect(wrapper.get("table").text()).toContain("60 min");
+    expect(wrapper.get("table").text()).toContain("Rp 199.000");
+    expect(wrapper.findAll("details")).toHaveLength(0);
+  });
+
   it("renders category headings and a real package card for each grouped package", () => {
     const wrapper = mount(Services, {
       props: {
@@ -81,7 +99,18 @@ describe("public grouped catalog page", () => {
       "Body Care",
     ]);
     expect(wrapper.findAll(".package-menu-card")).toHaveLength(2);
-    expect(wrapper.get('a[href="/services/balinese-60"]')).toBeTruthy();
-    expect(wrapper.get('a[href="/services/body-scrub"]')).toBeTruthy();
+    expect(wrapper.get('a[href="/booking?service=balinese-60"]')).toBeTruthy();
+    expect(wrapper.get('a[href="/booking?service=body-scrub"]')).toBeTruthy();
+    expect(wrapper.findAll("address")).toHaveLength(1);
+    expect(
+      wrapper.findAll('[role="note"]').filter((note) =>
+        /hot[- ]water/i.test(note.text()),
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("uses the documented hot-water policy wording in both catalog locales", () => {
+    expect(translations.id["menu.hotWaterPolicy"]).toBe(faq[0].aId);
+    expect(translations.en["menu.hotWaterPolicy"]).toBe(faq[0].aEn);
   });
 });

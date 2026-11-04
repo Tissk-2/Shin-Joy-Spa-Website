@@ -6,7 +6,9 @@ import PackageConfigurator from "@/components/PackageConfigurator.vue";
 import PackageMenuCard from "@/components/PackageMenuCard.vue";
 import type { PackageData } from "@/types";
 
-const inertia = vi.hoisted(() => ({ props: { locale: "en" } }));
+const inertia = vi.hoisted(() => ({
+  props: { locale: "en", auth: { user: null } },
+}));
 vi.mock("@inertiajs/vue3", () => ({
   Link: "a",
   router: { post: vi.fn() },
@@ -58,6 +60,42 @@ const nezuko: PackageData = {
   ],
 };
 
+describe("verified public menu pricing", () => {
+  it.each([
+    ["en", "per_person", "Prices per person · 2–4 guests"],
+    ["en", "per_booking", "Prices per booking · 2–4 guests"],
+    ["id", "per_person", "Harga per orang · 2–4 tamu"],
+    ["id", "per_booking", "Harga per reservasi · 2–4 tamu"],
+  ] as const)(
+    "shows basis and coverage in %s for %s",
+    (locale, pricingBasis, label) => {
+      inertia.props.locale = locale;
+      const wrapper = mount(PackageMenuCard, {
+        props: {
+          servicePackage: {
+            ...nezuko,
+            pricingVerified: true,
+            pricingBasis,
+            minGuests: 2,
+            maxGuests: 4,
+          },
+        },
+      });
+      expect(wrapper.get("[data-pricing-scope]").text()).toBe(label);
+      expect(wrapper.text()).toContain("Rp 199.000");
+      wrapper.unmount();
+    },
+  );
+
+  it("does not infer pricing scope for legacy packages", () => {
+    const wrapper = mount(PackageMenuCard, {
+      props: { servicePackage: nezuko },
+    });
+    expect(wrapper.find("[data-pricing-scope]").exists()).toBe(false);
+    wrapper.unmount();
+  });
+});
+
 describe("PackageConfigurator", () => {
   function mountHost(showBookingLink = true) {
     const Host = defineComponent({
@@ -99,11 +137,12 @@ describe("PackageConfigurator", () => {
     expect(
       configurator().get('[data-booking-cta="desktop"]').attributes("disabled"),
     ).toBeDefined();
-    expect(
-      configurator()
-        .get(".package-configurator__mobile-cta button")
-        .attributes("disabled"),
-    ).toBeDefined();
+    expect(configurator().findAll(".package-configurator__cta")).toHaveLength(
+      1,
+    );
+    expect(configurator().find(".package-configurator__total").exists()).toBe(
+      false,
+    );
 
     await configurator().get('button[data-mode="regular"]').trigger("click");
     expect(wrapper.vm.selection).toMatchObject({
@@ -144,13 +183,12 @@ describe("PackageConfigurator", () => {
     ).toBe(
       "/booking?service=nezuko&mode=regular&duration=90&extension=nezuko-regular-extra-60",
     );
-    expect(
-      configurator()
-        .get(".package-configurator__mobile-cta a")
-        .attributes("href"),
-    ).toBe(
-      "/booking?service=nezuko&mode=regular&duration=90&extension=nezuko-regular-extra-60",
+    expect(configurator().findAll(".package-configurator__cta")).toHaveLength(
+      1,
     );
+    expect(
+      configurator().find(".package-configurator__mobile-cta").exists(),
+    ).toBe(false);
 
     await configurator()
       .get('button[data-mode="double_therapist"]')
@@ -214,8 +252,8 @@ describe("PackageConfigurator", () => {
   });
 
   it.each([
-    ["en", "Choose a duration first"],
-    ["id", "Pilih durasi terlebih dahulu"],
+    ["en", "Choose a treatment type first"],
+    ["id", "Pilih jenis perawatan terlebih dahulu"],
   ] as const)(
     "renders disabled %s invalid CTAs and hides all CTAs once a valid hidden-link configuration is selected",
     async (locale, invalidLabel) => {
@@ -231,14 +269,10 @@ describe("PackageConfigurator", () => {
           .get('[data-booking-cta="desktop"]')
           .attributes("disabled"),
       ).toBeDefined();
-      expect(
-        configurator().get(".package-configurator__mobile-cta button").text(),
-      ).toBe(invalidLabel);
-      expect(
-        configurator()
-          .get(".package-configurator__mobile-cta button")
-          .attributes("disabled"),
-      ).toBeDefined();
+      expect(configurator().get('[role="status"]').text()).toBe(invalidLabel);
+      expect(configurator().findAll(".package-configurator__cta")).toHaveLength(
+        1,
+      );
 
       await wrapper.setProps({ showBookingLink: false });
       await configurator().get('button[data-mode="regular"]').trigger("click");
@@ -253,7 +287,7 @@ describe("PackageConfigurator", () => {
     },
   );
 
-  it("renders localized editorial package content without mutating its prop", async () => {
+  it("renders concise package content, full published prices, and accessible optional details", async () => {
     const original = structuredClone(nezuko);
     inertia.props.locale = "id";
     const wrapper = mount(PackageMenuCard, {
@@ -262,7 +296,29 @@ describe("PackageConfigurator", () => {
 
     expect(wrapper.get('article[aria-label="Nezuko"]')).toBeTruthy();
     expect(wrapper.text()).toContain("Pijat lembut.");
-    expect(wrapper.get('a[href="/services/nezuko"]')).toBeTruthy();
+    expect(wrapper.get('a[href="/booking?service=nezuko"]')).toBeTruthy();
+    expect(wrapper.get("h3").text()).toBe("Nezuko");
+    expect(wrapper.get("table").text()).toContain("60 menit");
+    expect(wrapper.get("table").text()).toContain("Rp 199.000");
+    expect(wrapper.get("table").text()).toContain("Rp 265.000");
+    expect(wrapper.get("table").text()).toContain("Rp 315.000");
+    expect(wrapper.get("details summary").text()).toContain("Dua terapis");
+    expect(wrapper.get("details summary").element.tagName).toBe("SUMMARY");
+    expect(wrapper.get("details").text()).toContain("Rp 250.000");
+    expect(wrapper.findAll("details")).toHaveLength(2);
+    expect(
+      wrapper
+        .get("[data-booking-auth-note]")
+        .element.compareDocumentPosition(
+          wrapper.get('a[href="/booking?service=nezuko"]').element,
+        ) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      wrapper
+        .get('a[href="/booking?service=nezuko"]')
+        .element.compareDocumentPosition(wrapper.get("details").element) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
     expect(wrapper.get("[data-starting-price]").text()).toContain(
       "Mulai dari Rp 199.000",
     );
@@ -297,4 +353,114 @@ describe("PackageConfigurator", () => {
     );
     expect(unavailable.text()).not.toContain("Infinity");
   });
+
+  it("uses the published name and omits absent benefits and choices", () => {
+    inertia.props.locale = "en";
+    const wrapper = mount(PackageMenuCard, {
+      props: {
+        servicePackage: {
+          ...nezuko,
+          slug: "royal-recovery",
+          nameEn: "Royal Recovery",
+          nameId: "Pemulihan Royal",
+          isVip: true,
+          benefitEn: null,
+          benefitId: null,
+          variants: [nezuko.variants[0]],
+          extensions: [],
+        },
+      },
+    });
+
+    expect(wrapper.get("h3").text()).toBe("Royal Recovery");
+    expect(wrapper.text()).not.toContain("circulation");
+    expect(wrapper.text()).not.toContain("Double Therapist");
+    expect(wrapper.text()).not.toContain("Extra 30");
+    expect(wrapper.text()).not.toContain("Extra 60");
+  });
+
+  it("shows only configured duration and mode specific extension prices", () => {
+    inertia.props.locale = "en";
+    const wrapper = mount(PackageMenuCard, {
+      props: {
+        servicePackage: {
+          ...nezuko,
+          variants: [
+            {
+              code: "double-90",
+              mode: "double_therapist",
+              duration: 90,
+              price: 310000,
+            },
+          ],
+          extensions: [
+            {
+              code: "double-extra-45",
+              mode: "double_therapist",
+              duration: 45,
+              price: 123000,
+            },
+          ],
+        },
+      },
+    });
+
+    expect(wrapper.text()).toContain("Double therapist");
+    expect(wrapper.text()).toContain("45 min");
+    expect(wrapper.text()).toContain("Rp 123.000");
+    expect(wrapper.text()).not.toContain("Extra 30");
+    expect(wrapper.text()).not.toContain("Extra 60");
+  });
+
+  it("does not advertise an extension without a bookable variant in its mode", () => {
+    inertia.props.locale = "en";
+    const wrapper = mount(PackageMenuCard, {
+      props: {
+        servicePackage: {
+          ...nezuko,
+          variants: [nezuko.variants[0]],
+          extensions: [nezuko.extensions[1]],
+        },
+      },
+    });
+
+    expect(wrapper.text()).not.toContain("Extra 30 Min");
+    expect(wrapper.text()).not.toContain("Rp 100.000");
+  });
+
+  it("uses a mode label in the primary comparison when a package has no regular mode", () => {
+    inertia.props.locale = "en";
+    const wrapper = mount(PackageMenuCard, {
+      props: {
+        servicePackage: {
+          ...nezuko,
+          variants: [nezuko.variants[3]],
+          extensions: [],
+        },
+      },
+    });
+
+    expect(wrapper.get("table").text()).toContain("Double therapist");
+    expect(wrapper.get("table").text()).toContain("Rp 250.000");
+    expect(wrapper.findAll("details")).toHaveLength(0);
+  });
+
+  it.each([
+    ["en", "Duration", "Price", "Double therapist", "Extension"],
+    ["id", "Durasi", "Harga", "Dua terapis", "Tambahan"],
+  ] as const)(
+    "localizes comparison and optional mode labels in %s",
+    (locale, duration, price, doubleTherapist, extension) => {
+      inertia.props.locale = locale;
+      const wrapper = mount(PackageMenuCard, {
+        props: { servicePackage: nezuko },
+      });
+
+      expect(wrapper.get("table thead").text()).toContain(duration);
+      expect(wrapper.get("table thead").text()).toContain(price);
+      expect(
+        wrapper.findAll("details summary").map((item) => item.text()),
+      ).toEqual([doubleTherapist, extension]);
+    },
+  );
 });
