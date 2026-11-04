@@ -18,6 +18,13 @@ export default defineConfigWithVueTs(
       "tailwind.config.js",
       "resources/js/components/ui/*",
       "src",
+      ".superpowers",
+      ".impeccable",
+      ".zcode",
+      "brag-output",
+      "outputs",
+      "tmp",
+      "inspect_rooms.cjs",
     ],
   },
   {
