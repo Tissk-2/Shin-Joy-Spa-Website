@@ -1,0 +1,9 @@
+src/
+public/
+storage/
+node_modules/
+vendor/
+resources/js/components/ui/
+package-lock.json
+.zcode/
+tmp/
