@@ -12,3 +12,15 @@ dist/
 /storage/*.key
 /storage/framework/testing.sqlite
 /.phpunit.result.cache
+
+# Local tooling and generated artifacts
+/public/storage
+/debug.log
+/tmp/
+/outputs/
+/brag-output/
+/.zcode/
+/.zcodeignore
+/.impeccable/
+/inspect_rooms.cjs
+/tests/e2e/screenshots/
