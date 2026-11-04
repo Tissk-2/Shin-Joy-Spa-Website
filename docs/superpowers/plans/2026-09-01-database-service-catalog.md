@@ -29,6 +29,7 @@
 ### Task 1: Persist and seed the service catalog
 
 **Files:**
+
 - Create: `database/migrations/2026_09_01_000000_create_service_categories_table.php`
 - Create: `database/migrations/2026_09_01_000001_create_services_table.php`
 - Create: `app/Models/ServiceCategory.php`
@@ -38,6 +39,7 @@
 - Test: `tests/Feature/ServiceCatalogPersistenceTest.php`
 
 **Interfaces:**
+
 - Produces: `ServiceCategory::services(): HasMany`, `Service::category(): BelongsTo`.
 - Produces: active scopes ordered by `display_order`, then `id`.
 - Produces: idempotent `ServiceCatalogSeeder` with the exact existing 4/12 catalog.
@@ -89,6 +91,7 @@ Commit only owned schema/model/seeder/test files with `feat: persist service cat
 ### Task 2: Serve safe catalog data through Inertia
 
 **Files:**
+
 - Create: `app/Support/ServiceCatalogPresenter.php`
 - Create: `app/Http/Controllers/HomeController.php`
 - Create: `app/Http/Controllers/ServiceController.php`
@@ -98,6 +101,7 @@ Commit only owned schema/model/seeder/test files with `feat: persist service cat
 - Create: `tests/Feature/ServiceCatalogPagesTest.php`
 
 **Interfaces:**
+
 - Consumes: Task 1 models and active scopes.
 - Produces: `ServiceCatalogPresenter::category(ServiceCategory): array` with `slug`, `nameId`, `nameEn`, `image`.
 - Produces: `ServiceCatalogPresenter::service(Service): array` with the existing public camelCase service shape.
@@ -136,6 +140,7 @@ Commit only owned controller/presenter/route/test files with `feat: serve servic
 ### Task 3: Consume the database catalog in Vue
 
 **Files:**
+
 - Modify: `resources/js/types/index.ts`
 - Modify: `resources/js/pages/Home.vue`
 - Modify: `resources/js/pages/ServiceDetail.vue`
@@ -147,6 +152,7 @@ Commit only owned controller/presenter/route/test files with `feat: serve servic
 - Create: `tests/frontend/serviceCatalog.test.ts`
 
 **Interfaces:**
+
 - Consumes: Task 2's exact Inertia prop shapes.
 - Produces: exported `ServiceCategoryData`, `ServiceData`, and page-prop interfaces.
 - Preserves: current filtering, bilingual text, gallery, related cards, pricing, query deep links, validation, and accessible labels.
@@ -184,11 +190,13 @@ Commit only owned Vue/type/test/catalog-module paths with `refactor: load servic
 ### Task 4: Verify the database-backed journey and production safeguards
 
 **Files:**
+
 - Modify: `tests/e2e/global-setup.ts`
 - Modify: `tests/e2e/auth.spec.ts` or create `tests/e2e/service-catalog.spec.ts`
 - Modify: `.env.example` only if a catalog-specific production setting is required by implementation; otherwise leave it unchanged.
 
 **Interfaces:**
+
 - Consumes: Tasks 1-3 complete service catalog journey.
 - Produces: seeded Playwright database and browser proof of service-to-booking preselection.
 

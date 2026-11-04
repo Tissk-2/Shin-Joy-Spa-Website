@@ -77,6 +77,7 @@
 ### Task 1: Add the normalized package-offering domain
 
 **Files:**
+
 - Create: `app/Enums/TreatmentMode.php`
 - Create: `app/Models/ServiceVariant.php`
 - Create: `app/Models/ServiceExtension.php`
@@ -87,6 +88,7 @@
 - Test: `tests/Feature/ServiceCatalogPersistenceTest.php`
 
 **Interfaces:**
+
 - Produces: `TreatmentMode::Regular`, `TreatmentMode::DoubleTherapist`.
 - Produces: `Service::variants(): HasMany` and `Service::extensions(): HasMany`.
 - Produces: active ordered scopes on both child models.
@@ -233,10 +235,12 @@ git commit -m "feat: add package offering domain"
 ### Task 2: Seed the exact official menu idempotently
 
 **Files:**
+
 - Modify: `database/seeders/ServiceCatalogSeeder.php`
 - Test: `tests/Feature/ServiceCatalogPersistenceTest.php`
 
 **Interfaces:**
+
 - Consumes: `TreatmentMode`, `ServiceVariant`, and `ServiceExtension` from Task 1.
 - Produces: active `nezuko` and `nezuko-vip` packages with exact stable child codes.
 - Produces: eight active variants and four active extensions.
@@ -350,6 +354,7 @@ git commit -m "feat: seed official Nezuko menu"
 ### Task 3: Expose safe package-shaped Inertia contracts
 
 **Files:**
+
 - Modify: `app/Support/ServiceCatalogPresenter.php`
 - Modify: `app/Http/Controllers/HomeController.php`
 - Modify: `app/Http/Controllers/ServiceController.php`
@@ -359,6 +364,7 @@ git commit -m "feat: seed official Nezuko menu"
 - Modify: `tests/Feature/InertiaSharedDataTest.php`
 
 **Interfaces:**
+
 - Produces TS `TreatmentMode`, `PackageVariantData`, `PackageExtensionData`, `PackageData`, and `PackageLinkData`.
 - Produces `ServiceCatalogPresenter::package(Service): array` and `ServiceCatalogPresenter::link(Service): array`.
 - Home props: `{ packages: PackageData[] }`.
@@ -461,6 +467,7 @@ git commit -m "refactor: expose package catalog contracts"
 ### Task 4: Protect booking and preserve only safe configured intent
 
 **Files:**
+
 - Create: `app/Support/BookingSelectionResolver.php`
 - Create: `app/Support/SafeIntendedPath.php`
 - Modify: `app/Http/Controllers/BookingController.php`
@@ -475,6 +482,7 @@ git commit -m "refactor: expose package catalog contracts"
 - Modify: `tests/Feature/Auth/EmailVerificationTest.php`
 
 **Interfaces:**
+
 - Produces `BookingSelectionResolver::resolve(Request, Collection): array{service:string,mode:string,duration:int|null,extension:string}`.
 - Produces `SafeIntendedPath::peek(Request): ?string`, `pull(Request): ?string`, and `retain(Request): void`.
 - Booking props: `{ packages: PackageData[], selection: { service: string, mode: string, duration: int|null, extension: string } }`.
@@ -549,6 +557,7 @@ git commit -m "feat: protect configured booking handoff"
 ### Task 5: Build immutable frontend selection controls
 
 **Files:**
+
 - Create: `resources/js/lib/serviceSelection.ts`
 - Create: `resources/js/lib/media.ts`
 - Create: `resources/js/components/PackageConfigurator.vue`
@@ -557,6 +566,7 @@ git commit -m "feat: protect configured booking handoff"
 - Create: `tests/frontend/officialMenuComponents.test.ts`
 
 **Interfaces:**
+
 - Produces `ServiceSelection` with `{ service, mode, duration, extension }`.
 - Produces `emptySelection(service)`, `normalizeSelection(package, candidate)`, `selectionTotal(package, selection)`, and `bookingUrl(selection)`.
 - Produces `applyImageFallback(event, fallback = "/img/massage.jpg")` without exposing filesystem paths or looping.
@@ -580,7 +590,9 @@ expect(selectionTotal(nezuko, selected)).toEqual({
   duration: 150,
   price: 340000,
 });
-expect(normalizeSelection(nezuko, { ...selected, mode: "double_therapist" })).toEqual({
+expect(
+  normalizeSelection(nezuko, { ...selected, mode: "double_therapist" }),
+).toEqual({
   service: "nezuko",
   mode: "double_therapist",
   duration: null,
@@ -624,13 +636,15 @@ export function applyImageFallback(
 Mount `PackageConfigurator` with a `v-model` host and verify role-based behavior:
 
 ```ts
-expect(wrapper.get('[role="radiogroup"][aria-label="Treatment type"]')).toBeTruthy();
+expect(
+  wrapper.get('[role="radiogroup"][aria-label="Treatment type"]'),
+).toBeTruthy();
 await wrapper.get('button[data-mode="regular"]').trigger("click");
 await wrapper.get('button[data-duration="90"]').trigger("click");
 await wrapper.get('input[value="nezuko-regular-extra-60"]').setValue(true);
 expect(wrapper.text()).toContain("Rp 340.000");
 expect(wrapper.text()).toContain("150 min");
-expect(wrapper.get('a[data-booking-cta]').attributes("href")).toBe(
+expect(wrapper.get("a[data-booking-cta]").attributes("href")).toBe(
   "/booking?service=nezuko&mode=regular&duration=90&extension=nezuko-regular-extra-60",
 );
 ```
@@ -659,6 +673,7 @@ git commit -m "feat: add package selection controls"
 ### Task 6: Redesign the homepage, navigation, copy, and responsive menu styling
 
 **Files:**
+
 - Modify: `resources/js/pages/Home.vue`
 - Modify: `resources/js/layouts/MainLayout.vue`
 - Modify: `resources/js/data/translations.ts`
@@ -670,6 +685,7 @@ git commit -m "feat: add package selection controls"
 - Modify: `tests/frontend/translation-parity.test.mjs`
 
 **Interfaces:**
+
 - Consumes: `PackageData`, `PackageLinkData`, and `PackageMenuCard`.
 - Home props become `{ packages: PackageData[] }`.
 - Canonical homepage menu anchor becomes `#menu`.
@@ -746,11 +762,13 @@ git commit -m "feat: redesign homepage for official menu"
 ### Task 7: Redesign both package detail pages
 
 **Files:**
+
 - Modify: `resources/js/pages/ServiceDetail.vue`
 - Modify: `tests/frontend/serviceCatalog.test.ts`
 - Modify: `tests/Feature/ServiceCatalogPagesTest.php`
 
 **Interfaces:**
+
 - Consumes detail props `{ service: PackageData, comparison: PackageLinkData|null }`.
 - Consumes `PackageConfigurator` and `emptySelection(service.slug)`.
 - Produces configured booking URLs using `service`, `mode`, `duration`, and optional `extension`.
@@ -801,12 +819,14 @@ git commit -m "feat: redesign package detail pages"
 ### Task 8: Redesign the authenticated booking configurator without fake persistence
 
 **Files:**
+
 - Modify: `resources/js/lib/booking.ts`
 - Modify: `resources/js/pages/Booking.vue`
 - Modify: `tests/frontend/bookingValidation.test.ts`
 - Modify: `tests/frontend/serviceCatalog.test.ts`
 
 **Interfaces:**
+
 - Consumes props `{ packages: PackageData[], selection: ServiceSelection }`.
 - `BookingFormInput` extends selection with `name`, `phone`, `date`, and `time`.
 - `validateBooking(form, packages, today)` returns field errors for customer, configuration, date, and time.
@@ -854,6 +874,7 @@ git commit -m "feat: add authenticated package booking review"
 ### Task 9: Replace obsolete catalog coverage and run full production gates
 
 **Files:**
+
 - Create: `tests/e2e/helpers/auth.ts`
 - Modify: `tests/e2e/auth.spec.ts`
 - Modify: `tests/e2e/service-catalog.spec.ts`
@@ -862,6 +883,7 @@ git commit -m "feat: add authenticated package booking review"
 - Modify only if referenced by an active Laravel test: obsolete catalog assertions under `tests/Feature` and `tests/frontend`
 
 **Interfaces:**
+
 - E2E helpers export `registerCustomer(page, email, options?: { navigate?: boolean })`, `testingLink(page, endpoint, email)`, `verifyCustomer(page, email, expectedUrl?: string|RegExp)`, and `login(page, email, password)`.
 - E2E menu flow uses role/name selectors and exact public prices, not class names.
 
@@ -874,7 +896,9 @@ Move the existing Playwright registration, testing-link, verification, and login
 Cover:
 
 ```ts
-test("Nezuko regular 90 plus extension survives verified login", async ({ page }) => {
+test("Nezuko regular 90 plus extension survives verified login", async ({
+  page,
+}) => {
   await page.goto("/");
   const nezuko = page.getByRole("article", { name: "Nezuko" });
   await nezuko.getByRole("button", { name: /regular|reguler/i }).click();
@@ -883,7 +907,9 @@ test("Nezuko regular 90 plus extension survives verified login", async ({ page }
   await nezuko.getByRole("link", { name: /book|pesan/i }).click();
   await expect(page).toHaveURL(/\/login$/);
 
-  await page.getByRole("link", { name: /create an account|buat akun/i }).click();
+  await page
+    .getByRole("link", { name: /create an account|buat akun/i })
+    .click();
   await registerCustomer(page, "menu@example.com", { navigate: false });
   await verifyCustomer(
     page,
@@ -891,7 +917,9 @@ test("Nezuko regular 90 plus extension survives verified login", async ({ page }
     /\/booking\?service=nezuko&mode=regular&duration=90/,
   );
 
-  await expect(page).toHaveURL(/\/booking\?service=nezuko&mode=regular&duration=90/);
+  await expect(page).toHaveURL(
+    /\/booking\?service=nezuko&mode=regular&duration=90/,
+  );
   await expect(page.getByText("Rp 340.000", { exact: true })).toBeVisible();
 });
 ```

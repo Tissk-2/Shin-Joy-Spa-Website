@@ -49,10 +49,12 @@
 ### Task 1: Browser-local account and session domain
 
 **Files:**
+
 - Create: `src/auth.js`
 - Create: `tests/frontend/auth.test.mjs`
 
 **Interfaces:**
+
 - Consumes: `Storage`-compatible objects with `getItem`, `setItem`, and `removeItem`; Web Crypto `subtle` and `getRandomValues`.
 - Produces: `AUTH_STORAGE_KEY`, `normalizeEmail(email)`, `validateRegistration(input)`, `validateLogin(input)`, `createAuthStore(options)`, and `sanitizeRedirect(value, routes)`.
 - `createAuthStore(options)` returns async `register(input)`, async `login(credentials)`, synchronous `getCurrentUser()`, and synchronous `logout()` methods.
@@ -63,22 +65,36 @@
 Add tests that import `normalizeEmail`, `validateRegistration`, and `validateLogin`, then assert:
 
 ```js
-assert.equal(normalizeEmail('  AYU@Example.COM '), 'ayu@example.com');
-assert.deepEqual(validateRegistration({
-  name: 'A', email: 'bad', phone: '123', password: 'short', confirmPassword: 'different',
-}), {
-  name: 'auth.err.name',
-  email: 'auth.err.email',
-  phone: 'auth.err.phone',
-  password: 'auth.err.password',
-  confirmPassword: 'auth.err.confirm',
-});
-assert.deepEqual(validateRegistration({
-  name: 'Ayu Lestari', email: 'ayu@example.com', phone: '+62 812 3456 7890',
-  password: 'calmspa9', confirmPassword: 'calmspa9',
-}), {});
-assert.deepEqual(validateLogin({ email: '', password: '' }), {
-  email: 'auth.err.email', password: 'auth.err.passwordRequired',
+assert.equal(normalizeEmail("  AYU@Example.COM "), "ayu@example.com");
+assert.deepEqual(
+  validateRegistration({
+    name: "A",
+    email: "bad",
+    phone: "123",
+    password: "short",
+    confirmPassword: "different",
+  }),
+  {
+    name: "auth.err.name",
+    email: "auth.err.email",
+    phone: "auth.err.phone",
+    password: "auth.err.password",
+    confirmPassword: "auth.err.confirm",
+  },
+);
+assert.deepEqual(
+  validateRegistration({
+    name: "Ayu Lestari",
+    email: "ayu@example.com",
+    phone: "+62 812 3456 7890",
+    password: "calmspa9",
+    confirmPassword: "calmspa9",
+  }),
+  {},
+);
+assert.deepEqual(validateLogin({ email: "", password: "" }), {
+  email: "auth.err.email",
+  password: "auth.err.passwordRequired",
 });
 ```
 
@@ -95,11 +111,14 @@ Implement schema-free boundary validation with no object mutation. `sanitizeRedi
 Add tests such as:
 
 ```js
-const known = ['/', '/services', '/booking', '/about', '/profile'];
-assert.equal(sanitizeRedirect('/booking?service=facial', known), '/booking?service=facial');
-assert.equal(sanitizeRedirect('//evil.example', known), '/profile');
-assert.equal(sanitizeRedirect('https://evil.example', known), '/profile');
-assert.equal(sanitizeRedirect('/missing', known), '/profile');
+const known = ["/", "/services", "/booking", "/about", "/profile"];
+assert.equal(
+  sanitizeRedirect("/booking?service=facial", known),
+  "/booking?service=facial",
+);
+assert.equal(sanitizeRedirect("//evil.example", known), "/profile");
+assert.equal(sanitizeRedirect("https://evil.example", known), "/profile");
+assert.equal(sanitizeRedirect("/missing", known), "/profile");
 ```
 
 - [ ] **Step 4: Write failing storage and cryptography tests with injected fakes**
@@ -110,15 +129,25 @@ Create an in-memory `Storage` fake and inject deterministic `now`, `randomBytes`
 const registered = await store.register(validRegistration);
 assert.equal(registered.ok, true);
 assert.deepEqual(store.getCurrentUser(), registered.user);
-assert.equal(JSON.stringify(storage.dump()).includes('calmspa9'), false);
+assert.equal(JSON.stringify(storage.dump()).includes("calmspa9"), false);
 
-const duplicate = await store.register({ ...validRegistration, email: ' AYU@EXAMPLE.COM ' });
-assert.deepEqual(duplicate, { ok: false, code: 'duplicate-email' });
+const duplicate = await store.register({
+  ...validRegistration,
+  email: " AYU@EXAMPLE.COM ",
+});
+assert.deepEqual(duplicate, { ok: false, code: "duplicate-email" });
 
 store.logout();
 assert.equal(store.getCurrentUser(), null);
-assert.equal((await store.login({ email: 'ayu@example.com', password: 'wrongpass9' })).code, 'invalid-credentials');
-assert.equal((await store.login({ email: 'ayu@example.com', password: 'calmspa9' })).ok, true);
+assert.equal(
+  (await store.login({ email: "ayu@example.com", password: "wrongpass9" }))
+    .code,
+  "invalid-credentials",
+);
+assert.equal(
+  (await store.login({ email: "ayu@example.com", password: "calmspa9" })).ok,
+  true,
+);
 ```
 
 Also test malformed JSON, structurally invalid records, a session pointing at a missing user, storage reads/writes that throw, and registration input immutability.
@@ -157,6 +186,7 @@ Expected: all auth domain tests PASS. Review `src/auth.js` to confirm no plain-t
 ### Task 2: Shared session state and protected routing
 
 **Files:**
+
 - Create: `src/useAuth.js`
 - Modify: `src/routes.js`
 - Modify: `src/router.js`
@@ -164,6 +194,7 @@ Expected: all auth domain tests PASS. Review `src/auth.js` to confirm no plain-t
 - Create: `tests/frontend/auth-integration.test.mjs`
 
 **Interfaces:**
+
 - Consumes: `createAuthStore()` and `sanitizeRedirect()` from `src/auth.js`.
 - Produces: readonly `currentUser`, computed `isAuthenticated`, `initializeAuth()`, async `registerUser(input)`, async `loginUser(input)`, and `logoutUser()` from `src/useAuth.js`.
 - Produces route names `login`, `register`, and `profile`; Profile has `meta.requiresAuth: true`.
@@ -174,9 +205,16 @@ Update the expected route paths to:
 
 ```js
 [
-  '/', '/services', '/services/:slug', '/booking', '/about',
-  '/login', '/register', '/profile', '/:pathMatch(.*)*',
-]
+  "/",
+  "/services",
+  "/services/:slug",
+  "/booking",
+  "/about",
+  "/login",
+  "/register",
+  "/profile",
+  "/:pathMatch(.*)*",
+];
 ```
 
 In `auth-integration.test.mjs`, read source files and assert the Profile record has `meta.requiresAuth`, auth routes lazy-load their exact page files, `router.beforeEach` exists, protected routes redirect to Login with `redirect: to.fullPath`, and authenticated visits to Login/Register redirect to Profile.
@@ -212,6 +250,7 @@ Expected: all selected tests PASS.
 ### Task 3: Bilingual Login and Register pages
 
 **Files:**
+
 - Create: `src/Pages/Login.vue`
 - Create: `src/Pages/Register.vue`
 - Modify: `src/Data/translations.js`
@@ -219,6 +258,7 @@ Expected: all selected tests PASS.
 - Modify: `tests/frontend/auth-integration.test.mjs`
 
 **Interfaces:**
+
 - Consumes: `loginUser`, `registerUser`, and `isAuthenticated` from `src/useAuth.js`; `sanitizeRedirect` from `src/auth.js`; `language`, `setLanguage`, and `tr` from `src/useLanguage.js`.
 - Produces: accessible forms with field-level validation, submit-level errors, password visibility controls, and router navigation.
 
@@ -267,6 +307,7 @@ Expected: tests PASS and Vite exits 0.
 ### Task 4: Signed-in booking persistence and profile history
 
 **Files:**
+
 - Create: `src/bookingHistory.js`
 - Create: `tests/frontend/booking-history.test.mjs`
 - Modify: `src/useAuth.js`
@@ -277,6 +318,7 @@ Expected: tests PASS and Vite exits 0.
 - Modify: `tests/frontend/auth-integration.test.mjs`
 
 **Interfaces:**
+
 - Consumes: current public user from `src/useAuth.js`, selected service data, and `Storage`-compatible objects.
 - Produces: `BOOKING_STORAGE_KEY`, `createBookingStore(options)`, and `partitionBookings(bookings, now)`.
 - `createBookingStore(options)` returns `addForUser(user, form, service)` and `listForUser(userId)`.
@@ -288,8 +330,14 @@ At a fixed `2026-08-13T10:00:00+07:00`, assert:
 
 ```js
 const { upcoming, past } = partitionBookings(bookings, fixedNow);
-assert.deepEqual(upcoming.map(({ id }) => id), ['soon', 'later']);
-assert.deepEqual(past.map(({ id }) => id), ['recent-past', 'old-past']);
+assert.deepEqual(
+  upcoming.map(({ id }) => id),
+  ["soon", "later"],
+);
+assert.deepEqual(
+  past.map(({ id }) => id),
+  ["recent-past", "old-past"],
+);
 ```
 
 Test that `addForUser` takes ownership from `user.id`, stores a snapshot of service names/duration/price and reservation contact data, does not mutate `user`, `form`, or `service`, filters other users, returns fresh arrays, handles corrupt JSON, and reports storage write failure.
@@ -345,12 +393,14 @@ Expected: all selected tests PASS.
 ### Task 5: Header account states, review, and complete verification
 
 **Files:**
+
 - Modify: `src/Layouts/MainLayout.vue`
 - Modify: `src/css/legacy.css`
 - Modify: `tests/frontend/auth-integration.test.mjs`
 - Verify: all changed source and tests
 
 **Interfaces:**
+
 - Consumes: `currentUser`, `isAuthenticated`, and `logoutUser` from `src/useAuth.js`.
 - Produces: signed-out Login/Register controls and an accessible signed-in Profile/Logout account menu on desktop and mobile.
 

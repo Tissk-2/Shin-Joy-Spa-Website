@@ -99,11 +99,11 @@ The package editor is an aggregate boundary. One request reconciles package fiel
 
 Add nullable `published_at` timestamps to categories, services, variants, and extensions. Continue using `is_active` as the current visibility flag.
 
-| State | `published_at` | `is_active` | Publicly visible |
-|---|---:|---:|---:|
-| Draft | `null` | `false` | No |
-| Published | non-null | `true` | Yes, when its parents are also published |
-| Archived | non-null | `false` | No |
+| State     | `published_at` | `is_active` |                         Publicly visible |
+| --------- | -------------: | ----------: | ---------------------------------------: |
+| Draft     |         `null` |     `false` |                                       No |
+| Published |       non-null |      `true` | Yes, when its parents are also published |
+| Archived  |       non-null |     `false` |                                       No |
 
 The first publish sets `published_at`. Later archives and restores never clear or replace it.
 
@@ -342,23 +342,23 @@ Service detail responses keep the existing package contract. Related packages co
 
 All routes live under `/admin`, use the existing `auth`, `verified`, and `admin` middleware, and require policy authorization.
 
-| Method | Path | Purpose |
-|---|---|---|
-| GET | `/admin/catalog` | Catalog index |
-| POST | `/admin/catalog/categories` | Create category draft |
-| PATCH | `/admin/catalog/categories/{category}` | Update category |
-| POST | `/admin/catalog/categories/{category}/publish` | First publish |
-| POST | `/admin/catalog/categories/{category}/archive` | Archive |
-| POST | `/admin/catalog/categories/{category}/restore` | Restore |
-| DELETE | `/admin/catalog/categories/{category}` | Delete eligible draft |
-| GET | `/admin/catalog/packages/create` | Package create page |
-| POST | `/admin/catalog/packages` | Create package draft aggregate |
-| GET | `/admin/catalog/packages/{service}/edit` | Package editor |
-| PATCH | `/admin/catalog/packages/{service}` | Update package aggregate |
-| POST | `/admin/catalog/packages/{service}/publish` | First publish |
-| POST | `/admin/catalog/packages/{service}/archive` | Archive |
-| POST | `/admin/catalog/packages/{service}/restore` | Restore |
-| DELETE | `/admin/catalog/packages/{service}` | Delete eligible draft |
+| Method | Path                                           | Purpose                        |
+| ------ | ---------------------------------------------- | ------------------------------ |
+| GET    | `/admin/catalog`                               | Catalog index                  |
+| POST   | `/admin/catalog/categories`                    | Create category draft          |
+| PATCH  | `/admin/catalog/categories/{category}`         | Update category                |
+| POST   | `/admin/catalog/categories/{category}/publish` | First publish                  |
+| POST   | `/admin/catalog/categories/{category}/archive` | Archive                        |
+| POST   | `/admin/catalog/categories/{category}/restore` | Restore                        |
+| DELETE | `/admin/catalog/categories/{category}`         | Delete eligible draft          |
+| GET    | `/admin/catalog/packages/create`               | Package create page            |
+| POST   | `/admin/catalog/packages`                      | Create package draft aggregate |
+| GET    | `/admin/catalog/packages/{service}/edit`       | Package editor                 |
+| PATCH  | `/admin/catalog/packages/{service}`            | Update package aggregate       |
+| POST   | `/admin/catalog/packages/{service}/publish`    | First publish                  |
+| POST   | `/admin/catalog/packages/{service}/archive`    | Archive                        |
+| POST   | `/admin/catalog/packages/{service}/restore`    | Restore                        |
+| DELETE | `/admin/catalog/packages/{service}`            | Delete eligible draft          |
 
 Named routes use an `admin.catalog.*` namespace. Lifecycle changes use POST endpoints to avoid overloading regular field updates with hidden state transitions.
 

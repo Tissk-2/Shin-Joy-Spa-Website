@@ -115,16 +115,16 @@ An extension may be added only through a validated identifier. Laravel treats qu
 
 ### Exact prices
 
-| Package | Mode | Base duration | Base price | Valid extension |
-|---|---|---:|---:|---:|
-| Nezuko | Regular | 60 minutes | Rp199.000 | +60 minutes, Rp75.000 |
-| Nezuko | Regular | 90 minutes | Rp265.000 | +60 minutes, Rp75.000 |
-| Nezuko | Regular | 120 minutes | Rp315.000 | +60 minutes, Rp75.000 |
-| Nezuko | Double therapist | 60 minutes | Rp250.000 | +30 minutes, Rp100.000 |
-| Nezuko VIP | Regular | 60 minutes | Rp299.000 | +60 minutes, Rp100.000 |
-| Nezuko VIP | Regular | 90 minutes | Rp349.000 | +60 minutes, Rp100.000 |
-| Nezuko VIP | Regular | 120 minutes | Rp499.000 | +60 minutes, Rp100.000 |
-| Nezuko VIP | Double therapist | 60 minutes | Rp350.000 | +30 minutes, Rp100.000 |
+| Package    | Mode             | Base duration | Base price |        Valid extension |
+| ---------- | ---------------- | ------------: | ---------: | ---------------------: |
+| Nezuko     | Regular          |    60 minutes |  Rp199.000 |  +60 minutes, Rp75.000 |
+| Nezuko     | Regular          |    90 minutes |  Rp265.000 |  +60 minutes, Rp75.000 |
+| Nezuko     | Regular          |   120 minutes |  Rp315.000 |  +60 minutes, Rp75.000 |
+| Nezuko     | Double therapist |    60 minutes |  Rp250.000 | +30 minutes, Rp100.000 |
+| Nezuko VIP | Regular          |    60 minutes |  Rp299.000 | +60 minutes, Rp100.000 |
+| Nezuko VIP | Regular          |    90 minutes |  Rp349.000 | +60 minutes, Rp100.000 |
+| Nezuko VIP | Regular          |   120 minutes |  Rp499.000 | +60 minutes, Rp100.000 |
+| Nezuko VIP | Double therapist |    60 minutes |  Rp350.000 | +30 minutes, Rp100.000 |
 
 ## Visual System
 

@@ -1000,7 +1000,7 @@ git commit -m "feat: add the admin category editor"
 Mount the page and exercise bilingual fields, category selection, VIP state, cover, gallery, add/remove option rows, enum select, numeric inputs, published code lock, six-image cap, errors, stale version, processing state, lifecycle actions, and locale switch.
 
 ```ts
-await wrapper.get('[data-add-variant]').trigger("click");
+await wrapper.get("[data-add-variant]").trigger("click");
 await wrapper.get('[name="variants.0.code"]').setValue("balinese-regular-60");
 await wrapper.get('[name="variants.0.mode"]').setValue("regular");
 await wrapper.get('[name="variants.0.durationMinutes"]').setValue("60");
@@ -1193,7 +1193,9 @@ The test must:
 ```ts
 await page.goto("/admin/catalog/packages/create");
 await page.getByLabel(/slug/i).fill("balinese-signature");
-await page.getByLabel(/nama indonesia|indonesian name/i).fill("Balinese Signature");
+await page
+  .getByLabel(/nama indonesia|indonesian name/i)
+  .fill("Balinese Signature");
 await page.getByLabel(/nama inggris|english name/i).fill("Balinese Signature");
 await page.getByLabel(/cover/i).setInputFiles(coverFixture);
 await page.getByRole("button", { name: /save draft|simpan draf/i }).click();

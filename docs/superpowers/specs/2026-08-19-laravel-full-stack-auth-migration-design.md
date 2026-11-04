@@ -127,16 +127,16 @@ The old local authentication implementation is retired only after equivalent ser
 
 The initial `users` table contains:
 
-| Column | Purpose |
-| --- | --- |
-| `id` | Primary key |
-| `name` | Customer display and booking name |
-| `email` | Normalized, unique login identifier |
-| `phone` | Customer contact number |
-| `email_verified_at` | Nullable verification timestamp |
-| `password` | Laravel password hash |
-| `remember_token` | Laravel remember-me token |
-| `created_at`, `updated_at` | Audit timestamps |
+| Column                     | Purpose                             |
+| -------------------------- | ----------------------------------- |
+| `id`                       | Primary key                         |
+| `name`                     | Customer display and booking name   |
+| `email`                    | Normalized, unique login identifier |
+| `phone`                    | Customer contact number             |
+| `email_verified_at`        | Nullable verification timestamp     |
+| `password`                 | Laravel password hash               |
+| `remember_token`           | Laravel remember-me token           |
+| `created_at`, `updated_at` | Audit timestamps                    |
 
 Laravel's password-reset token storage and session storage use framework-supported migrations. Application code never stores a separate password salt because Laravel's configured password hasher includes the necessary salt and algorithm metadata in the hash.
 
