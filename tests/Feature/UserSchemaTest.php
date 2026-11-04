@@ -15,9 +15,9 @@ class UserSchemaTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_user_roles_have_only_customer_and_admin_backed_values(): void
+    public function test_user_roles_have_customer_admin_and_owner_backed_values(): void
     {
-        $this->assertSame(['customer', 'admin'], array_column(UserRole::cases(), 'value'));
+        $this->assertSame(['customer', 'admin', 'owner'], array_column(UserRole::cases(), 'value'));
     }
 
     public function test_database_defaults_new_users_to_customer_without_factory_role_values(): void
@@ -54,17 +54,18 @@ class UserSchemaTest extends TestCase
 
         $this->expectException(QueryException::class);
 
-        DB::table('users')->where('id', $user->id)->update(['role' => 'owner']);
+        DB::table('users')->where('id', $user->id)->update(['role' => 'superuser']);
     }
 
     public function test_mass_assignment_cannot_grant_or_revoke_a_role(): void
     {
-        foreach (['customer' => 'admin', 'admin' => 'customer'] as $initial => $requested) {
+        foreach ([['customer', 'admin'], ['customer', 'owner'], ['admin', 'customer'], ['owner', 'customer']] as [$initial, $requested]) {
             $user = User::factory()->create(['role' => $initial]);
-            $user->fill(['name' => 'Updated Name', 'role' => $requested])->save();
+            $user->fill(['name' => 'Updated Name', 'role' => $requested, 'can_manage_bookings' => true])->save();
 
             $this->assertSame($initial, $user->refresh()->role->value);
             $this->assertSame('Updated Name', $user->name);
+            $this->assertFalse($user->can_manage_bookings);
         }
 
         $this->assertSame(['name', 'email', 'phone', 'password'], (new User)->getFillable());

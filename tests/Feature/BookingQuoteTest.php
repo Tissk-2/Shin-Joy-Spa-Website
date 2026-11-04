@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Actions\Catalog\AttestPackagePricing;
+use App\Enums\PricingBasis;
 use App\Enums\TreatmentMode;
 use App\Http\Requests\StoreBookingRequest;
 use App\Models\Service;
@@ -64,6 +66,9 @@ class BookingQuoteTest extends TestCase
             'extension_price_idr',
             'total_duration_minutes',
             'total_price_idr',
+            'pricing_basis',
+            'min_guests',
+            'max_guests',
         ], array_keys($quote->bookingAttributes()));
         $this->assertSame([
             'customer_name' => 'Ayu Lestari',
@@ -87,11 +92,106 @@ class BookingQuoteTest extends TestCase
             'extension_price_idr' => 75000,
             'total_duration_minutes' => 150,
             'total_price_idr' => 340000,
+            'pricing_basis' => null,
+            'min_guests' => null,
+            'max_guests' => null,
         ], collect($quote->bookingAttributes())->except([
             'service_id',
             'service_variant_id',
             'service_extension_id',
         ])->all());
+    }
+
+    // Production break caught: a verified per-person package must multiply the whole base+extension unit by guests.
+    public function test_verified_per_person_quote_multiplies_the_unit_and_snapshots_coverage(): void
+    {
+        $this->seed(ServiceCatalogSeeder::class);
+        $service = Service::query()->where('slug', 'nezuko')->sole();
+        $this->attest($service, PricingBasis::PerPerson, 1, 4);
+        $user = User::factory()->create();
+
+        $quote = app(BookingQuoteResolver::class)->resolve($user, StoreBookingRequest::validatedBookingDataFrom(
+            $this->validPayload(['guests' => 2]),
+        ));
+        $attributes = $quote->bookingAttributes();
+
+        $this->assertSame(680000, $attributes['total_price_idr']);
+        $this->assertSame(340000, $attributes['base_price_idr'] + $attributes['extension_price_idr']);
+        $this->assertSame(150, $attributes['total_duration_minutes']);
+        $this->assertSame('per_person', $attributes['pricing_basis']);
+        $this->assertSame(1, $attributes['min_guests']);
+        $this->assertSame(4, $attributes['max_guests']);
+    }
+
+    // Production break caught: a verified per-booking package must keep one amount and enforce its guest coverage.
+    public function test_verified_per_booking_quote_keeps_one_total_and_enforces_coverage(): void
+    {
+        $this->seed(ServiceCatalogSeeder::class);
+        $service = Service::query()->where('slug', 'nezuko')->sole();
+        $this->attest($service, PricingBasis::PerBooking, 2, 4);
+        $user = User::factory()->create();
+
+        $quote = app(BookingQuoteResolver::class)->resolve($user, StoreBookingRequest::validatedBookingDataFrom(
+            $this->validPayload(['guests' => 2]),
+        ));
+        $attributes = $quote->bookingAttributes();
+
+        $this->assertSame(340000, $attributes['total_price_idr']);
+        $this->assertSame('per_booking', $attributes['pricing_basis']);
+        $this->assertSame(2, $attributes['min_guests']);
+        $this->assertSame(4, $attributes['max_guests']);
+
+        $this->assertQuoteFails(['guests' => 1], $user, 'guests');
+        $this->assertQuoteFails(['guests' => 5], $user, 'guests');
+    }
+
+    // Production break caught: scheduling activation must not quote packages whose pricing was never attested.
+    public function test_unverified_pricing_is_rejected_when_scheduling_is_enabled_but_stays_legacy_off(): void
+    {
+        $this->seed(ServiceCatalogSeeder::class);
+        $user = User::factory()->create();
+        $data = StoreBookingRequest::validatedBookingDataFrom($this->validPayload(['guests' => 3]));
+
+        config(['booking.scheduling_enabled' => false]);
+        $this->assertSame(340000, app(BookingQuoteResolver::class)->resolve($user, $data)->bookingAttributes()['total_price_idr']);
+
+        config(['booking.scheduling_enabled' => true]);
+        $this->assertQuoteFails(['guests' => 3], $user, 'service');
+    }
+
+    // Production break caught: the contact resolver must use the same trusted catalog calculation without a session user.
+    public function test_resolve_for_contact_uses_the_supplied_email_and_trusted_pricing(): void
+    {
+        $this->seed(ServiceCatalogSeeder::class);
+        $service = Service::query()->where('slug', 'nezuko')->sole();
+        $this->attest($service, PricingBasis::PerPerson, 1, 4);
+
+        $quote = app(BookingQuoteResolver::class)->resolveForContact(
+            StoreBookingRequest::validatedBookingDataFrom($this->validPayload(['guests' => 2])),
+            'MANUAL.GUEST@Example.TEST',
+        );
+        $attributes = $quote->bookingAttributes();
+
+        $this->assertSame('manual.guest@example.test', $attributes['customer_email']);
+        $this->assertSame(680000, $attributes['total_price_idr']);
+        $this->assertSame('per_person', $attributes['pricing_basis']);
+    }
+
+    public function test_resolve_for_contact_preserves_an_absent_email_without_changing_trusted_pricing(): void
+    {
+        $this->seed(ServiceCatalogSeeder::class);
+        $service = Service::query()->where('slug', 'nezuko')->sole();
+        $this->attest($service, PricingBasis::PerPerson, 1, 4);
+        $data = StoreBookingRequest::validatedBookingDataFrom($this->validPayload(['guests' => 2]));
+        $original = $data;
+
+        $attributes = app(BookingQuoteResolver::class)->resolveForContact($data, null)->bookingAttributes();
+
+        $this->assertArrayHasKey('customer_email', $attributes);
+        $this->assertNull($attributes['customer_email']);
+        $this->assertSame(680000, $attributes['total_price_idr']);
+        $this->assertSame('per_person', $attributes['pricing_basis']);
+        $this->assertSame($original, $data);
     }
 
     // Production break caught: hostile snapshot fields from the browser must never override catalog or account truth.
@@ -142,11 +242,11 @@ class BookingQuoteTest extends TestCase
         Service::query()->where('slug', 'nezuko')->update(['is_active' => false]);
         $this->assertQuoteFails(['service' => 'nezuko'], $user, 'service');
 
-        $this->seed(ServiceCatalogSeeder::class);
+        Service::query()->where('slug', 'nezuko')->update(['is_active' => true]);
         ServiceCategory::query()->where('slug', 'package')->update(['is_active' => false]);
         $this->assertQuoteFails(['service' => 'nezuko'], $user, 'service');
 
-        $this->seed(ServiceCatalogSeeder::class);
+        ServiceCategory::query()->where('slug', 'package')->update(['is_active' => true]);
         $privateCategory = ServiceCategory::query()->create([
             'slug' => 'private',
             'name_id' => 'Private',
@@ -186,7 +286,6 @@ class BookingQuoteTest extends TestCase
         ]);
         $this->assertQuoteFails(['service' => 'private-treatment'], $user, 'service');
 
-        $this->seed(ServiceCatalogSeeder::class);
         ServiceVariant::query()->where('code', 'nezuko-regular-90')->update(['is_active' => false]);
         $this->assertQuoteFails([], $user, 'duration');
 
@@ -212,7 +311,7 @@ class BookingQuoteTest extends TestCase
         ]);
         $this->assertQuoteFails([], $user, 'duration');
 
-        $this->seed(ServiceCatalogSeeder::class);
+        ServiceVariant::query()->where('code', 'nezuko-regular-90')->update(['is_active' => true]);
         ServiceExtension::query()->where('code', 'nezuko-regular-extra-60')->update([
             'is_active' => false,
             'published_at' => now(),
@@ -233,6 +332,7 @@ class BookingQuoteTest extends TestCase
                 'array extension' => ['extension' => ['nezuko-regular-extra-60'], 'field' => 'extension'],
                 'short phone' => ['phone' => '123', 'field' => 'phone'],
                 'parenthesized phone' => ['phone' => '+62 (812) 3456 7890', 'field' => 'phone'],
+                'array phone' => ['phone' => ['+62 812'], 'field' => 'phone'],
                 'empty name' => ['name' => '   ', 'field' => 'name'],
                 'past date in Jakarta' => ['date' => '2026-09-04', 'field' => 'date'],
                 'malformed date' => ['date' => '09/06/2026', 'field' => 'date'],
@@ -256,6 +356,20 @@ class BookingQuoteTest extends TestCase
         }
     }
 
+    // Production break caught: an optional WhatsApp number normalizes to an empty phone at the boundary.
+    public function test_store_request_normalizes_a_missing_or_blank_phone_to_an_empty_string(): void
+    {
+        $withoutPhone = StoreBookingRequest::validatedBookingDataFrom(
+            array_diff_key($this->validPayload(), ['phone' => null]),
+        );
+        $withNullPhone = StoreBookingRequest::validatedBookingDataFrom($this->validPayload(['phone' => null]));
+        $withBlankPhone = StoreBookingRequest::validatedBookingDataFrom($this->validPayload(['phone' => '   ']));
+
+        $this->assertSame('', $withoutPhone['phone']);
+        $this->assertSame('', $withNullPhone['phone']);
+        $this->assertSame('', $withBlankPhone['phone']);
+    }
+
     public function test_store_request_normalizes_empty_extension_and_optional_notes_consistently(): void
     {
         $withoutExtension = StoreBookingRequest::validatedBookingDataFrom($this->validPayload([
@@ -271,6 +385,13 @@ class BookingQuoteTest extends TestCase
         $this->assertNull($withoutExtension['notes']);
         $this->assertNull($withNullExtension['extension']);
         $this->assertNull($withNullExtension['notes']);
+    }
+
+    private function attest(Service $service, PricingBasis $basis, int $minGuests, int $maxGuests): void
+    {
+        $owner = User::factory()->owner()->create();
+
+        app(AttestPackagePricing::class)($owner, $service, (int) $service->lock_version, $basis, $minGuests, $maxGuests);
     }
 
     /**

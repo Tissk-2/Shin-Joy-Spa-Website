@@ -61,7 +61,8 @@ class AdminAuthorizationTest extends TestCase
         $booking = Booking::factory()->create();
 
         $this->actingAs($admin)->get('/admin')
-            ->assertRedirect('/admin/bookings');
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->component('admin/Dashboard', false));
 
         $this->actingAs($admin)->get('/admin/bookings')
             ->assertOk()
@@ -171,7 +172,7 @@ class AdminAuthorizationTest extends TestCase
             ->assertNotFound();
     }
 
-    public function test_booking_policy_allows_only_verified_admins(): void
+    public function test_booking_policy_keeps_verified_admin_reads_and_requires_permission_for_writes(): void
     {
         $policy = new BookingPolicy;
         $booking = Booking::factory()->create();
@@ -192,7 +193,8 @@ class AdminAuthorizationTest extends TestCase
 
         $this->assertTrue($policy->viewAny($verifiedAdmin));
         $this->assertTrue($policy->view($verifiedAdmin, $booking));
-        $this->assertTrue($policy->updateStatus($verifiedAdmin, $booking));
+        $this->assertFalse($policy->updateStatus($verifiedAdmin, $booking));
+        $this->assertTrue($policy->updateStatus(User::factory()->bookingStaff()->create(), $booking));
     }
 
     public function test_admin_login_uses_only_the_fixed_internal_destination(): void
@@ -222,6 +224,7 @@ class AdminAuthorizationTest extends TestCase
             '/admin',
             '/admin/bookings',
             "/admin/bookings/{$booking->reference}",
+            '/admin/content',
         ];
     }
 }

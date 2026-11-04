@@ -234,13 +234,13 @@ class AdminCatalogLifecycleTest extends TestCase
     // Production break caught: every package mutation route must retain policy authorization and catalog throttling.
     public function test_package_routes_keep_read_and_write_security_boundaries(): void
     {
-        foreach (['store', 'update', 'publish', 'archive', 'restore', 'destroy'] as $action) {
+        foreach (['update', 'publish', 'archive', 'restore', 'destroy'] as $action) {
             $route = app('router')->getRoutes()->getByName("admin.catalog.packages.{$action}");
             $this->assertNotNull($route);
             $this->assertContains('throttle:catalog-write', $route->gatherMiddleware());
         }
 
-        foreach (['create', 'edit'] as $action) {
+        foreach (['edit'] as $action) {
             $route = app('router')->getRoutes()->getByName("admin.catalog.packages.{$action}");
             $this->assertNotNull($route);
             $this->assertNotContains('throttle:catalog-write', $route->gatherMiddleware());
@@ -248,7 +248,7 @@ class AdminCatalogLifecycleTest extends TestCase
 
         $customer = User::factory()->create();
         $service = $this->draftPackage($this->publishedCategory());
-        $this->actingAs($customer)->get('/admin/catalog/packages/create')->assertForbidden();
+        $this->actingAs($customer)->get("/admin/catalog/packages/{$service->slug}/edit")->assertForbidden();
         $this->actingAs($customer)->patch("/admin/catalog/packages/{$service->slug}", [])->assertForbidden();
     }
 

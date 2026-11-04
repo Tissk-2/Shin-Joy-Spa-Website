@@ -61,27 +61,14 @@ class AdminCatalogIndexTest extends TestCase
 
         $response->assertOk()->assertInertia(fn (Assert $page) => $page
             ->component('admin/catalog/Index', false)
-            ->has('categories', 3)
             ->has('packages', 4)
-            ->where('can', [
-                'createCategory' => true,
-                'createPackage' => true,
-            ]));
+        );
 
-        $categories = $response->inertiaProps('categories');
         $packages = $response->inertiaProps('packages');
 
         $this->assertSame(
-            ['first-category', 'same-order-category', 'later-category'],
-            array_column($categories, 'slug'),
-        );
-        $this->assertSame(
             ['first-package', 'same-order-package', 'later-package', 'last-category-package'],
             array_column($packages, 'slug'),
-        );
-        $this->assertSame(
-            ['slug', 'version', 'nameId', 'nameEn', 'image', 'status', 'packageCount', 'displayOrder', 'can'],
-            array_keys($categories[0]),
         );
         $this->assertSame([
             'version', 'slug', 'categorySlug', 'nameId', 'nameEn', 'image', 'gallery', 'isVip',
@@ -93,19 +80,9 @@ class AdminCatalogIndexTest extends TestCase
         );
         $this->assertSame(
             ['update', 'publish', 'archive', 'restore', 'delete'],
-            array_keys($categories[0]['can']),
-        );
-        $this->assertSame(
-            ['update', 'publish', 'archive', 'restore', 'delete'],
             array_keys($packages[0]['can']),
         );
 
-        $this->assertSame('http://localhost/storage/catalog/categories/first.jpg', $categories[0]['image']);
-        $this->assertNull($categories[1]['image']);
-        $this->assertSame('published', $categories[0]['status']);
-        $this->assertSame(7, $categories[0]['version']);
-        $this->assertSame('draft', $categories[1]['status']);
-        $this->assertSame(3, $categories[0]['packageCount']);
         $this->assertSame('http://localhost/storage/catalog/packages/first-cover.jpg', $packages[0]['image']);
         $this->assertSame('http://localhost/storage/catalog/packages/first-detail.jpg', $packages[0]['gallery'][0]['url']);
         $this->assertMatchesRegularExpression('/\A[0-9a-f]{64}\z/', $packages[0]['gallery'][0]['retentionId']);
@@ -123,7 +100,7 @@ class AdminCatalogIndexTest extends TestCase
         $this->assertTrue($packages[0]['isVip']);
         $this->assertSame(13, $packages[0]['version']);
 
-        $this->assertForbiddenKeysAreAbsent(['categories' => $categories, 'packages' => $packages]);
+        $this->assertForbiddenKeysAreAbsent(['packages' => $packages]);
         $this->assertStringNotContainsString('PRIVATE-BOOKING-CUSTOMER-CANARY', json_encode($packages, JSON_THROW_ON_ERROR));
         $this->assertStringNotContainsString('catalog/packages/first-detail.jpg', $packages[0]['gallery'][0]['retentionId']);
 

@@ -2,12 +2,13 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Actions\Catalog\AttestPackagePricing;
 use App\Actions\Catalog\ChangePackageLifecycle;
 use App\Actions\Catalog\DeleteCatalogDraft;
 use App\Actions\Catalog\SaveCatalogPackage;
 use App\Enums\CatalogStatus;
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Admin\StoreCatalogPackageRequest;
+use App\Http\Requests\Admin\AttestPackagePricingRequest;
 use App\Http\Requests\Admin\UpdateCatalogPackageRequest;
 use App\Models\Service;
 use App\Models\ServiceCategory;
@@ -22,26 +23,30 @@ use Inertia\Response;
 
 final class AdminCatalogPackageController extends Controller
 {
-    public function create(AdminCatalogPresenter $presenter): Response
-    {
-        Gate::authorize('create', Service::class);
-
-        return inertia('admin/catalog/packages/Form', $presenter->packageCreate($this->categories()));
-    }
-
-    public function store(StoreCatalogPackageRequest $request, SaveCatalogPackage $save): RedirectResponse
-    {
-        $save->create($request->toData());
-
-        return $this->redirect('created');
-    }
-
     public function edit(Service $service, AdminCatalogPresenter $presenter): Response
     {
         Gate::authorize('view', $service);
-        $service->load(['variants', 'extensions']);
+        $service->load(['variants', 'extensions', 'pricingVerifiedBy']);
 
         return inertia('admin/catalog/packages/Form', $presenter->packageEdit($service, $this->categories()));
+    }
+
+    public function attestPricing(
+        AttestPackagePricingRequest $request,
+        Service $service,
+        AttestPackagePricing $attest,
+    ): RedirectResponse {
+        Gate::authorize('attestPricing', $service);
+        $attest(
+            $request->user(),
+            $service,
+            $request->version(),
+            $request->basis(),
+            $request->minGuests(),
+            $request->maxGuests(),
+        );
+
+        return $this->redirect('pricing');
     }
 
     public function update(
@@ -128,6 +133,7 @@ final class AdminCatalogPackageController extends Controller
                 'archived' => 'Paket berhasil diarsipkan.',
                 'restored' => 'Paket berhasil dipulihkan.',
                 'deleted' => 'Draf paket berhasil dihapus.',
+                'pricing' => 'Harga paket berhasil diverifikasi.',
             ]
             : [
                 'created' => 'Package draft created successfully.',
@@ -136,6 +142,7 @@ final class AdminCatalogPackageController extends Controller
                 'archived' => 'Package archived successfully.',
                 'restored' => 'Package restored successfully.',
                 'deleted' => 'Package draft deleted successfully.',
+                'pricing' => 'Package pricing verified successfully.',
             ];
 
         return to_route('admin.catalog.index', status: 303)->with('status', $messages[$action]);

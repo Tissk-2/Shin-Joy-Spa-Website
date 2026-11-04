@@ -37,7 +37,7 @@ class AdminBookingStatusTest extends TestCase
         BookingStatus $from,
         BookingStatus $to,
     ): void {
-        $admin = User::factory()->admin()->create();
+        $admin = User::factory()->bookingStaff()->create();
         $booking = Booking::factory()->create(['status' => $from]);
 
         $change = app(TransitionBookingStatus::class)(
@@ -65,7 +65,7 @@ class AdminBookingStatusTest extends TestCase
 
         try {
             app(TransitionBookingStatus::class)(
-                User::factory()->admin()->create(),
+                User::factory()->bookingStaff()->create(),
                 $booking,
                 $from,
                 $to,
@@ -88,7 +88,7 @@ class AdminBookingStatusTest extends TestCase
 
         try {
             app(TransitionBookingStatus::class)(
-                User::factory()->admin()->create(),
+                User::factory()->bookingStaff()->create(),
                 $booking,
                 BookingStatus::Pending,
                 BookingStatus::Cancelled,
@@ -108,7 +108,7 @@ class AdminBookingStatusTest extends TestCase
     // Production break caught: removing lockForUpdate would allow concurrent administrators to transition the same persisted state.
     public function test_transition_locks_the_persisted_booking_select_for_update(): void
     {
-        $admin = User::factory()->admin()->create();
+        $admin = User::factory()->bookingStaff()->create();
         $booking = Booking::factory()->create(['status' => BookingStatus::Pending]);
         $connection = DB::connection();
         $originalGrammar = $connection->getQueryGrammar();
@@ -156,7 +156,7 @@ class AdminBookingStatusTest extends TestCase
 
     public function test_second_request_with_old_status_cannot_create_a_second_audit_row(): void
     {
-        $admin = User::factory()->admin()->create();
+        $admin = User::factory()->bookingStaff()->create();
         $booking = Booking::factory()->create(['status' => BookingStatus::Pending]);
         $transition = app(TransitionBookingStatus::class);
 
@@ -183,7 +183,7 @@ class AdminBookingStatusTest extends TestCase
 
         try {
             app(TransitionBookingStatus::class)(
-                User::factory()->admin()->create(),
+                User::factory()->bookingStaff()->create(),
                 $booking,
                 BookingStatus::Pending,
                 BookingStatus::Confirmed,
@@ -204,7 +204,7 @@ class AdminBookingStatusTest extends TestCase
 
     public function test_audit_snapshots_survive_admin_deletion_and_metadata_is_capped(): void
     {
-        $admin = User::factory()->admin()->create([
+        $admin = User::factory()->bookingStaff()->create([
             'name' => 'Made Ayu',
             'email' => 'made@example.test',
         ]);
@@ -236,7 +236,7 @@ class AdminBookingStatusTest extends TestCase
         $booking = Booking::factory()->create();
 
         app(TransitionBookingStatus::class)(
-            User::factory()->admin()->create(),
+            User::factory()->bookingStaff()->create(),
             $booking,
             BookingStatus::Pending,
             BookingStatus::Confirmed,
@@ -259,7 +259,7 @@ class AdminBookingStatusTest extends TestCase
     public function test_status_changes_relationship_is_ordered_by_created_at_then_id(): void
     {
         $booking = Booking::factory()->create();
-        $admin = User::factory()->admin()->create();
+        $admin = User::factory()->bookingStaff()->create();
         $later = Carbon::parse('2026-09-07 11:00:00');
         $earlier = Carbon::parse('2026-09-07 10:00:00');
 
@@ -310,7 +310,7 @@ class AdminBookingStatusTest extends TestCase
     // Production break caught: the endpoint must pass only validated status data to the transition action.
     public function test_admin_can_apply_an_allowed_transition_through_the_http_boundary(): void
     {
-        $admin = User::factory()->admin()->create();
+        $admin = User::factory()->bookingStaff()->create();
         $booking = Booking::factory()->create([
             'status' => BookingStatus::Pending,
             'total_price_idr' => 265000,
@@ -336,7 +336,7 @@ class AdminBookingStatusTest extends TestCase
 
     public function test_unknown_top_level_fields_are_rejected_without_changing_booking_or_audit_data(): void
     {
-        $admin = User::factory()->admin()->create();
+        $admin = User::factory()->bookingStaff()->create();
         $booking = Booking::factory()->create([
             'status' => BookingStatus::Pending,
             'total_price_idr' => 265000,
@@ -363,7 +363,7 @@ class AdminBookingStatusTest extends TestCase
         array $payload,
         string $invalidField,
     ): void {
-        $admin = User::factory()->admin()->create();
+        $admin = User::factory()->bookingStaff()->create();
         $booking = Booking::factory()->create(['status' => BookingStatus::Pending]);
 
         $this->actingAs($admin)
@@ -381,7 +381,7 @@ class AdminBookingStatusTest extends TestCase
         BookingStatus $from,
         BookingStatus $to,
     ): void {
-        $admin = User::factory()->admin()->create();
+        $admin = User::factory()->bookingStaff()->create();
         $booking = Booking::factory()->create(['status' => $from]);
 
         $this->actingAs($admin)
@@ -400,7 +400,7 @@ class AdminBookingStatusTest extends TestCase
 
     public function test_blank_reason_is_normalized_to_null(): void
     {
-        $admin = User::factory()->admin()->create();
+        $admin = User::factory()->bookingStaff()->create();
         $booking = Booking::factory()->create(['status' => BookingStatus::Pending]);
 
         $this->actingAs($admin)->patch(route('admin.bookings.status.update', $booking), [
@@ -417,7 +417,7 @@ class AdminBookingStatusTest extends TestCase
 
     public function test_reason_longer_than_500_characters_is_rejected_without_an_audit(): void
     {
-        $admin = User::factory()->admin()->create();
+        $admin = User::factory()->bookingStaff()->create();
         $booking = Booking::factory()->create(['status' => BookingStatus::Pending]);
 
         $this->actingAs($admin)
@@ -436,7 +436,7 @@ class AdminBookingStatusTest extends TestCase
 
     public function test_stale_http_transition_returns_a_field_error_without_an_audit(): void
     {
-        $admin = User::factory()->admin()->create();
+        $admin = User::factory()->bookingStaff()->create();
         $booking = Booking::factory()->create(['status' => BookingStatus::Confirmed]);
 
         $this->actingAs($admin)
@@ -504,7 +504,7 @@ class AdminBookingStatusTest extends TestCase
 
     public function test_thirty_first_status_request_for_an_admin_and_ip_is_rate_limited(): void
     {
-        $admin = User::factory()->admin()->create();
+        $admin = User::factory()->bookingStaff()->create();
         $booking = Booking::factory()->create(['status' => BookingStatus::Pending]);
         $payload = $this->invalidHttpPayload();
 
@@ -526,7 +526,7 @@ class AdminBookingStatusTest extends TestCase
 
     public function test_one_hundred_and_first_status_request_from_an_ip_is_rate_limited(): void
     {
-        $admins = User::factory()->count(5)->admin()->create();
+        $admins = User::factory()->count(5)->bookingStaff()->create();
         $booking = Booking::factory()->create(['status' => BookingStatus::Pending]);
         $payload = $this->invalidHttpPayload();
 
@@ -551,7 +551,7 @@ class AdminBookingStatusTest extends TestCase
     {
         $customers = User::factory()->count(2)->create();
         $unverifiedAdmins = User::factory()->count(2)->admin()->unverified()->create();
-        $admin = User::factory()->admin()->create();
+        $admin = User::factory()->bookingStaff()->create();
         $booking = Booking::factory()->create(['status' => BookingStatus::Pending]);
         $ipAddress = '203.0.113.200';
 
@@ -618,7 +618,7 @@ class AdminBookingStatusTest extends TestCase
     public function test_customer_booking_detail_does_not_expose_status_audit_metadata(): void
     {
         $customer = User::factory()->create();
-        $admin = User::factory()->admin()->create([
+        $admin = User::factory()->bookingStaff()->create([
             'name' => 'PRIVATE-AUDIT-ACTOR',
             'email' => 'private-audit@example.test',
         ]);
@@ -672,7 +672,7 @@ class AdminBookingStatusTest extends TestCase
         string $field,
         mixed $value,
     ): void {
-        $admin = User::factory()->admin()->create();
+        $admin = User::factory()->bookingStaff()->create();
         $booking = Booking::factory()->create(['status' => BookingStatus::Pending]);
 
         $response = $this->actingAs($admin)

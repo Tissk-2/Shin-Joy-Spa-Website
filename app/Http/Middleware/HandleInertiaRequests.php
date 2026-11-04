@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\PageContent;
 use App\Queries\PublicCatalogQuery;
 use App\Support\ServiceCatalogPresenter;
 use Illuminate\Http\Request;
@@ -52,6 +53,7 @@ class HandleInertiaRequests extends Middleware
                     'email_verified_at' => $user->email_verified_at?->toISOString(),
                 ] : null,
                 'canAccessAdmin' => $user?->hasVerifiedEmail() === true && $user->isAdmin(),
+                'isOwner' => $user?->hasVerifiedEmail() === true && $user->isOwner(),
             ],
             'locale' => app()->getLocale(),
             'flash' => [
@@ -65,6 +67,7 @@ class HandleInertiaRequests extends Middleware
                     ->values()
                     ->all(),
             ],
+            'content' => fn (): array => PageContent::overrides(),
         ];
     }
 }

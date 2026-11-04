@@ -15,15 +15,11 @@ final class AdminCatalogPresenter
 
     /**
      * @param  Collection<int, ServiceCategory>  $categories
-     * @return array{categories: list<array<string, mixed>>, packages: list<array<string, mixed>>, can: array<string, bool>}
+     * @return array{packages: list<array<string, mixed>>}
      */
     public function index(Collection $categories): array
     {
         return [
-            'categories' => $categories
-                ->map(fn (ServiceCategory $category): array => $this->category($category))
-                ->values()
-                ->all(),
             'packages' => $categories
                 ->flatMap(fn (ServiceCategory $category): Collection => $category->services
                     ->sortBy([
@@ -33,48 +29,6 @@ final class AdminCatalogPresenter
                     ->map(fn (Service $service): array => $this->package($service, $category)))
                 ->values()
                 ->all(),
-            'can' => [
-                'createCategory' => Gate::allows('create', ServiceCategory::class),
-                'createPackage' => Gate::allows('create', Service::class),
-            ],
-        ];
-    }
-
-    /** @param Collection<int, ServiceCategory> $categories
-     * @return array{categories: list<array<string, mixed>>, package: array<string, mixed>}
-     */
-    public function packageCreate(Collection $categories): array
-    {
-        return [
-            'categories' => $this->packageCategories($categories),
-            'package' => [
-                'version' => null,
-                'categoryId' => null,
-                'slug' => '',
-                'nameId' => '',
-                'nameEn' => '',
-                'descId' => null,
-                'descEn' => null,
-                'longId' => null,
-                'longEn' => null,
-                'benefitId' => null,
-                'benefitEn' => null,
-                'isVip' => false,
-                'displayOrder' => 0,
-                'cover' => null,
-                'gallery' => [],
-                'variants' => [],
-                'extensions' => [],
-                'status' => 'draft',
-                'isPublished' => false,
-                'can' => [
-                    'update' => false,
-                    'publish' => false,
-                    'archive' => false,
-                    'restore' => false,
-                    'delete' => false,
-                ],
-            ],
         ];
     }
 
@@ -106,26 +60,36 @@ final class AdminCatalogPresenter
                 ])->values()->all(),
                 'variants' => $service->variants->map(fn ($choice): array => $this->packageChoice($choice))->values()->all(),
                 'extensions' => $service->extensions->map(fn ($choice): array => $this->packageChoice($choice))->values()->all(),
+                'pricingBasis' => $service->pricing_basis?->value,
+                'minGuests' => $service->min_guests,
+                'maxGuests' => $service->max_guests,
+                'pricingVerified' => $service->hasVerifiedPricing(),
+                'pricingVerifiedBy' => $this->verifiedBy($service),
                 'status' => $service->catalogStatus()->value,
                 'isPublished' => $service->published_at !== null,
-                'can' => $this->abilities($service),
+                'can' => $this->editAbilities($service),
             ],
         ];
     }
 
-    /** @return array<string, mixed> */
-    private function category(ServiceCategory $category): array
+    /** @return array{id: int, name: string, email: string}|null */
+    private function verifiedBy(Service $service): ?array
+    {
+        $verifier = $service->pricingVerifiedBy;
+
+        return $verifier === null ? null : [
+            'id' => (int) $verifier->id,
+            'name' => $verifier->name,
+            'email' => $verifier->email,
+        ];
+    }
+
+    /** @return array<string, bool> */
+    private function editAbilities(Service $service): array
     {
         return [
-            'slug' => $category->slug,
-            'version' => (int) $category->lock_version,
-            'nameId' => $category->name_id,
-            'nameEn' => $category->name_en,
-            'image' => $this->publicImageUrl($category->image_path),
-            'status' => $category->catalogStatus()->value,
-            'packageCount' => $category->services->count(),
-            'displayOrder' => (int) $category->display_order,
-            'can' => $this->abilities($category),
+            ...$this->abilities($service),
+            'attestPricing' => Gate::allows('attestPricing', $service),
         ];
     }
 

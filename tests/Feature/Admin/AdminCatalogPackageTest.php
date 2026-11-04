@@ -28,67 +28,38 @@ class AdminCatalogPackageTest extends TestCase
 {
     use DatabaseMigrations;
 
-    // Production break caught: creating a package must persist only a private version-zero draft aggregate.
-    public function test_admin_creates_a_normalized_package_draft(): void
-    {
-        $admin = User::factory()->admin()->create();
-        $category = $this->category();
-
-        $this->actingAs($admin)->post('/admin/catalog/packages', [
-            'categoryId' => $category->id,
-            'slug' => '  balinese-signature  ',
-            'nameId' => '  Balinese Signature  ',
-            'nameEn' => '  Balinese Signature  ',
-            'descId' => '   ',
-            'descEn' => null,
-            'longId' => null,
-            'longEn' => null,
-            'benefitId' => null,
-            'benefitEn' => null,
-            'isVip' => '0',
-            'displayOrder' => '2',
-            'removeCover' => '0',
-            'retainedGalleryIds' => [],
-            'variants' => [],
-            'extensions' => [],
-        ])->assertStatus(303)
-            ->assertRedirect(route('admin.catalog.index', absolute: false));
-
-        $service = Service::query()->where('slug', 'balinese-signature')->sole();
-        $this->assertSame($category->id, $service->category_id);
-        $this->assertSame('Balinese Signature', $service->name_id);
-        $this->assertNull($service->description_id);
-        $this->assertFalse($service->is_vip);
-        $this->assertFalse($service->is_active);
-        $this->assertNull($service->published_at);
-        $this->assertSame([], $service->gallery_paths);
-        $this->assertSame(0, $service->lock_version);
-    }
-
     // Production break caught: raw or misspelled aggregate fields must never cross the request allow-list.
-    public function test_request_rejects_unknown_top_level_and_nested_keys_and_create_only_identifiers(): void
+    public function test_update_rejects_unknown_and_nested_keys_before_writes(): void
     {
         $admin = User::factory()->admin()->create();
         $category = $this->category();
+        $service = $this->service($category);
+
+        $this->actingAs($admin)
+            ->patchJson("/admin/catalog/packages/{$service->slug}", $this->payload($category))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('version');
 
         foreach ([
             'top-level' => [['published_at' => now()->toISOString()], 'published_at'],
-            'version-on-create' => [['version' => 0], 'version'],
-            'null-version-on-create' => [['version' => null], 'version'],
-            'variant-id-on-create' => [['variants' => [$this->choice(['id' => 1])]], 'variants.0.id'],
-            'null-variant-id-on-create' => [['variants' => [$this->choice(['id' => null])]], 'variants.0.id'],
             'variant-nested' => [['variants' => [$this->choice(['service_id' => 999])]], 'variants.0.service_id'],
             'extension-nested' => [['extensions' => [$this->choice(['price' => 1])]], 'extensions.0.price'],
             'boolean-text' => [['isVip' => 'false'], 'isVip'],
             'invalid-enum' => [['variants' => [$this->choice(['mode' => 'vip'])]], 'variants.0.mode'],
         ] as [$changes, $field]) {
             $this->actingAs($admin)
-                ->postJson('/admin/catalog/packages', [...$this->payload($category), ...$changes])
+                ->patchJson("/admin/catalog/packages/{$service->slug}", [
+                    ...$this->payload($category),
+                    'version' => 0,
+                    ...$changes,
+                ])
                 ->assertUnprocessable()
                 ->assertJsonValidationErrors($field);
         }
 
-        $this->assertDatabaseCount('services', 0);
+        $fresh = $service->fresh();
+        $this->assertSame('Balinese Signature', $fresh->name_id);
+        $this->assertSame(0, $fresh->lock_version);
     }
 
     // Production break caught: nested identity ownership and active-choice cardinality must be enforced before writes.
@@ -185,24 +156,6 @@ class AdminCatalogPackageTest extends TestCase
             ]);
             $this->assertSame(0, $service->fresh()->lock_version);
         }
-    }
-
-    // Production break caught: the database identity constraint applies to inactive submitted choices too.
-    public function test_create_reports_duplicate_inactive_choice_identity_on_the_later_row(): void
-    {
-        $admin = User::factory()->admin()->create();
-        $category = $this->category();
-
-        $this->actingAs($admin)->postJson('/admin/catalog/packages', [
-            ...$this->payload($category),
-            'variants' => [
-                $this->choice(['code' => 'inactive-first', 'isActive' => false]),
-                $this->choice(['code' => 'inactive-second', 'isActive' => false]),
-            ],
-        ])->assertUnprocessable()
-            ->assertJsonValidationErrors('variants.1.durationMinutes');
-
-        $this->assertDatabaseCount('services', 0);
     }
 
     // Production break caught: a full form save must reconcile media and children as one versioned aggregate.
@@ -307,9 +260,12 @@ class AdminCatalogPackageTest extends TestCase
     {
         $admin = User::factory()->admin()->create();
         $category = $this->category();
+        $service = $this->service($category, ['slug' => 'multipart-empty-choices']);
+        $this->variant($service, 'existing-regular-60', 60);
 
-        $this->actingAs($admin)->post('/admin/catalog/packages', [
+        $this->actingAs($admin)->patch("/admin/catalog/packages/{$service->slug}", [
             ...$this->payload($category, ['slug' => 'multipart-empty-choices']),
+            'version' => 0,
             'variants' => '[]',
             'extensions' => '[]',
         ])->assertStatus(303);
@@ -319,18 +275,20 @@ class AdminCatalogPackageTest extends TestCase
         $this->assertCount(0, $saved->extensions);
 
         foreach (['[ ]', '{"code":"forged"}', 'not-an-array'] as $invalid) {
-            $this->actingAs($admin)->post('/admin/catalog/packages', [
-                ...$this->payload($category, ['slug' => 'invalid-'.md5($invalid)]),
+            $this->actingAs($admin)->patchJson("/admin/catalog/packages/{$service->slug}", [
+                ...$this->payload($category, ['slug' => 'multipart-empty-choices']),
+                'version' => 0,
                 'variants' => $invalid,
                 'extensions' => [],
-            ])->assertSessionHasErrors('variants');
+            ])->assertUnprocessable()->assertJsonValidationErrors('variants');
         }
 
-        $this->actingAs($admin)->post('/admin/catalog/packages', [
-            ...$this->payload($category, ['slug' => 'invalid-object-like']),
+        $this->actingAs($admin)->patchJson("/admin/catalog/packages/{$service->slug}", [
+            ...$this->payload($category, ['slug' => 'multipart-empty-choices']),
+            'version' => 0,
             'variants' => ['code' => 'forged'],
             'extensions' => [],
-        ])->assertSessionHasErrors('variants.code');
+        ])->assertUnprocessable()->assertJsonValidationErrors('variants.code');
     }
 
     // Production break caught: a live package edit must not commit an incomplete public aggregate.
@@ -514,17 +472,21 @@ class AdminCatalogPackageTest extends TestCase
             ...$this->payload($category), 'version' => 0, 'retainedGalleryIds' => [str_repeat('a', 64)],
         ])->assertUnprocessable()->assertJsonValidationErrors('retainedGalleryIds');
 
-        $this->actingAs($admin)->post('/admin/catalog/packages', [
-            ...$this->payload($category, ['slug' => 'too-many-images']),
+        $this->actingAs($admin)->patchJson("/admin/catalog/packages/{$service->slug}", [
+            ...$this->payload($category),
+            'version' => 0,
             'galleryUploads' => array_map(fn (int $index) => self::fakeImage("{$index}.jpg", 600, 400), range(1, 7)),
-        ])->assertSessionHasErrors('galleryUploads');
+        ])->assertUnprocessable()->assertJsonValidationErrors('galleryUploads');
 
-        $this->actingAs($admin)->post('/admin/catalog/packages', [
-            ...$this->payload($category, ['slug' => 'small-image']),
+        $this->actingAs($admin)->patchJson("/admin/catalog/packages/{$service->slug}", [
+            ...$this->payload($category),
+            'version' => 0,
             'cover' => self::fakeImage('small.jpg', 599, 400),
-        ])->assertSessionHasErrors('cover');
-        $this->assertDatabaseMissing('services', ['slug' => 'too-many-images']);
-        $this->assertDatabaseMissing('services', ['slug' => 'small-image']);
+        ])->assertUnprocessable()->assertJsonValidationErrors('cover');
+
+        $fresh = $service->fresh();
+        $this->assertSame(['/img/legacy.jpg'], $fresh->gallery_paths);
+        $this->assertSame(0, $fresh->lock_version);
     }
 
     /** @param array<string, mixed> $overrides */
@@ -605,6 +567,9 @@ class AdminCatalogPackageTest extends TestCase
             'benefitEn' => null,
             'isVip' => false,
             'displayOrder' => 1,
+            'pricingBasis' => null,
+            'minGuests' => null,
+            'maxGuests' => null,
             'removeCover' => false,
             'retainedGalleryIds' => [],
             'variants' => [],
@@ -655,6 +620,9 @@ class AdminCatalogPackageTest extends TestCase
             benefitEn: null,
             isVip: false,
             displayOrder: 0,
+            pricingBasis: null,
+            minGuests: null,
+            maxGuests: null,
             cover: $cover,
             removeCover: false,
             retainedGalleryIds: [],

@@ -6,8 +6,12 @@ use App\Enums\UserRole;
 use App\Exceptions\FinalAdministratorException;
 use App\Models\User;
 use App\Support\CustomerIdentity;
+use App\Support\Staff\StaffAccessLock;
+use App\Support\Staff\StaffAuthority;
+use App\Support\Staff\StaffPermissionAudit;
+use App\Support\Staff\StaffSchemaException;
+use App\Support\Staff\StaffTargetException;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\DB;
 
 final class RevokeAdmin extends Command
 {
@@ -37,30 +41,27 @@ final class RevokeAdmin extends Command
         }
 
         try {
-            $changed = DB::transaction(function () use ($user): bool {
-                $adminIds = User::query()
-                    ->where('role', UserRole::Admin->value)
-                    ->orderBy('id')
-                    ->lockForUpdate()
-                    ->pluck('id');
-
-                $lockedTarget = User::query()
-                    ->whereKey($user->getKey())
-                    ->lockForUpdate()
-                    ->firstOrFail();
+            $changed = (new StaffAccessLock)->run(function () use ($user, $email): bool {
+                $lockedTarget = StaffAuthority::confirmedTarget($user->getKey(), $email, false);
+                if ($lockedTarget->isOwner()) {
+                    throw new StaffTargetException('Owner access cannot be revoked by admin:revoke.');
+                }
 
                 if (! $lockedTarget->isAdmin()) {
                     return false;
                 }
 
-                if ($adminIds->count() <= 1) {
-                    throw new FinalAdministratorException;
-                }
+                StaffAuthority::protectFinalAdmin($lockedTarget);
+                StaffPermissionAudit::clearForRoleChange($lockedTarget, 'admin:revoke');
 
                 $lockedTarget->forceFill(['role' => UserRole::Customer])->save();
 
                 return true;
-            }, 3);
+            });
+        } catch (StaffSchemaException|StaffTargetException $exception) {
+            $this->error($exception->getMessage());
+
+            return self::FAILURE;
         } catch (FinalAdministratorException) {
             $this->error('The final administrator cannot be revoked.');
 

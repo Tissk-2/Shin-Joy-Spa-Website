@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\CatalogStatus;
+use App\Enums\PricingBasis;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -31,6 +32,11 @@ class Service extends Model
         'published_at',
         'lock_version',
         'display_order',
+        'pricing_basis',
+        'min_guests',
+        'max_guests',
+        'pricing_verified_at',
+        'pricing_verified_by',
     ];
 
     protected function casts(): array
@@ -45,6 +51,11 @@ class Service extends Model
             'price_idr' => 'integer',
             'popularity' => 'integer',
             'display_order' => 'integer',
+            'pricing_basis' => PricingBasis::class,
+            'min_guests' => 'integer',
+            'max_guests' => 'integer',
+            'pricing_verified_at' => 'immutable_datetime',
+            'pricing_verified_by' => 'integer',
         ];
     }
 
@@ -61,6 +72,20 @@ class Service extends Model
     public function extensions(): HasMany
     {
         return $this->hasMany(ServiceExtension::class)->orderBy('display_order')->orderBy('id');
+    }
+
+    public function pricingVerifiedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'pricing_verified_by');
+    }
+
+    public function hasVerifiedPricing(): bool
+    {
+        return $this->pricing_basis !== null
+            && $this->min_guests !== null
+            && $this->max_guests !== null
+            && $this->pricing_verified_at !== null
+            && $this->pricing_verified_by !== null;
     }
 
     public function scopeActive(Builder $query): void

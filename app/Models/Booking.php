@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\BookingStatus;
+use App\Enums\PricingBasis;
 use Database\Factories\BookingFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -29,6 +30,9 @@ class Booking extends Model
             'extension_price_idr' => 'integer',
             'total_duration_minutes' => 'integer',
             'total_price_idr' => 'integer',
+            'pricing_basis' => PricingBasis::class,
+            'min_guests' => 'integer',
+            'max_guests' => 'integer',
         ];
     }
 

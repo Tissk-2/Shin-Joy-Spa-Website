@@ -64,14 +64,15 @@ class ServiceCatalogPagesTest extends TestCase
 
         $this->assertSame([
             'slug', 'nameId', 'nameEn', 'descId', 'descEn', 'longId', 'longEn',
-            'benefitId', 'benefitEn', 'image', 'gallery', 'isVip', 'variants', 'extensions',
+            'benefitId', 'benefitEn', 'image', 'gallery', 'isVip',
+            'pricingBasis', 'minGuests', 'maxGuests', 'pricingVerified', 'variants', 'extensions',
         ], array_keys($package));
         $this->assertSame(['code', 'mode', 'duration', 'price'], array_keys($package['variants'][0]));
         $this->assertSame(['code', 'mode', 'duration', 'price'], array_keys($package['extensions'][0]));
         $this->assertSame([
-            'http://localhost/storage/massage.jpg',
-            'http://localhost/storage/oil.jpg',
-            'http://localhost/storage/about.jpg',
+            '/img/massage.jpg',
+            '/img/oil.jpg',
+            '/img/about.jpg',
         ], $package['gallery']);
         $this->assertSame(['nezuko-regular-60', 'nezuko-regular-90', 'nezuko-regular-120', 'nezuko-double-60'], array_column($package['variants'], 'code'));
         $this->assertSame(['nezuko-regular-extra-60', 'nezuko-double-extra-30'], array_column($package['extensions'], 'code'));
@@ -111,7 +112,8 @@ class ServiceCatalogPagesTest extends TestCase
         $this->assertSame(['slug', 'nameId', 'nameEn', 'image', 'packages'], array_keys($categories[0]));
         $this->assertSame([
             'slug', 'nameId', 'nameEn', 'descId', 'descEn', 'longId', 'longEn',
-            'benefitId', 'benefitEn', 'image', 'gallery', 'isVip', 'variants', 'extensions',
+            'benefitId', 'benefitEn', 'image', 'gallery', 'isVip',
+            'pricingBasis', 'minGuests', 'maxGuests', 'pricingVerified', 'variants', 'extensions',
         ], array_keys($categories[0]['packages'][0]));
         $this->assertSame('http://localhost/storage/catalog/categories/massage.jpg', $categories[0]['image']);
         $this->assertSame('http://localhost/storage/catalog/services/balinese.jpg', $categories[0]['packages'][0]['image']);
@@ -119,100 +121,6 @@ class ServiceCatalogPagesTest extends TestCase
         $this->assertSame(['massage', 'package'], array_column($categories, 'slug'));
         $this->assertSame(['balinese-60'], array_column($categories[0]['packages'], 'slug'));
 
-        $this->get(route('services.show', 'draft-treatment'))->assertNotFound();
-        $this->get(route('services.show', 'published-under-draft'))->assertNotFound();
-    }
-
-    // Production break caught: detail pages must expose safe same-category related links without the transitional comparison prop.
-    public function test_service_detail_exposes_the_package_and_related_links_only(): void
-    {
-        $nezuko = Service::query()->where('slug', 'nezuko')->firstOrFail();
-        ServiceVariant::query()->where('service_id', $nezuko->id)->where('code', 'nezuko-regular-90')->update(['is_active' => false]);
-
-        $response = $this->get('/services/nezuko');
-
-        $response->assertOk()->assertInertia(fn (Assert $page) => $page
-            ->component('ServiceDetail')
-            ->where('service.slug', 'nezuko')
-            ->where('service.variants.0.code', 'nezuko-regular-60')
-            ->where('related.0.slug', 'nezuko-vip')
-            ->has('service.variants', 3)
-            ->has('related', 1)
-            ->missing('comparison')
-            ->missing('category')
-        );
-
-        $props = $response->viewData('page')['props'];
-        $this->assertSame(['slug', 'nameId', 'nameEn', 'isVip'], array_keys($props['related'][0]));
-        $this->assertArrayNotHasKey('categorySlug', $props['related'][0]);
-        $this->assertSame(['nezuko-regular-60', 'nezuko-regular-120', 'nezuko-double-60'], array_column($props['service']['variants'], 'code'));
-        $this->assertArrayNotHasKey('id', $props['service']);
-
-        $this->get('/services/missing-service')->assertNotFound();
-        $this->get('/services/not_valid')->assertNotFound();
-    }
-
-    // Production break caught: the VIP route must present exact public choices plus reverse related links.
-    public function test_vip_service_detail_exposes_exact_active_choices_and_reverse_links(): void
-    {
-        $response = $this->get('/services/nezuko-vip');
-
-        $response->assertOk()->assertInertia(fn (Assert $page) => $page
-            ->component('ServiceDetail')
-            ->where('service.slug', 'nezuko-vip')
-            ->where('service.isVip', true)
-            ->where('related.0.slug', 'nezuko')
-            ->has('service.variants', 4)
-            ->has('service.extensions', 2)
-            ->has('related', 1)
-            ->missing('comparison')
-            ->missing('category')
-        );
-
-        $props = $response->viewData('page')['props'];
-        $service = $props['service'];
-
-        $this->assertSame([
-            'slug', 'nameId', 'nameEn', 'descId', 'descEn', 'longId', 'longEn',
-            'benefitId', 'benefitEn', 'image', 'gallery', 'isVip', 'variants', 'extensions',
-        ], array_keys($service));
-        $this->assertSame(['slug', 'nameId', 'nameEn', 'isVip'], array_keys($props['related'][0]));
-        $this->assertSame([
-            ['code' => 'nezuko-vip-regular-60', 'mode' => 'regular', 'duration' => 60, 'price' => 299000],
-            ['code' => 'nezuko-vip-regular-90', 'mode' => 'regular', 'duration' => 90, 'price' => 349000],
-            ['code' => 'nezuko-vip-regular-120', 'mode' => 'regular', 'duration' => 120, 'price' => 499000],
-            ['code' => 'nezuko-vip-double-60', 'mode' => 'double_therapist', 'duration' => 60, 'price' => 350000],
-        ], $service['variants']);
-        $this->assertSame([
-            ['code' => 'nezuko-vip-regular-extra-60', 'mode' => 'regular', 'duration' => 60, 'price' => 100000],
-            ['code' => 'nezuko-vip-double-extra-30', 'mode' => 'double_therapist', 'duration' => 30, 'price' => 100000],
-        ], $service['extensions']);
-    }
-
-    // Production break caught: a global related query or missing limit would recommend another category or return an unbounded list.
-    public function test_service_detail_related_links_are_same_category_ordered_and_limited_to_three(): void
-    {
-        $package = ServiceCategory::query()->where('slug', 'package')->firstOrFail();
-        $foreign = $this->createCategory('facial', 0);
-        $this->createService($foreign, 'foreign-first', 0);
-        $this->createService($package, 'package-third', 3);
-        $this->createService($package, 'package-fourth', 4);
-        $this->createService($package, 'package-fifth', 5);
-
-        $response = $this->get(route('services.show', 'nezuko'));
-
-        $response->assertOk()->assertInertia(fn (Assert $page) => $page
-            ->has('related', 3)
-            ->where('related.0.slug', 'nezuko-vip')
-            ->where('related.1.slug', 'package-third')
-            ->where('related.2.slug', 'package-fourth'));
-
-        $related = $response->inertiaProps('related');
-        $this->assertSame(['nezuko-vip', 'package-third', 'package-fourth'], array_column($related, 'slug'));
-        foreach ($related as $link) {
-            $this->assertSame(['slug', 'nameId', 'nameEn', 'isVip'], array_keys($link));
-            $this->assertArrayNotHasKey('categorySlug', $link);
-        }
     }
 
     // Production break caught: lazy-loading services or choices would make public menu query counts grow with catalog size.

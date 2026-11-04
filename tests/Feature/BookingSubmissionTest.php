@@ -202,7 +202,7 @@ class BookingSubmissionTest extends TestCase
         $this->assertDatabaseCount('bookings', 1);
     }
 
-    // Production break caught: idempotency keys dedupe per customer only and must not disclose another customer's booking.
+    // Idempotency keys dedupe per customer only and must not disclose another customer's booking.
     public function test_different_customer_can_reuse_the_same_submission_key_without_retrieving_another_booking(): void
     {
         $firstUser = User::factory()->create();
@@ -217,6 +217,129 @@ class BookingSubmissionTest extends TestCase
 
         $second->assertStatus(303)->assertRedirect('/bookings/'.$secondReference);
         $this->assertNotSame($firstReference, $secondReference);
+        $this->assertDatabaseCount('bookings', 2);
+    }
+
+    // Production break caught: an optional WhatsApp number must persist as an empty phone, never fail validation.
+    public function test_booking_without_a_whatsapp_number_persists_an_empty_phone(): void
+    {
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($user)->post('/bookings', $this->validPayload([
+            'phone' => '',
+        ]));
+
+        $booking = Booking::query()->sole();
+
+        $response->assertStatus(303)->assertRedirect('/bookings/'.$booking->reference);
+        $this->assertSame('', $booking->customer_phone);
+    }
+
+    public function test_elapsed_time_today_is_rejected_but_a_future_time_today_is_accepted(): void
+    {
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-09-06 15:15:00', 'Asia/Jakarta'));
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->from('/booking')
+            ->post('/bookings', $this->validPayload([
+                'date' => '2026-09-06',
+                'time' => '15:00',
+            ]))
+            ->assertRedirect('/booking')
+            ->assertSessionHasErrors(['time' => __('validation.booking.future_time')]);
+
+        $this->assertDatabaseCount('bookings', 0);
+
+        $this->actingAs($user)
+            ->post('/bookings', $this->validPayload([
+                'date' => '2026-09-06',
+                'time' => '15:30',
+            ]))
+            ->assertStatus(303);
+
+        $this->assertDatabaseCount('bookings', 1);
+    }
+
+    public function test_treatment_must_finish_by_2100_jakarta_time_including_any_extension(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->from('/booking')
+            ->post('/bookings', $this->validPayload([
+                'time' => '20:00',
+                'extension' => null,
+            ]))
+            ->assertRedirect('/booking')
+            ->assertSessionHasErrors('time');
+
+        $this->actingAs($user)
+            ->from('/booking')
+            ->post('/bookings', $this->validPayload([
+                'time' => '19:00',
+                'submission_key' => Str::uuid()->toString(),
+            ]))
+            ->assertRedirect('/booking')
+            ->assertSessionHasErrors('time');
+
+        $this->assertDatabaseCount('bookings', 0);
+
+        $this->actingAs($user)
+            ->post('/bookings', $this->validPayload([
+                'time' => '19:30',
+                'extension' => null,
+                'expected_total_price_idr' => 265000,
+                'submission_key' => Str::uuid()->toString(),
+            ]))
+            ->assertStatus(303);
+
+        $this->assertDatabaseCount('bookings', 1);
+    }
+
+    public function test_two_customers_can_request_the_same_slot_for_staff_confirmation(): void
+    {
+        $firstUser = User::factory()->create();
+        $secondUser = User::factory()->create();
+
+        $this->actingAs($firstUser)->post('/bookings', $this->validPayload())->assertStatus(303);
+
+        $this->actingAs($secondUser)
+            ->post('/bookings', [
+                ...$this->validPayload(),
+                'submission_key' => Str::uuid()->toString(),
+            ])
+            ->assertStatus(303);
+
+        $this->assertDatabaseCount('bookings', 2);
+    }
+
+    public function test_overlapping_different_start_times_can_be_requested(): void
+    {
+        $firstUser = User::factory()->create();
+        $secondUser = User::factory()->create();
+
+        // First: 10:00, 120 min → interval 10:00–12:00.
+        $this->actingAs($firstUser)->post('/bookings', [
+            ...$this->validPayload(),
+            'time' => '10:00',
+            'duration' => 120,
+            'extension' => null,
+            'expected_total_price_idr' => 315000,
+        ])->assertStatus(303);
+
+        // Second: 11:30, 90 min → interval 11:30–13:00, overlaps 11:30–12:00.
+        $this->actingAs($secondUser)
+            ->post('/bookings', [
+                ...$this->validPayload(),
+                'submission_key' => Str::uuid()->toString(),
+                'time' => '11:30',
+                'duration' => 90,
+                'extension' => null,
+                'expected_total_price_idr' => 265000,
+            ])
+            ->assertStatus(303);
+
         $this->assertDatabaseCount('bookings', 2);
     }
 
@@ -372,6 +495,7 @@ class BookingSubmissionTest extends TestCase
             'time' => '10:30',
             'guests' => 1,
             'notes' => 'Focus on shoulders.',
+            'expected_total_price_idr' => 340000,
             'submission_key' => '018f2f7c-9d0a-7b1b-9a45-3c1f9d0b5a10',
             ...$overrides,
         ];

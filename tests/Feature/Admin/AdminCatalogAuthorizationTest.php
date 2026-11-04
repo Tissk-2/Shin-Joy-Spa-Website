@@ -62,9 +62,7 @@ class AdminCatalogAuthorizationTest extends TestCase
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('admin/catalog/Index', false)
-                ->has('categories')
-                ->has('packages')
-                ->has('can'));
+                ->has('packages'));
     }
 
     public function test_catalog_route_keeps_authorization_before_bindings_and_has_no_write_throttle(): void
@@ -132,7 +130,7 @@ class AdminCatalogAuthorizationTest extends TestCase
         $this->assertNotNull($limiter);
 
         $admin = User::factory()->admin()->create();
-        $request = Request::create('/admin/catalog/categories', 'POST');
+        $request = Request::create('/admin/catalog/packages/nezuko', 'PATCH');
         $request->server->set('REMOTE_ADDR', '203.0.113.40');
         $request->setUserResolver(fn (): User => $admin);
         $limits = $limiter($request);

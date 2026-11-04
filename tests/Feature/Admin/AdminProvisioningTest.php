@@ -180,9 +180,9 @@ class AdminProvisioningTest extends TestCase
             ->assertSuccessful();
 
         $queries = array_column(DB::getQueryLog(), 'query');
-        $administratorQueryIndex = $this->firstQueryIndexContaining(
+        $guardQueryIndex = $this->firstQueryIndexContaining(
             $queries,
-            'select "id" from "users" where "role" = ? order by "id" asc',
+            'update "staff_access_guards" set "revision"',
         );
         $targetRereadQueryIndex = $this->firstQueryIndexContaining(
             $queries,
@@ -194,15 +194,9 @@ class AdminProvisioningTest extends TestCase
         );
 
         $this->assertSame($baselineTransactionLevel + 1, $transactionLevelAtRoleUpdate);
-        $this->assertLessThan($targetRereadQueryIndex, $administratorQueryIndex);
+        $this->assertLessThan($targetRereadQueryIndex, $guardQueryIndex);
         $this->assertLessThan($roleUpdateQueryIndex, $targetRereadQueryIndex);
-
-        $source = file_get_contents(app_path('Console/Commands/RevokeAdmin.php'));
-
-        $this->assertIsString($source);
-        $this->assertGreaterThanOrEqual(2, substr_count($source, '->lockForUpdate()'));
-        $this->assertStringContainsString('}, 3);', $source);
-        $this->assertStringContainsString('if ($adminIds->count() <= 1)', $source);
+        $this->assertSame(1, DB::table('staff_access_guards')->value('revision'));
     }
 
     /**

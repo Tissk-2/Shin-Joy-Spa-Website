@@ -19,17 +19,25 @@ class RegistrationTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_public_registration_cannot_assign_an_admin_role(): void
+    #[DataProvider('privilegedRoleProvider')]
+    public function test_public_registration_cannot_assign_a_privileged_role_or_capability(string $role): void
     {
         Notification::fake();
 
         $this->post(route('register.store'), $this->validRegistrationData([
-            'role' => 'admin',
+            'role' => $role,
+            'can_manage_bookings' => '1',
         ]))->assertRedirect('/verify-email');
 
         $user = User::where('email', 'ayu@example.com')->firstOrFail();
         $this->assertSame(UserRole::Customer, $user->role);
         $this->assertFalse($user->isAdmin());
+        $this->assertFalse($user->can_manage_bookings);
+    }
+
+    public static function privilegedRoleProvider(): array
+    {
+        return [['admin'], ['owner']];
     }
 
     public function test_registration_screen_can_be_rendered(): void

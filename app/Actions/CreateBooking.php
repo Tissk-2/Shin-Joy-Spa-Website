@@ -6,6 +6,8 @@ use App\Enums\BookingStatus;
 use App\Models\Booking;
 use App\Models\User;
 use App\Support\BookingQuoteResolver;
+use App\Support\Outbox\BookingCreatedOutbox;
+use App\Support\Scheduling\BookingSubmissionAvailability;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -14,7 +16,11 @@ use JsonException;
 
 class CreateBooking
 {
-    public function __construct(private readonly BookingQuoteResolver $quoteResolver) {}
+    public function __construct(
+        private readonly BookingQuoteResolver $quoteResolver,
+        private readonly BookingSubmissionAvailability $availability,
+        private readonly BookingCreatedOutbox $bookingOutbox,
+    ) {}
 
     /**
      * @param  array<string, mixed>  $data
@@ -33,9 +39,17 @@ class CreateBooking
                     return $this->matchingBooking($existing, $fingerprint);
                 }
 
+                $this->availability->validate($data);
+
                 $bookingAttributes = $this->quoteResolver->resolve($user, $data)->bookingAttributes();
 
-                return Booking::query()->forceCreate([
+                if ($bookingAttributes['total_price_idr'] !== $data['expected_total_price_idr']) {
+                    throw ValidationException::withMessages([
+                        'expected_total_price_idr' => __('validation.booking.price_changed'),
+                    ]);
+                }
+
+                $booking = Booking::query()->forceCreate([
                     'user_id' => $user->id,
                     'reference' => $this->reference(),
                     'submission_key' => (string) $data['submission_key'],
@@ -43,6 +57,12 @@ class CreateBooking
                     'status' => BookingStatus::Pending,
                     ...$bookingAttributes,
                 ]);
+
+                if (config('services.telegram.booking_notifications_enabled')) {
+                    $this->bookingOutbox->record($booking);
+                }
+
+                return $booking;
             });
         } catch (QueryException $exception) {
             if (! $this->isUniqueConstraint($exception)) {
@@ -85,7 +105,7 @@ class CreateBooking
      */
     private function fingerprint(array $attributes): string
     {
-        unset($attributes['submission_key']);
+        unset($attributes['submission_key'], $attributes['expected_total_price_idr']);
 
         return hash('sha256', json_encode(
             $this->canonicalize($attributes),

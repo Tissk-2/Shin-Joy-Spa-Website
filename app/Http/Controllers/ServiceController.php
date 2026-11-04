@@ -16,15 +16,4 @@ class ServiceController extends Controller
                 ->values(),
         ]);
     }
-
-    public function show(string $slug, PublicCatalogQuery $catalog, ServiceCatalogPresenter $presenter): Response
-    {
-        $service = $catalog->findService($slug);
-        $related = $catalog->related($service);
-
-        return inertia('ServiceDetail', [
-            'service' => $presenter->package($service),
-            'related' => $related->map($presenter->link(...))->values(),
-        ]);
-    }
 }

@@ -5,6 +5,11 @@ namespace App\Console\Commands;
 use App\Enums\UserRole;
 use App\Models\User;
 use App\Support\CustomerIdentity;
+use App\Support\Staff\StaffAccessLock;
+use App\Support\Staff\StaffAuthority;
+use App\Support\Staff\StaffPermissionAudit;
+use App\Support\Staff\StaffSchemaException;
+use App\Support\Staff\StaffTargetException;
 use Illuminate\Console\Command;
 
 final class GrantAdmin extends Command
@@ -34,13 +39,28 @@ final class GrantAdmin extends Command
             return self::SUCCESS;
         }
 
-        if ($user->isAdmin()) {
+        try {
+            $changed = (new StaffAccessLock)->run(function () use ($user, $email): bool {
+                $target = StaffAuthority::confirmedTarget($user->getKey(), $email, true);
+                if ($target->isAdmin()) {
+                    return false;
+                }
+                StaffPermissionAudit::clearForRoleChange($target, 'admin:grant');
+                $target->forceFill(['role' => UserRole::Admin])->save();
+
+                return true;
+            });
+        } catch (StaffSchemaException|StaffTargetException $exception) {
+            $this->error($exception->getMessage());
+
+            return self::FAILURE;
+        }
+        if (! $changed) {
             $this->info('This account already has administrator access.');
 
             return self::SUCCESS;
         }
 
-        $user->forceFill(['role' => UserRole::Admin])->save();
         $this->info('Administrator access granted.');
 
         return self::SUCCESS;

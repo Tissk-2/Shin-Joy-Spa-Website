@@ -23,7 +23,7 @@ class AdminBookingIndexTest extends TestCase
         parent::setUp();
 
         CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-09-07 12:00', 'Asia/Jakarta'));
-        $this->admin = User::factory()->admin()->create();
+        $this->admin = User::factory()->bookingStaff()->create();
     }
 
     protected function tearDown(): void

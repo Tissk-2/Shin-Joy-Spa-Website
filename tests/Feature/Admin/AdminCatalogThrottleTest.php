@@ -4,6 +4,7 @@ namespace Tests\Feature\Admin;
 
 use App\Actions\Catalog\SaveCatalogCategory;
 use App\Data\Admin\Catalog\CatalogCategoryData;
+use App\Models\Service;
 use App\Models\ServiceCategory;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
@@ -19,25 +20,25 @@ class AdminCatalogThrottleTest extends TestCase
     public function test_publish_and_restore_reject_the_wrong_lifecycle_intent_with_translated_field_errors(): void
     {
         $admin = User::factory()->admin()->create();
-        $draft = $this->category('draft-transition', [
+        $draft = $this->package('draft-transition', [
             'published_at' => null,
             'is_active' => false,
         ]);
         $archivedAt = now()->subDay()->startOfSecond();
-        $archived = $this->category('archived-transition', [
+        $archived = $this->package('archived-transition', [
             'published_at' => $archivedAt,
             'is_active' => false,
         ]);
 
         $this->actingAs($admin)
             ->withSession(['locale' => 'id'])
-            ->postJson("/admin/catalog/categories/{$draft->slug}/restore", ['version' => 0])
+            ->postJson("/admin/catalog/packages/{$draft->slug}/restore", ['version' => 0])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['status' => 'status yang dipilih tidak valid.']);
 
         $this->actingAs($admin)
             ->withSession(['locale' => 'id'])
-            ->postJson("/admin/catalog/categories/{$archived->slug}/publish", ['version' => 0])
+            ->postJson("/admin/catalog/packages/{$archived->slug}/publish", ['version' => 0])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['status' => 'status yang dipilih tidak valid.']);
 
@@ -126,9 +127,9 @@ class AdminCatalogThrottleTest extends TestCase
     public function test_outer_rollback_of_draft_delete_keeps_its_managed_image_and_row(): void
     {
         Storage::fake('public');
-        $oldPath = $this->managedPath('delete');
+        $oldPath = 'catalog/packages/77777777-7777-4777-8777-777777777777/88888888-8888-4888-8888-888888888888.jpg';
         Storage::disk('public')->put($oldPath, 'draft image');
-        $category = $this->category('delete-rollback', [
+        $service = $this->package('delete-rollback', [
             'image_path' => $oldPath,
             'published_at' => null,
             'is_active' => false,
@@ -139,10 +140,10 @@ class AdminCatalogThrottleTest extends TestCase
 
         try {
             $this->actingAs($admin)
-                ->delete("/admin/catalog/categories/{$category->slug}", ['version' => 0])
+                ->delete("/admin/catalog/packages/{$service->slug}", ['version' => 0])
                 ->assertStatus(303);
 
-            $this->assertNull($category->fresh());
+            $this->assertNull($service->fresh());
             Storage::disk('public')->assertExists($oldPath);
             DB::rollBack();
         } finally {
@@ -151,15 +152,15 @@ class AdminCatalogThrottleTest extends TestCase
             }
         }
 
-        $this->assertSame($oldPath, $category->fresh()->image_path);
+        $this->assertSame($oldPath, $service->fresh()->image_path);
         Storage::disk('public')->assertExists($oldPath);
     }
 
     public function test_twenty_first_write_for_one_admin_and_ip_gets_the_standard_429_response(): void
     {
         $admin = User::factory()->admin()->create();
-        $category = $this->category('minute-limit');
-        $url = "/admin/catalog/categories/{$category->slug}/archive";
+        $service = $this->package('minute-limit');
+        $url = "/admin/catalog/packages/{$service->slug}/archive";
 
         for ($attempt = 1; $attempt <= 20; $attempt++) {
             $this->actingAs($admin)
@@ -175,14 +176,14 @@ class AdminCatalogThrottleTest extends TestCase
             ->assertTooManyRequests();
 
         $response->assertHeader('Retry-After');
-        $this->assertSame(0, $category->fresh()->lock_version);
+        $this->assertSame(0, $service->fresh()->lock_version);
     }
 
     public function test_one_hundred_and_first_ip_write_is_hour_limited_without_hitting_an_admin_minute_bucket(): void
     {
         $admins = User::factory()->count(6)->admin()->create();
-        $category = $this->category('hour-limit');
-        $url = "/admin/catalog/categories/{$category->slug}/archive";
+        $service = $this->package('hour-limit');
+        $url = "/admin/catalog/packages/{$service->slug}/archive";
         $ipAddress = '203.0.113.101';
 
         for ($attempt = 0; $attempt < 100; $attempt++) {
@@ -199,7 +200,7 @@ class AdminCatalogThrottleTest extends TestCase
             ->assertTooManyRequests();
 
         $response->assertHeader('Retry-After');
-        $this->assertSame(0, $category->fresh()->lock_version);
+        $this->assertSame(0, $service->fresh()->lock_version);
     }
 
     /** @param array<string, mixed> $overrides */
@@ -213,6 +214,34 @@ class AdminCatalogThrottleTest extends TestCase
             'published_at' => now(),
             'lock_version' => 0,
             'is_active' => true,
+            'display_order' => 1,
+            ...$overrides,
+        ]);
+    }
+
+    /** @param array<string, mixed> $overrides */
+    private function package(string $slug, array $overrides = []): Service
+    {
+        return Service::query()->create([
+            'category_id' => $this->category("package-{$slug}")->id,
+            'slug' => $slug,
+            'name_id' => 'Paket Uji',
+            'name_en' => 'Test Package',
+            'description_id' => null,
+            'description_en' => null,
+            'long_description_id' => null,
+            'long_description_en' => null,
+            'good_for_id' => null,
+            'good_for_en' => null,
+            'duration_minutes' => null,
+            'price_idr' => null,
+            'image_path' => null,
+            'gallery_paths' => [],
+            'popularity' => 0,
+            'is_vip' => false,
+            'is_active' => true,
+            'published_at' => now(),
+            'lock_version' => 0,
             'display_order' => 1,
             ...$overrides,
         ]);

@@ -47,6 +47,11 @@ final class ServicePolicy
         return $this->isVerifiedAdmin($user);
     }
 
+    public function attestPricing(User $user, Service $service): bool
+    {
+        return $user->hasVerifiedEmail() && $user->isOwner();
+    }
+
     private function isVerifiedAdmin(User $user): bool
     {
         return $user->hasVerifiedEmail() && $user->isAdmin();

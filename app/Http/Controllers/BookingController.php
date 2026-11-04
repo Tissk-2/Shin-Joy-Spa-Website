@@ -39,6 +39,7 @@ class BookingController extends Controller
             'packages' => $services->map($presenter->package(...))->values(),
             'selection' => $selectionResolver->resolve($request, $services),
             'submissionKey' => (string) Str::uuid(),
+            'availabilityEnabled' => config('booking.scheduling_enabled') === true,
         ]);
     }
 

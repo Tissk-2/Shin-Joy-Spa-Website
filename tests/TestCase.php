@@ -15,6 +15,7 @@ abstract class TestCase extends BaseTestCase
         'APP_KEY' => self::TEST_APPLICATION_KEY,
         'APP_PREVIOUS_KEYS' => '',
         'APP_DEBUG' => 'false',
+        'BOOKING_SCHEDULING_ENABLED' => 'false',
         'APP_URL' => 'http://localhost',
         'APP_MAINTENANCE_DRIVER' => 'file',
         'BCRYPT_ROUNDS' => '4',
@@ -51,6 +52,7 @@ abstract class TestCase extends BaseTestCase
 
     private const EXPECTED_TEST_CONFIGURATION = [
         'app.env' => 'testing',
+        'booking.scheduling_enabled' => false,
         'database.default' => 'sqlite',
         'database.connections.sqlite.database' => ':memory:',
         'cache.default' => 'array',
@@ -98,6 +100,8 @@ abstract class TestCase extends BaseTestCase
         'services.ses.secret',
         'services.resend.key',
         'services.slack.notifications.bot_user_oauth_token',
+        'services.telegram.bot_token',
+        'services.telegram.staff_chat_id',
     ];
 
     public function createApplication()
@@ -105,6 +109,14 @@ abstract class TestCase extends BaseTestCase
         $this->forceIsolatedTestEnvironment();
 
         $app = parent::createApplication();
+
+        $app->make('config')->set('services.telegram', [
+            'booking_notifications_enabled' => false,
+            'bot_token' => null,
+            'staff_chat_id' => null,
+            'message_thread_id' => null,
+            'ca_bundle' => null,
+        ]);
 
         $this->assertIsolatedTestConfiguration($app);
 
@@ -137,7 +149,7 @@ abstract class TestCase extends BaseTestCase
         $config = $app->make('config');
 
         foreach (self::EXPECTED_TEST_CONFIGURATION as $key => $expected) {
-            if (! hash_equals($expected, (string) $config->get($key))) {
+            if (is_bool($expected) ? $config->get($key) !== $expected : ! hash_equals($expected, (string) $config->get($key))) {
                 throw new RuntimeException(
                     "Refusing to run tests because [{$key}] is not safely isolated.",
                 );
@@ -150,6 +162,12 @@ abstract class TestCase extends BaseTestCase
                     "Refusing to run tests because [{$key}] contains non-testing configuration.",
                 );
             }
+        }
+
+        if ($config->get('services.telegram.booking_notifications_enabled') !== false) {
+            throw new RuntimeException(
+                'Refusing to run tests because Telegram notifications are enabled.',
+            );
         }
     }
 

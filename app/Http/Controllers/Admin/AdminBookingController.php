@@ -72,6 +72,7 @@ final class AdminBookingController extends Controller
             $validated['reason'] ?? null,
             $request->ip(),
             $request->userAgent(),
+            (bool) ($validated['operationalConfirmed'] ?? false),
         );
 
         return to_route('admin.bookings.show', $booking, 303)

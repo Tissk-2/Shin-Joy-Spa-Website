@@ -3,10 +3,13 @@
 namespace App\Http\Requests;
 
 use App\Enums\TreatmentMode;
+use App\Models\Booking;
 use App\Support\CustomerIdentity;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class StoreBookingRequest extends FormRequest
 {
@@ -30,7 +33,7 @@ class StoreBookingRequest extends FormRequest
             ],
             'phone' => [
                 'bail',
-                'required',
+                'nullable',
                 'string',
                 'max:32',
                 'regex:/\A[+\d][\d\s-]{7,}\z/',
@@ -56,7 +59,31 @@ class StoreBookingRequest extends FormRequest
             'guests' => ['bail', 'required', 'integer', 'min:1', 'max:4'],
             'notes' => ['bail', 'nullable', 'string', 'max:1000'],
             'submission_key' => ['bail', 'required', 'uuid'],
+            'expected_total_price_idr' => ['bail', 'required', 'integer', 'min:0'],
         ];
+    }
+
+    /** @return list<callable(Validator): void> */
+    public function after(): array
+    {
+        return [function (Validator $validator): void {
+            if ($validator->errors()->has('date') || $validator->errors()->has('time')) {
+                return;
+            }
+
+            $date = $this->input('date');
+            $time = $this->input('time');
+            if (! is_string($date) || ! is_string($time)) {
+                return;
+            }
+
+            $appointment = CarbonImmutable::createFromFormat('!Y-m-d H:i', $date.' '.$time, 'Asia/Jakarta');
+            if ($appointment !== false
+                && $appointment->lessThanOrEqualTo(CarbonImmutable::now('Asia/Jakarta'))
+                && ! $this->hasExistingSubmission()) {
+                $validator->errors()->add('time', __('validation.booking.future_time'));
+            }
+        }];
     }
 
     /**
@@ -71,7 +98,8 @@ class StoreBookingRequest extends FormRequest
      *     appointment_time: string,
      *     guests: int,
      *     notes: string|null,
-     *     submission_key: string
+     *     submission_key: string,
+     *     expected_total_price_idr: int
      * }
      */
     public function validatedBookingData(): array
@@ -92,7 +120,8 @@ class StoreBookingRequest extends FormRequest
      *     appointment_time: string,
      *     guests: int,
      *     notes: string|null,
-     *     submission_key: string
+     *     submission_key: string,
+     *     expected_total_price_idr: int
      * }
      */
     public static function validatedBookingDataFrom(array $data): array
@@ -106,7 +135,7 @@ class StoreBookingRequest extends FormRequest
 
         return [
             'name' => CustomerIdentity::name((string) $data['name']),
-            'phone' => CustomerIdentity::phone((string) $data['phone']),
+            'phone' => CustomerIdentity::phone((string) ($data['phone'] ?? '')),
             'service' => (string) $data['service'],
             'mode' => (string) $data['mode'],
             'duration' => (int) $data['duration'],
@@ -116,6 +145,7 @@ class StoreBookingRequest extends FormRequest
             'guests' => (int) $data['guests'],
             'notes' => $notes === '' ? null : $notes,
             'submission_key' => (string) $data['submission_key'],
+            'expected_total_price_idr' => (int) ($data['expected_total_price_idr'] ?? 0),
         ];
     }
 
@@ -170,8 +200,19 @@ class StoreBookingRequest extends FormRequest
             return;
         }
 
-        if ($date->lt(CarbonImmutable::now('Asia/Jakarta')->startOfDay())) {
-            $fail(__('validation.after_or_equal', ['attribute' => $attribute, 'date' => 'today']));
+        if ($date->lt(CarbonImmutable::now('Asia/Jakarta')->startOfDay()) && ! $this->hasExistingSubmission()) {
+            $fail(__('validation.after_or_equal', ['attribute' => $attribute, 'date' => __('validation.booking.today')]));
         }
+    }
+
+    private function hasExistingSubmission(): bool
+    {
+        $key = $this->input('submission_key');
+        $user = $this->user();
+
+        return $user !== null
+            && is_string($key)
+            && Str::isUuid($key)
+            && Booking::query()->where('user_id', $user->id)->where('submission_key', $key)->exists();
     }
 }

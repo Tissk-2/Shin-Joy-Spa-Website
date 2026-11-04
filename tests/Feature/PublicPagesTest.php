@@ -28,10 +28,7 @@ class PublicPagesTest extends TestCase
             ->assertNotFound();
 
         $this->get('/services/nezuko')
-            ->assertOk()
-            ->assertInertia(fn (Assert $page) => $page
-                ->component('ServiceDetail')
-                ->where('service.slug', 'nezuko'));
+            ->assertNotFound();
 
         $this->get('/booking?service=nezuko&mode=regular&duration=90')
             ->assertRedirect(route('login', absolute: false));
@@ -56,7 +53,8 @@ class PublicPagesTest extends TestCase
         $this->assertSame(['slug', 'nameId', 'nameEn', 'image', 'packages'], array_keys($category));
         $this->assertSame([
             'slug', 'nameId', 'nameEn', 'descId', 'descEn', 'longId', 'longEn',
-            'benefitId', 'benefitEn', 'image', 'gallery', 'isVip', 'variants', 'extensions',
+            'benefitId', 'benefitEn', 'image', 'gallery', 'isVip',
+            'pricingBasis', 'minGuests', 'maxGuests', 'pricingVerified', 'variants', 'extensions',
         ], array_keys($category['packages'][0]));
 
         $this->get('/about')->assertRedirect('/#about');

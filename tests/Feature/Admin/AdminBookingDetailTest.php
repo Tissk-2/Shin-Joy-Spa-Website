@@ -17,7 +17,7 @@ class AdminBookingDetailTest extends TestCase
     // Production break caught: the detail endpoint must expose the complete operational allow-list and immutable audit snapshots only.
     public function test_detail_exposes_only_operational_fields_and_ordered_history(): void
     {
-        $viewer = User::factory()->admin()->create([
+        $viewer = User::factory()->bookingStaff()->create([
             'name' => 'Console Administrator',
             'email' => 'console@example.test',
         ]);
@@ -97,7 +97,7 @@ class AdminBookingDetailTest extends TestCase
 
         $props = $response->inertiaProps();
         $this->assertSame(
-            ['errors', 'auth', 'locale', 'flash', 'catalog', 'booking', 'backUrl'],
+            ['errors', 'auth', 'locale', 'flash', 'catalog', 'content', 'booking', 'backUrl'],
             array_keys($props),
         );
         $this->assertSame([
@@ -123,6 +123,8 @@ class AdminBookingDetailTest extends TestCase
             'totalDurationMinutes' => 150,
             'totalPriceIdr' => 470000,
             'allowedTransitions' => ['confirmed', 'cancelled'],
+            'roomSchedulingEnabled' => false,
+            'assignedRoom' => null,
             'base' => [
                 'choiceCode' => 'nezuko-vip-120',
                 'durationMinutes' => 120,
@@ -141,6 +143,7 @@ class AdminBookingDetailTest extends TestCase
                     'toStatus' => 'confirmed',
                     'reason' => null,
                     'createdAt' => '2026-09-07T10:00:00.000000Z',
+                    'operationalConfirmedAt' => null,
                 ],
                 [
                     'actor' => ['name' => 'Second Administrator', 'email' => 'second@example.test'],
@@ -148,6 +151,7 @@ class AdminBookingDetailTest extends TestCase
                     'toStatus' => 'completed',
                     'reason' => 'Treatment finished',
                     'createdAt' => '2026-09-07T10:00:00.000000Z',
+                    'operationalConfirmedAt' => null,
                 ],
                 [
                     'actor' => ['name' => 'Archived Administrator', 'email' => 'archived@example.test'],
@@ -155,6 +159,7 @@ class AdminBookingDetailTest extends TestCase
                     'toStatus' => 'cancelled',
                     'reason' => 'Correction recorded',
                     'createdAt' => '2026-09-07T10:01:00.000000Z',
+                    'operationalConfirmedAt' => null,
                 ],
             ],
         ], $props['booking']);

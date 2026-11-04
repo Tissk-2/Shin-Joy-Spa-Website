@@ -103,7 +103,12 @@ final class SaveCatalogPackage
                     ChangePackageLifecycle::validatePublishableData($category, $data, $nextCover, $nextGallery);
                 }
 
+                $pricingChanged = $this->pricingChanged($locked, $existingVariants, $existingExtensions, $data);
                 $this->fillPackage($locked, $data, $nextCover, $nextGallery);
+                if ($pricingChanged && $locked->pricing_verified_at !== null) {
+                    $locked->pricing_verified_at = null;
+                    $locked->pricing_verified_by = null;
+                }
                 $this->reconcileChoices($locked, ServiceVariant::class, $existingVariants, $data->variants, 'service_variant_id');
                 $this->reconcileChoices($locked, ServiceExtension::class, $existingExtensions, $data->extensions, 'service_extension_id');
                 $locked->lock_version++;
@@ -201,8 +206,62 @@ final class SaveCatalogPackage
         $service->good_for_en = $data->benefitEn;
         $service->is_vip = $data->isVip;
         $service->display_order = $data->displayOrder;
+        $service->pricing_basis = $data->pricingBasis;
+        $service->min_guests = $data->minGuests;
+        $service->max_guests = $data->maxGuests;
         $service->image_path = $cover;
         $service->gallery_paths = $gallery;
+    }
+
+    /**
+     * @param  Collection<int, ServiceVariant|ServiceExtension>  $existingVariants
+     * @param  Collection<int, ServiceVariant|ServiceExtension>  $existingExtensions
+     */
+    private function pricingChanged(
+        Service $service,
+        Collection $existingVariants,
+        Collection $existingExtensions,
+        CatalogPackageData $data,
+    ): bool {
+        if ($service->pricing_basis !== $data->pricingBasis
+            || $service->min_guests !== $data->minGuests
+            || $service->max_guests !== $data->maxGuests) {
+            return true;
+        }
+
+        return $this->choicesChanged($existingVariants, $data->variants)
+            || $this->choicesChanged($existingExtensions, $data->extensions);
+    }
+
+    /**
+     * @param  Collection<int, ServiceVariant|ServiceExtension>  $existing
+     * @param  list<CatalogChoiceData>  $submitted
+     */
+    private function choicesChanged(Collection $existing, array $submitted): bool
+    {
+        $before = [];
+        foreach ($existing as $choice) {
+            $before[(string) $choice->id] = [
+                $choice->treatment_mode->value,
+                (int) $choice->duration_minutes,
+                (int) $choice->price_idr,
+                (bool) $choice->is_active,
+            ];
+        }
+
+        $after = [];
+        foreach ($submitted as $index => $choice) {
+            $after[$choice->id === null ? "new-{$index}" : (string) $choice->id] = [
+                $choice->mode->value,
+                $choice->durationMinutes,
+                $choice->priceIdr,
+                $choice->isActive,
+            ];
+        }
+        ksort($before);
+        ksort($after);
+
+        return $before !== $after;
     }
 
     private function ensureFreshVersion(Service $service, int $version): void

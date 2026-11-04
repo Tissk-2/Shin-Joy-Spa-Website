@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Support\BookingAuthContextResolver;
 use App\Support\SafeIntendedPath;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -14,14 +15,17 @@ class EmailVerificationPromptController extends Controller
     /**
      * Show the email verification prompt page.
      */
-    public function __invoke(Request $request): RedirectResponse|Response
+    public function __invoke(Request $request, BookingAuthContextResolver $context): RedirectResponse|Response
     {
         if ($request->user()->hasVerifiedEmail()) {
             $intended = SafeIntendedPath::pull($request);
 
-            return redirect($intended ?? route('dashboard', absolute: false));
+            return redirect($intended ?? route('profile', absolute: false));
         }
 
-        return Inertia::render('auth/VerifyEmail', ['status' => $request->session()->get('status')]);
+        return Inertia::render('auth/VerifyEmail', [
+            'status' => $request->session()->get('status'),
+            'bookingContext' => $context->resolve($request),
+        ]);
     }
 }

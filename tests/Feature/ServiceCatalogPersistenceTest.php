@@ -166,8 +166,73 @@ class ServiceCatalogPersistenceTest extends TestCase
         }
     }
 
-    // Production break caught: resolving catalog collisions by deletion discards existing child-row identities and data history.
-    public function test_catalog_seeder_reuses_natural_choices_archives_code_collisions_and_preserves_unknown_children(): void
+    // Production break caught: a routine db:seed rerun must not undo prices or choices edited in the admin catalog.
+    public function test_catalog_seeder_preserves_admin_managed_packages_on_rerun(): void
+    {
+        $this->seed(ServiceCatalogSeeder::class);
+
+        $nezuko = Service::query()->where('slug', 'nezuko')->firstOrFail();
+        $nezuko->update(['name_en' => 'Custom Nezuko']);
+
+        $variant = ServiceVariant::query()->where('code', 'nezuko-regular-60')->firstOrFail();
+        $variant->update(['price_idr' => 225000, 'display_order' => 7]);
+        $extension = ServiceExtension::query()->where('code', 'nezuko-regular-extra-60')->firstOrFail();
+        $extension->update(['price_idr' => 85000]);
+
+        ServiceVariant::query()->create([
+            'service_id' => $nezuko->id, 'code' => 'nezuko-regular-45',
+            'treatment_mode' => TreatmentMode::Regular, 'duration_minutes' => 45,
+            'price_idr' => 175000, 'is_active' => true,
+            'published_at' => now(), 'display_order' => 8,
+        ]);
+        ServiceExtension::query()->create([
+            'service_id' => $nezuko->id, 'code' => 'nezuko-regular-extra-45',
+            'treatment_mode' => TreatmentMode::Regular, 'duration_minutes' => 45,
+            'price_idr' => 65000, 'is_active' => true,
+            'published_at' => now(), 'display_order' => 9,
+        ]);
+
+        $this->seed(ServiceCatalogSeeder::class);
+
+        $this->assertSame('Custom Nezuko', $nezuko->fresh()->name_en);
+        $this->assertSame(225000, $variant->fresh()->price_idr);
+        $this->assertSame(7, $variant->fresh()->display_order);
+        $this->assertSame(85000, $extension->fresh()->price_idr);
+        $this->assertDatabaseHas('service_variants', ['code' => 'nezuko-regular-45', 'is_active' => true]);
+        $this->assertDatabaseHas('service_extensions', ['code' => 'nezuko-regular-extra-45', 'is_active' => true]);
+    }
+
+    // Production break caught: rebuilding a missing package must not reset a surviving admin-edited package.
+    public function test_catalog_seeder_creates_a_missing_package_without_resetting_the_existing_one(): void
+    {
+        $this->seed(ServiceCatalogSeeder::class);
+
+        $nezuko = Service::query()->where('slug', 'nezuko')->firstOrFail();
+        $nezuko->update(['name_en' => 'Custom Nezuko']);
+        $variant = ServiceVariant::query()->where('code', 'nezuko-regular-60')->firstOrFail();
+        $variant->update(['price_idr' => 225000]);
+        $extension = ServiceExtension::query()->where('code', 'nezuko-regular-extra-60')->firstOrFail();
+        $extension->update(['price_idr' => 85000]);
+        ServiceVariant::query()->create([
+            'service_id' => $nezuko->id, 'code' => 'nezuko-regular-45',
+            'treatment_mode' => TreatmentMode::Regular, 'duration_minutes' => 45,
+            'price_idr' => 175000, 'is_active' => true,
+            'published_at' => now(), 'display_order' => 8,
+        ]);
+        Service::query()->where('slug', 'nezuko-vip')->firstOrFail()->delete();
+
+        $this->seed(ServiceCatalogSeeder::class);
+
+        $this->assertSame('Custom Nezuko', $nezuko->fresh()->name_en);
+        $this->assertSame(225000, $variant->fresh()->price_idr);
+        $this->assertSame(85000, $extension->fresh()->price_idr);
+        $this->assertDatabaseHas('service_variants', ['code' => 'nezuko-regular-45', 'is_active' => true]);
+        $this->assertDatabaseHas('services', ['slug' => 'nezuko-vip', 'is_active' => true]);
+        $this->assertSame(4, ServiceVariant::query()->where('service_id', Service::query()->where('slug', 'nezuko-vip')->value('id'))->count());
+    }
+
+    // Production break caught: adding a missing package must not rewrite existing choices or unrelated services.
+    public function test_catalog_seeder_preserves_existing_package_choices_and_unrelated_services(): void
     {
         $packageCategory = ServiceCategory::query()->create([
             'slug' => 'package', 'name_id' => 'Paket', 'name_en' => 'Packages',
@@ -216,32 +281,27 @@ class ServiceCatalogPersistenceTest extends TestCase
         $this->assertDatabaseHas('service_variants', [
             'id' => $staleVariant->id,
             'service_id' => $nezuko->id,
-            'code' => 'nezuko-regular-60',
+            'code' => 'stale-nezuko-regular-60',
             'treatment_mode' => TreatmentMode::Regular->value,
             'duration_minutes' => 60,
-            'price_idr' => 199000,
+            'price_idr' => 1,
             'is_active' => true,
-            'display_order' => 1,
+            'display_order' => 99,
         ]);
         $this->assertDatabaseHas('service_extensions', [
             'id' => $staleExtension->id,
             'service_id' => $nezuko->id,
-            'code' => 'nezuko-regular-extra-60',
+            'code' => 'stale-nezuko-extra-60',
             'treatment_mode' => TreatmentMode::Regular->value,
             'duration_minutes' => 60,
-            'price_idr' => 75000,
+            'price_idr' => 1,
             'is_active' => true,
-            'display_order' => 1,
+            'display_order' => 99,
         ]);
 
-        $archivedVariantCode = $variantCodeCollision->fresh()->code;
-        $archivedExtensionCode = $extensionCodeCollision->fresh()->code;
-        $this->assertNotSame('nezuko-regular-60', $archivedVariantCode);
-        $this->assertNotSame('nezuko-regular-extra-60', $archivedExtensionCode);
-        $this->assertDatabaseHas('service_variants', ['id' => $variantCodeCollision->id, 'code' => $archivedVariantCode, 'is_active' => false]);
-        $this->assertDatabaseHas('service_extensions', ['id' => $extensionCodeCollision->id, 'code' => $archivedExtensionCode, 'is_active' => false]);
+        $this->assertDatabaseHas('service_variants', ['id' => $variantCodeCollision->id, 'code' => 'nezuko-regular-60', 'price_idr' => 2, 'is_active' => true]);
+        $this->assertDatabaseHas('service_extensions', ['id' => $extensionCodeCollision->id, 'code' => 'nezuko-regular-extra-60', 'price_idr' => 2, 'is_active' => true]);
         $this->assertSame('2026-09-01 10:00:00', $variantCodeCollision->fresh()->published_at?->format('Y-m-d H:i:s'));
-        $this->assertNotNull($extensionCodeCollision->fresh()->published_at);
         $this->assertDatabaseHas('service_variants', [
             'id' => $futureVariant->id, 'service_id' => $future->id, 'code' => 'future-regular-60',
             'price_idr' => 123000, 'is_active' => true,
@@ -250,8 +310,9 @@ class ServiceCatalogPersistenceTest extends TestCase
             'id' => $futureExtension->id, 'service_id' => $future->id, 'code' => 'future-extra-60',
             'price_idr' => 45000, 'is_active' => true,
         ]);
-        $this->assertSame(8, ServiceVariant::query()->whereIn('service_id', [$nezuko->id, Service::query()->where('slug', 'nezuko-vip')->value('id')])->where('is_active', true)->count());
-        $this->assertSame(4, ServiceExtension::query()->whereIn('service_id', [$nezuko->id, Service::query()->where('slug', 'nezuko-vip')->value('id')])->where('is_active', true)->count());
+        $vipId = Service::query()->where('slug', 'nezuko-vip')->value('id');
+        $this->assertSame(4, ServiceVariant::query()->where('service_id', $vipId)->where('is_active', true)->count());
+        $this->assertSame(2, ServiceExtension::query()->where('service_id', $vipId)->where('is_active', true)->count());
 
         $variantCount = ServiceVariant::query()->count();
         $extensionCount = ServiceExtension::query()->count();
@@ -260,8 +321,8 @@ class ServiceCatalogPersistenceTest extends TestCase
 
         $this->assertSame($variantCount, ServiceVariant::query()->count());
         $this->assertSame($extensionCount, ServiceExtension::query()->count());
-        $this->assertSame($archivedVariantCode, $variantCodeCollision->fresh()->code);
-        $this->assertSame($archivedExtensionCode, $extensionCodeCollision->fresh()->code);
+        $this->assertSame('nezuko-regular-60', $variantCodeCollision->fresh()->code);
+        $this->assertSame('nezuko-regular-extra-60', $extensionCodeCollision->fresh()->code);
     }
 
     // Production break caught: broad retirement queries could deactivate future or admin-created services.
@@ -294,7 +355,7 @@ class ServiceCatalogPersistenceTest extends TestCase
 
         $service = Service::query()->where('slug', 'nezuko')->firstOrFail();
 
-        $this->assertSame(['massage.jpg', 'oil.jpg', 'about.jpg'], $service->gallery_paths);
+        $this->assertSame(['/img/massage.jpg', '/img/oil.jpg', '/img/about.jpg'], $service->gallery_paths);
         $this->assertNull($service->duration_minutes);
         $this->assertNull($service->price_idr);
         $this->assertIsInt($service->popularity);
@@ -400,7 +461,7 @@ class ServiceCatalogPersistenceTest extends TestCase
                 'description_en' => 'A gentle treatment combining traditional and Thai massage techniques, with or without oil, designed to create a deeply relaxing experience.',
                 'good_for_id' => 'Membantu memperlancar peredaran darah dan meningkatkan kualitas tidur.',
                 'good_for_en' => 'Helps support healthy circulation and improve sleep quality.',
-                'image_path' => '/img/massage.jpg', 'gallery_paths' => ['massage.jpg', 'oil.jpg', 'about.jpg'],
+                'image_path' => '/img/massage.jpg', 'gallery_paths' => ['/img/massage.jpg', '/img/oil.jpg', '/img/about.jpg'],
                 'popularity' => 100, 'display_order' => 1,
             ],
             'nezuko-vip' => [
@@ -409,7 +470,7 @@ class ServiceCatalogPersistenceTest extends TestCase
                 'description_en' => "A tailored blend of traditional and Thai massage, with or without oil, adjusted to the client's needs and preferences for a deeply relaxing experience.",
                 'good_for_id' => 'Membantu memperlancar peredaran darah dan meningkatkan kualitas tidur.',
                 'good_for_en' => 'Helps support healthy circulation and improve sleep quality.',
-                'image_path' => '/img/package.jpg', 'gallery_paths' => ['package.jpg', 'hands.jpg', 'oil.jpg'],
+                'image_path' => '/img/package.jpg', 'gallery_paths' => ['/img/package.jpg', '/img/hands.jpg', '/img/oil.jpg'],
                 'popularity' => 99, 'display_order' => 2,
             ],
         ];

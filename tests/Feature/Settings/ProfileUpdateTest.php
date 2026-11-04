@@ -161,7 +161,7 @@ class ProfileUpdateTest extends TestCase
         $this->assertSame(UserRole::Admin, $remainingAdmin->fresh()?->role);
     }
 
-    public function test_administrator_account_deletion_locks_the_admin_set_and_fresh_target_in_a_transaction(): void
+    public function test_administrator_account_deletion_acquires_staff_guard_before_fresh_target_in_a_transaction(): void
     {
         $admin = User::factory()->admin()->create();
         User::factory()->admin()->create();
@@ -191,6 +191,7 @@ class ProfileUpdateTest extends TestCase
             }
         });
         $connection->setQueryGrammar($recordingGrammar);
+        DB::enableQueryLog();
 
         try {
             $this->actingAs($admin)->delete('/settings/profile', [
@@ -208,6 +209,15 @@ class ProfileUpdateTest extends TestCase
 
         $this->assertSame($baselineTransactionLevel + 1, $transactionLevelAtDeletion);
         $this->assertCount(2, $lockedUserSelects);
+        $queries = array_column(DB::getQueryLog(), 'query');
+        $guard = array_find_key($queries, fn ($query) => str_starts_with($query, 'update "staff_access_guards"'));
+        $target = array_find_key($queries, fn ($query) => str_starts_with($query, 'select * from "users" where "users"."id"'));
+        $deletion = array_find_key($queries, fn ($query) => str_starts_with($query, 'delete from "users"'));
+        $this->assertNotNull($guard);
+        $this->assertNotNull($target);
+        $this->assertNotNull($deletion);
+        $this->assertLessThan($target, $guard);
+        $this->assertLessThan($deletion, $target);
     }
 
     public function test_correct_password_must_be_provided_to_delete_account()

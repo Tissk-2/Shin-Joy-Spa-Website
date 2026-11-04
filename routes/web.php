@@ -3,6 +3,7 @@
 use App\Http\Controllers\Auth\EmailVerificationNotificationController;
 use App\Http\Controllers\Auth\EmailVerificationPromptController;
 use App\Http\Controllers\Auth\VerifyEmailController;
+use App\Http\Controllers\BookingAvailabilityController;
 use App\Http\Controllers\BookingController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\ServiceController;
@@ -18,13 +19,13 @@ Route::get('/', [HomeController::class, 'index'])->name('home');
 
 Route::get('/services', [ServiceController::class, 'index'])->name('services.index');
 
-Route::get('/services/{slug}', [ServiceController::class, 'show'])
-    ->where('slug', '[a-z0-9-]+')
-    ->name('services.show');
-
 Route::get('/booking', [BookingController::class, 'create'])
     ->middleware(['auth', 'verified'])
     ->name('booking');
+
+Route::get('/booking/availability', BookingAvailabilityController::class)
+    ->middleware(['auth', 'verified', 'throttle:booking-availability'])
+    ->name('booking.availability');
 
 Route::get('/bookings', [BookingController::class, 'index'])
     ->middleware(['auth', 'verified'])
@@ -49,10 +50,6 @@ Route::post('/locale', function (Request $request) {
 
     return back(status: 303);
 })->name('locale.update');
-
-Route::inertia('/dashboard', 'Dashboard')
-    ->middleware(['auth', 'verified'])
-    ->name('dashboard');
 
 Route::inertia('/profile', 'Profile')
     ->middleware(['auth', 'verified'])

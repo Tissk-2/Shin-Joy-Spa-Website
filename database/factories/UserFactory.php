@@ -50,4 +50,14 @@ class UserFactory extends Factory
     {
         return $this->state(fn (): array => ['role' => UserRole::Admin]);
     }
+
+    public function owner(): static
+    {
+        return $this->state(fn (): array => ['role' => UserRole::Owner]);
+    }
+
+    public function bookingStaff(): static
+    {
+        return $this->admin()->state(fn (): array => ['can_manage_bookings' => true]);
+    }
 }

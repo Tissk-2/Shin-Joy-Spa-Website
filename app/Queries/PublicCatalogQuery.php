@@ -28,15 +28,4 @@ final class PublicCatalogQuery
             ->where('slug', $slug)
             ->firstOrFail();
     }
-
-    /** @return Collection<int, Service> */
-    public function related(Service $service, int $limit = 3): Collection
-    {
-        return Service::query()
-            ->publiclyVisible()
-            ->where('category_id', $service->category_id)
-            ->whereKeyNot($service)
-            ->limit($limit)
-            ->get();
-    }
 }

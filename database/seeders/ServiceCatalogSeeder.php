@@ -18,27 +18,29 @@ class ServiceCatalogSeeder extends Seeder
     {
         DB::transaction(function (): void {
             $publishedAt = now();
-            $category = ServiceCategory::query()->updateOrCreate(
+            $packages = $this->packages();
+            $hadOfficialPackage = Service::query()->whereIn('slug', array_keys($packages))->exists();
+            $category = ServiceCategory::query()->firstOrCreate(
                 ['slug' => 'package'],
                 [
                     'name_id' => 'Paket Spa',
                     'name_en' => 'Spa Packages',
                     'image_path' => '/img/package.jpg',
                     'is_active' => true,
-                    'published_at' => ServiceCategory::query()
-                        ->where('slug', 'package')
-                        ->value('published_at') ?? $publishedAt,
+                    'published_at' => $publishedAt,
                     'display_order' => 1,
                 ],
             );
 
-            ServiceCategory::query()
-                ->whereIn('slug', ['massage', 'facial', 'body'])
-                ->update(['is_active' => false]);
+            if (! $hadOfficialPackage) {
+                ServiceCategory::query()
+                    ->whereIn('slug', ['massage', 'facial', 'body'])
+                    ->update(['is_active' => false]);
+            }
 
             $services = [];
-            foreach ($this->packages() as $slug => $package) {
-                $services[$slug] = Service::query()->updateOrCreate(
+            foreach ($packages as $slug => $package) {
+                $service = Service::query()->firstOrCreate(
                     ['slug' => $slug],
                     [
                         'category_id' => $category->id,
@@ -47,16 +49,19 @@ class ServiceCatalogSeeder extends Seeder
                         'long_description_en' => $package['description_en'],
                         'popularity' => $slug === 'nezuko' ? 100 : 99,
                         'is_active' => true,
-                        'published_at' => Service::query()
-                            ->where('slug', $slug)
-                            ->value('published_at') ?? $publishedAt,
+                        'published_at' => $publishedAt,
                     ],
                 );
+                if ($service->wasRecentlyCreated) {
+                    $services[$slug] = $service;
+                }
             }
 
-            Service::query()
-                ->whereIn('slug', $this->placeholderSlugs())
-                ->update(['is_active' => false]);
+            if (! $hadOfficialPackage) {
+                Service::query()
+                    ->whereIn('slug', $this->placeholderSlugs())
+                    ->update(['is_active' => false]);
+            }
 
             $this->seedVariants($services, $publishedAt);
             $this->seedExtensions($services, $publishedAt);
@@ -74,7 +79,7 @@ class ServiceCatalogSeeder extends Seeder
                 'good_for_id' => 'Membantu memperlancar peredaran darah dan meningkatkan kualitas tidur.',
                 'good_for_en' => 'Helps support healthy circulation and improve sleep quality.',
                 'image_path' => '/img/massage.jpg',
-                'gallery_paths' => ['massage.jpg', 'oil.jpg', 'about.jpg'],
+                'gallery_paths' => ['/img/massage.jpg', '/img/oil.jpg', '/img/about.jpg'],
                 'duration_minutes' => null, 'price_idr' => null, 'display_order' => 1,
             ],
             'nezuko-vip' => [
@@ -84,7 +89,7 @@ class ServiceCatalogSeeder extends Seeder
                 'good_for_id' => 'Membantu memperlancar peredaran darah dan meningkatkan kualitas tidur.',
                 'good_for_en' => 'Helps support healthy circulation and improve sleep quality.',
                 'image_path' => '/img/package.jpg',
-                'gallery_paths' => ['package.jpg', 'hands.jpg', 'oil.jpg'],
+                'gallery_paths' => ['/img/package.jpg', '/img/hands.jpg', '/img/oil.jpg'],
                 'duration_minutes' => null, 'price_idr' => null, 'display_order' => 2,
             ],
         ];
@@ -105,39 +110,25 @@ class ServiceCatalogSeeder extends Seeder
         ];
 
         foreach ($rows as $index => $row) {
-            $serviceId = $services[$row['service']]->id;
-            $naturalChoice = ServiceVariant::query()
-                ->where('service_id', $serviceId)
-                ->where('treatment_mode', $row['mode'])
-                ->where('duration_minutes', $row['duration'])
-                ->first();
-            $codeOwner = ServiceVariant::query()->where('code', $row['code'])->first();
-
-            if ($codeOwner !== null && ($naturalChoice === null || ! $codeOwner->is($naturalChoice))) {
-                $this->archiveChoice($codeOwner, $publishedAt);
+            if (! isset($services[$row['service']])) {
+                continue;
             }
 
-            ServiceVariant::query()->updateOrCreate(
-                [
-                    'service_id' => $serviceId,
-                    'treatment_mode' => $row['mode'],
-                    'duration_minutes' => $row['duration'],
-                ],
-                [
-                    'code' => $row['code'],
-                    'treatment_mode' => $row['mode'],
-                    'price_idr' => $row['price'],
-                    'is_active' => true,
-                    'published_at' => $naturalChoice?->published_at ?? $publishedAt,
-                    'display_order' => $index + 1,
-                ],
-            );
+            $serviceId = $services[$row['service']]->id;
+            $code = ServiceVariant::query()->where('code', $row['code'])->exists()
+                ? sprintf('%s-%s', $row['code'], Str::uuid())
+                : $row['code'];
+            ServiceVariant::query()->create([
+                'service_id' => $serviceId,
+                'code' => $code,
+                'treatment_mode' => $row['mode'],
+                'duration_minutes' => $row['duration'],
+                'price_idr' => $row['price'],
+                'is_active' => true,
+                'published_at' => $publishedAt,
+                'display_order' => $index + 1,
+            ]);
         }
-
-        ServiceVariant::query()
-            ->whereIn('service_id', collect($services)->pluck('id'))
-            ->whereNotIn('code', collect($rows)->pluck('code'))
-            ->update(['is_active' => false]);
     }
 
     /** @param array<string, Service> $services */
@@ -151,48 +142,25 @@ class ServiceCatalogSeeder extends Seeder
         ];
 
         foreach ($rows as $index => $row) {
-            $serviceId = $services[$row['service']]->id;
-            $naturalChoice = ServiceExtension::query()
-                ->where('service_id', $serviceId)
-                ->where('treatment_mode', $row['mode'])
-                ->where('duration_minutes', $row['duration'])
-                ->first();
-            $codeOwner = ServiceExtension::query()->where('code', $row['code'])->first();
-
-            if ($codeOwner !== null && ($naturalChoice === null || ! $codeOwner->is($naturalChoice))) {
-                $this->archiveChoice($codeOwner, $publishedAt);
+            if (! isset($services[$row['service']])) {
+                continue;
             }
 
-            ServiceExtension::query()->updateOrCreate(
-                [
-                    'service_id' => $serviceId,
-                    'treatment_mode' => $row['mode'],
-                    'duration_minutes' => $row['duration'],
-                ],
-                [
-                    'code' => $row['code'],
-                    'treatment_mode' => $row['mode'],
-                    'price_idr' => $row['price'],
-                    'is_active' => true,
-                    'published_at' => $naturalChoice?->published_at ?? $publishedAt,
-                    'display_order' => $index + 1,
-                ],
-            );
+            $serviceId = $services[$row['service']]->id;
+            $code = ServiceExtension::query()->where('code', $row['code'])->exists()
+                ? sprintf('%s-%s', $row['code'], Str::uuid())
+                : $row['code'];
+            ServiceExtension::query()->create([
+                'service_id' => $serviceId,
+                'code' => $code,
+                'treatment_mode' => $row['mode'],
+                'duration_minutes' => $row['duration'],
+                'price_idr' => $row['price'],
+                'is_active' => true,
+                'published_at' => $publishedAt,
+                'display_order' => $index + 1,
+            ]);
         }
-
-        ServiceExtension::query()
-            ->whereIn('service_id', collect($services)->pluck('id'))
-            ->whereNotIn('code', collect($rows)->pluck('code'))
-            ->update(['is_active' => false]);
-    }
-
-    private function archiveChoice(ServiceVariant|ServiceExtension $choice, CarbonInterface $publishedAt): void
-    {
-        $choice->update([
-            'code' => sprintf('archived-%s-%s', Str::uuid(), $choice->code),
-            'is_active' => false,
-            'published_at' => $choice->published_at ?? $publishedAt,
-        ]);
     }
 
     /** @return list<string> */

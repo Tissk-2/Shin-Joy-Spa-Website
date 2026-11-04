@@ -2,6 +2,7 @@
 
 namespace App\Data\Admin\Catalog;
 
+use App\Enums\PricingBasis;
 use Illuminate\Http\UploadedFile;
 
 final readonly class CatalogPackageData
@@ -25,6 +26,9 @@ final readonly class CatalogPackageData
         public ?string $benefitEn,
         public bool $isVip,
         public int $displayOrder,
+        public ?PricingBasis $pricingBasis,
+        public ?int $minGuests,
+        public ?int $maxGuests,
         public ?UploadedFile $cover,
         public bool $removeCover,
         public array $retainedGalleryIds,

@@ -90,7 +90,7 @@ class EmailVerificationTest extends TestCase
         $this->actingAs($user)
             ->withSession(['url.intended' => 'https://attacker.example/phishing'])
             ->get(route('verification.notice'))
-            ->assertRedirect(route('dashboard', absolute: false));
+            ->assertRedirect(route('profile', absolute: false));
     }
 
     // Production break caught: resend endpoint must apply the same safe intended-path policy for already verified customers.
@@ -101,7 +101,7 @@ class EmailVerificationTest extends TestCase
         $this->actingAs($user)
             ->withSession(['url.intended' => '//attacker.example/phishing'])
             ->post(route('verification.send'))
-            ->assertRedirect(route('dashboard', absolute: false));
+            ->assertRedirect(route('profile', absolute: false));
     }
 
     public function test_tampered_signed_url_is_rejected_without_verifying_email(): void

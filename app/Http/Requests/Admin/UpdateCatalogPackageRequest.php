@@ -4,6 +4,7 @@ namespace App\Http\Requests\Admin;
 
 use App\Data\Admin\Catalog\CatalogChoiceData;
 use App\Data\Admin\Catalog\CatalogPackageData;
+use App\Enums\PricingBasis;
 use App\Enums\TreatmentMode;
 use App\Models\Service;
 use App\Models\ServiceExtension;
@@ -21,6 +22,7 @@ class UpdateCatalogPackageRequest extends FormRequest
     private const TOP_LEVEL_FIELDS = [
         'version', 'categoryId', 'slug', 'nameId', 'nameEn', 'descId', 'descEn',
         'longId', 'longEn', 'benefitId', 'benefitEn', 'isVip', 'displayOrder',
+        'pricingBasis', 'minGuests', 'maxGuests',
         'cover', 'removeCover', 'retainedGalleryIds', 'galleryUploads', 'variants',
         'extensions',
     ];
@@ -109,6 +111,9 @@ class UpdateCatalogPackageRequest extends FormRequest
             'benefitEn' => ['present', 'nullable', 'string', 'max:255'],
             'isVip' => ['required', 'boolean'],
             'displayOrder' => ['required', 'integer', 'min:0'],
+            'pricingBasis' => ['present', 'nullable', Rule::enum(PricingBasis::class)],
+            'minGuests' => ['present', 'nullable', 'integer', 'min:1', 'max:4'],
+            'maxGuests' => ['present', 'nullable', 'integer', 'min:1', 'max:4'],
             'cover' => ['nullable', $this->imageRule()],
             'removeCover' => ['sometimes', 'boolean'],
             'retainedGalleryIds' => ['sometimes', 'array', 'max:6'],
@@ -137,6 +142,7 @@ class UpdateCatalogPackageRequest extends FormRequest
             $this->rejectUnknownChoiceFields($validator, 'variants');
             $this->rejectUnknownChoiceFields($validator, 'extensions');
             $this->validateBenefitPair($validator);
+            $this->validatePricing($validator);
             $this->validateGallery($validator);
             $this->validateChoices($validator, 'variants', ServiceVariant::class);
             $this->validateChoices($validator, 'extensions', ServiceExtension::class);
@@ -161,6 +167,11 @@ class UpdateCatalogPackageRequest extends FormRequest
             benefitEn: $validated['benefitEn'],
             isVip: (bool) $validated['isVip'],
             displayOrder: (int) $validated['displayOrder'],
+            pricingBasis: $validated['pricingBasis'] === null
+                ? null
+                : PricingBasis::from($validated['pricingBasis']),
+            minGuests: $validated['minGuests'] === null ? null : (int) $validated['minGuests'],
+            maxGuests: $validated['maxGuests'] === null ? null : (int) $validated['maxGuests'],
             cover: $validated['cover'] ?? null,
             removeCover: (bool) ($validated['removeCover'] ?? false),
             retainedGalleryIds: array_values($validated['retainedGalleryIds'] ?? []),
@@ -221,6 +232,35 @@ class UpdateCatalogPackageRequest extends FormRequest
     {
         if (($this->input('benefitId') === null) !== ($this->input('benefitEn') === null)) {
             $validator->errors()->add('benefitEn', __('validation.required', ['attribute' => 'benefitEn']));
+        }
+    }
+
+    private function validatePricing(Validator $validator): void
+    {
+        $basis = $this->input('pricingBasis');
+        $min = $this->input('minGuests');
+        $max = $this->input('maxGuests');
+
+        if ($basis === null && $min === null && $max === null) {
+            return;
+        }
+        if ($basis === null) {
+            $validator->errors()->add('pricingBasis', __('validation.required', ['attribute' => 'pricingBasis']));
+
+            return;
+        }
+        if ($min === null) {
+            $validator->errors()->add('minGuests', __('validation.required', ['attribute' => 'minGuests']));
+
+            return;
+        }
+        if ($max === null) {
+            $validator->errors()->add('maxGuests', __('validation.required', ['attribute' => 'maxGuests']));
+
+            return;
+        }
+        if (is_numeric($min) && is_numeric($max) && (int) $min > (int) $max) {
+            $validator->errors()->add('maxGuests', __('validation.booking.guest_coverage'));
         }
     }
 

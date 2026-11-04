@@ -35,4 +35,12 @@ return [
         ],
     ],
 
+    'telegram' => [
+        'booking_notifications_enabled' => env('TELEGRAM_BOOKING_NOTIFICATIONS_ENABLED', false),
+        'bot_token' => env('TELEGRAM_BOT_TOKEN'),
+        'staff_chat_id' => env('TELEGRAM_STAFF_CHAT_ID'),
+        'message_thread_id' => env('TELEGRAM_MESSAGE_THREAD_ID'),
+        'ca_bundle' => env('TELEGRAM_CA_BUNDLE'),
+    ],
+
 ];

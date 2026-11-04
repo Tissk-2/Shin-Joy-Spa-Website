@@ -2,16 +2,17 @@
 
 namespace App\Http\Controllers\Settings;
 
-use App\Enums\UserRole;
 use App\Exceptions\FinalAdministratorException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\ProfileUpdateRequest;
 use App\Models\User;
+use App\Support\Staff\StaffAccessLock;
+use App\Support\Staff\StaffAuthority;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -34,13 +35,15 @@ class ProfileController extends Controller
      */
     public function update(ProfileUpdateRequest $request): RedirectResponse
     {
-        $request->user()->fill($request->validated());
-
-        if ($request->user()->isDirty('email')) {
-            $request->user()->email_verified_at = null;
-        }
-
-        $request->user()->save();
+        (new StaffAccessLock)->run(function () use ($request): void {
+            $user = User::query()->whereKey($request->user()->getKey())->lockForUpdate()->firstOrFail();
+            $attributes = $request->validated();
+            if ($user->email !== $attributes['email']) {
+                StaffAuthority::protectEmailChange($user);
+                $attributes = [...$attributes, 'email_verified_at' => null];
+            }
+            $user->forceFill($attributes)->save();
+        });
 
         return to_route('profile.edit');
     }
@@ -51,30 +54,26 @@ class ProfileController extends Controller
     public function destroy(Request $request): RedirectResponse
     {
         $request->validate([
-            'password' => ['required', 'current_password'],
+            'password' => ['required', 'string'],
         ]);
 
         $userId = $request->user()->getKey();
 
         try {
-            DB::transaction(function () use ($userId): void {
-                $adminIds = User::query()
-                    ->where('role', UserRole::Admin->value)
-                    ->orderBy('id')
-                    ->lockForUpdate()
-                    ->pluck('id');
-
+            (new StaffAccessLock)->run(function () use ($userId, $request): void {
                 $user = User::query()
                     ->whereKey($userId)
                     ->lockForUpdate()
                     ->firstOrFail();
 
-                if ($user->isAdmin() && $adminIds->count() <= 1) {
-                    throw new FinalAdministratorException;
+                if (! Hash::check($request->input('password'), $user->password)) {
+                    throw ValidationException::withMessages(['password' => __('validation.current_password')]);
                 }
 
+                StaffAuthority::protectDeletion($user);
+
                 $user->delete();
-            }, 3);
+            });
         } catch (FinalAdministratorException) {
             throw ValidationException::withMessages([
                 'password' => __('auth.final_administrator'),

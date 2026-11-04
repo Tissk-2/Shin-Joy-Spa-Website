@@ -26,6 +26,7 @@ class ServiceCatalogPresenter
      *     slug: string, nameId: string, nameEn: string, descId: string, descEn: string,
      *     longId: string, longEn: string, benefitId: string|null, benefitEn: string|null,
      *     image: string, gallery: list<string>, isVip: bool,
+     *     pricingBasis: string|null, minGuests: int|null, maxGuests: int|null, pricingVerified: bool,
      *     variants: list<array{code: string, mode: string, duration: int, price: int}>,
      *     extensions: list<array{code: string, mode: string, duration: int, price: int}>
      * }
@@ -45,6 +46,10 @@ class ServiceCatalogPresenter
             'image' => $this->publicImageUrl($service->image_path),
             'gallery' => array_map($this->publicImageUrl(...), $service->gallery_paths ?? []),
             'isVip' => (bool) $service->is_vip,
+            'pricingBasis' => $service->pricing_basis?->value,
+            'minGuests' => $service->min_guests,
+            'maxGuests' => $service->max_guests,
+            'pricingVerified' => $service->hasVerifiedPricing(),
             'variants' => $service->variants->map(fn (ServiceVariant $variant): array => $this->choice($variant))->values()->all(),
             'extensions' => $service->extensions->map(fn (ServiceExtension $extension): array => $this->choice($extension))->values()->all(),
         ];

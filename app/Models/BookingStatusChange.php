@@ -23,6 +23,7 @@ class BookingStatusChange extends Model
             'from_status' => BookingStatus::class,
             'to_status' => BookingStatus::class,
             'created_at' => 'immutable_datetime',
+            'operational_confirmed_at' => 'immutable_datetime',
         ];
     }
 
