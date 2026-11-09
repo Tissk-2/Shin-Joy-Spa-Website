@@ -58,7 +58,8 @@ New migrations use today's date with this plan's number range (for example `2026
 | **C1a** | Enrollment schema plus the four actions (issue, claim, activate, revoke) under `StaffAccessLock`, with an audit table. No HTTP and no UI. |
 | C1b | Owner routes, `AdminTelegramStaffController`, and the staff-page UI (issue a deep link with its expiry, review a pending claim with a masked ID, activate, revoke, history). `services.telegram.bot_username`. |
 | C2a | Webhook ingress: a separate route file, constant-time secret check, a 64 KiB limit, normalized shapes, the `telegram_updates` table, and the recorder writing `telegram.update.received` atomically. 403, 503 and 200 semantics; a limiter. `webhook_secret` config plus the `TestCase` keys. |
-| C2b | `TelegramUpdateHandler`: private `/start <token>` → `ClaimStaffEnrollment` (rejecting bots and non-private chats), ignored outcomes, recovery after a dispatch outage, payload retention and scrubbing, README. |
+| C2b | `TelegramUpdateHandler`: private `/start <token>` → `ClaimStaffEnrollment` (rejecting bots and non-private chats), ignored outcomes, token scrubbing, the bot's reply through a `telegram.reply` outbox handler, and recovery after a dispatch outage. |
+| C2c | Added 9 November 2026, split out of C2b: the seven-day processed-payload retention (scheduled), and the README section on webhook setup (secret, `setWebhook` with `allowed_updates`, privacy mode, retention, and recovery with `outbox:requeue`). |
 | C3a | Message and action-token schema, `BookingActionKeyboard`, and the initial booking message persisting its identity and rendering buttons when `actions_enabled`. |
 | C3b | `ProcessBookingCallback`: Confirm, two-step actor-bound Decline, stale, revoked and denied outcomes, and `telegram.callback.answer` work. |
 | C3c | Separate-process races in the concurrency harness: Telegram against dashboard approval for the last room, and revocation against a callback. |
@@ -118,6 +119,26 @@ New migrations use today's date with this plan's number range (for example `2026
 - **C2b, retention:** after a week with no updates, Telegram picks the next `update_id` at random. Keep the tombstones in `telegram_updates` and `outbox_messages` consistent, or a reused ID becomes a poison update (`OutboxWriter`'s "different content" error, then 503 on every retry).
 - **C4d:** register the webhook with `allowed_updates: ["message","callback_query"]` and keep bot privacy mode on.
 - **MySQL** reorders JSON keys, so always read the payload by key.
+
+**C2b complete (9 November 2026, uncommitted).**
+- **`TelegramUpdateHandler`** (`telegram.update.received`), inside one transaction with 3 attempts:
+  1. a conditional write that makes replays a no-op;
+  2. the decision: a private, non-bot `/start <token>` → `ClaimStaffEnrollment($token, $fromId, $update->received_at)`, so expiry is judged at receipt;
+  3. the outcome stored and `start_token` cleared;
+  4. a `telegram.reply` outbox message recorded.
+- **Ignored updates:** groups, bots, missing tokens and callbacks.
+- **A second tap by the same claimer** repeats its answer (`already_claimed` / `already_linked`). Everyone else gets C1a's generic refusal.
+- **`TelegramReplyHandler`** (`telegram.reply`) sends with `TelegramClient` and returns permanent or retryable outbox failures.
+
+**Inputs for later parts:**
+- **C2c:**
+  - document that replies take two dispatch cycles (1–2 minutes), and consider a sub-minute `outbox:dispatch` schedule;
+  - retention must also clear completed `telegram.reply` payloads (`chat_id` is the sender's full Telegram ID);
+  - the README should state that the webhook must not be registered against a C2a-only build without a delivery backfill.
+- **C3:**
+  - replace the handler's `['ignored', 'unsupported', null]` branch for `callback_query`;
+  - keep the lock order: the update row (conditional write), then the staff guard, then the booking;
+  - keep the 3-attempt transaction.
 
 Independently reviewed; full PHP suite 1027 passed. Next: **C1b**. Evidence: `.superpowers/sdd/2026-10-22-booking-scheduling-pricing/task-C1a-review.md`.
 

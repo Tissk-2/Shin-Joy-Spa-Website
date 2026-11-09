@@ -89,5 +89,8 @@ return [
         'activated' => 'Akun Telegram diaktifkan.',
         'revoked' => 'Tautan Telegram dihapus.',
         'cancelled' => 'Tautan Telegram dibatalkan.',
+        'bot_claimed' => 'Terima kasih. Permintaan Anda menunggu persetujuan pemilik. Beri tahu pemilik bahwa akun Telegram Anda berakhiran :digits.',
+        'bot_start_help' => 'Untuk menautkan akun staf Anda, buka tautan yang dikirim pemilik.',
+        'bot_already_linked' => 'Akun Telegram Anda sudah tertaut ke akun staf Anda.',
     ],
 ];

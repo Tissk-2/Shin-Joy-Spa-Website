@@ -75,7 +75,7 @@ Delivery then needs three things on the same release and database:
    ```
 
 2. **The scheduler.** `routes/console.php` runs `outbox:dispatch --limit=100`
-   every minute (with a 5-minute overlap lock). It claims up to 100 due
+   every 10 seconds (with a 5-minute overlap lock). It claims up to 100 due
    deliveries under a 5-minute lease and queues one job per delivery. Run
    Laravel's scheduler from cron:
 
@@ -84,6 +84,9 @@ Delivery then needs three things on the same release and database:
    ```
 
    or keep `php artisan schedule:work` running under a process manager.
+
+   Each `schedule:run` stays alive for its whole minute so it can repeat the
+   10-second task.
 
 3. **A queue worker** for the queued delivery jobs:
 
@@ -160,7 +163,7 @@ php artisan outbox:requeue 12 15
 The command lists each ID with its handler and last error, asks for
 confirmation (`--yes` skips it), and resets only `failed` rows to `retry` with
 a fresh budget of 5 attempts; the next scheduled `outbox:dispatch` sends them
-within about a minute. Other states and unknown IDs are reported and left
+within seconds. Other states and unknown IDs are reported and left
 unchanged, and the command exits non-zero if any requested ID was not
 requeued (declining the prompt changes nothing and exits zero). Each requeue
 is logged. Delivery is at least once: if Telegram
@@ -200,6 +203,103 @@ booking that already has one.
    confirm it produces no second message. In staging, also confirm that a
    Telegram delivery failure leaves the booking successful and shows the
    delivery as `retry` or `failed` with a sanitized `last_error`.
+
+## Telegram staff linking (webhook)
+
+The owner links each staff member's Telegram account from **Staff** in the
+admin area (`/admin/staff`):
+
+1. The owner selects **Create Telegram link** for a staff member and sends the
+   one-time link to them privately. It works once and expires after 15 minutes.
+2. The staff member opens it in Telegram and presses **Start**. The bot replies
+   with the last four digits of their Telegram account.
+3. The staff page shows the claim with the same four digits. The owner checks
+   them with the staff member and selects **Activate**.
+
+Telegram reaches the app through `POST /webhooks/telegram`. Linking gives no
+booking actions in Telegram yet.
+
+### Set up the webhook
+
+Register the webhook only on a release that includes the update handler
+(`telegram.update.received` subscribed in `config/outbox.php`). An older
+release stores updates but never processes them.
+
+1. If you still need the staff group's chat ID for booking notifications, get
+   it first: once a webhook is set, Telegram's `getUpdates` stops working.
+2. In BotFather, keep privacy mode on (`/setprivacy`, then **Enable**), so in
+   groups the bot only receives commands and replies to it.
+3. Create the webhook secret with `openssl rand -hex 32`. Set
+   `TELEGRAM_WEBHOOK_SECRET` to it and `TELEGRAM_BOT_USERNAME` to the bot's
+   username without `@`; the staff page uses the username for the one-tap link.
+   `TELEGRAM_BOT_TOKEN` must be set too. Refresh cached configuration and
+   restart web and worker processes.
+4. Register the webhook over HTTPS. These commands read the token and secret
+   without echoing them or saving them in shell history:
+
+   ```bash
+   read -rsp 'Bot token: ' BOT_TOKEN; echo
+   read -rsp 'Webhook secret: ' WEBHOOK_SECRET; echo
+   curl -sS "https://api.telegram.org/bot${BOT_TOKEN}/setWebhook" \
+     --data-urlencode "url=https://spa.example.com/webhooks/telegram" \
+     --data-urlencode "secret_token=${WEBHOOK_SECRET}" \
+     --data-urlencode 'allowed_updates=["message","callback_query"]'
+   curl -sS "https://api.telegram.org/bot${BOT_TOKEN}/getWebhookInfo"
+   unset BOT_TOKEN WEBHOOK_SECRET
+   ```
+
+   Replace `spa.example.com` with the site's domain. `getWebhookInfo` should
+   show that URL, a `pending_update_count` near 0 and no `last_error_message`.
+   The token is briefly visible in the process list, so run this on a machine
+   you trust.
+
+5. Check with a test staff account: create a link, open it, and confirm that
+   the reply arrives within about 20 seconds, that its four digits match the
+   staff page, and that activation works.
+
+### How the endpoint answers
+
+| Response | Meaning                                                                                                                                                |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 200      | Stored, already stored, or authenticated but unusable (logged as `telegram.webhook.rejected` with a reason)                                            |
+| 403      | Missing or wrong secret header. Nothing is stored or logged                                                                                            |
+| 429      | More than 300 authenticated requests in a minute; Telegram retries                                                                                     |
+| 503      | `TELEGRAM_WEBHOOK_SECRET` or `TELEGRAM_BOT_TOKEN` missing or invalid, or the database write failed (`telegram.webhook.store_failed`); Telegram retries |
+
+The secret must be 32 to 256 characters of letters, digits, `_` and `-`.
+To rotate it, set the new value, refresh configuration and run `setWebhook`
+again with it. To stop receiving updates, call `deleteWebhook`.
+
+### Processing, replies and recovery
+
+Each update is stored once per bot and `update_id`. The outbox then processes
+it like a booking notification: `outbox:dispatch` runs every 10 seconds, the
+worker runs the `telegram.update.received` delivery, and a second delivery
+sends the bot's reply (`telegram.reply`). A reply normally arrives within about
+20 seconds.
+
+Processing is safe to repeat. A claim and its outcome are saved together, and
+an update that already has an outcome is never processed again. Replies are
+delivered at least once, like booking notifications. Requeue a `failed`
+delivery with `php artisan outbox:requeue <id>` after fixing the cause.
+
+To check recent updates read-only:
+
+```sql
+SELECT kind, outcome, outcome_reason, COUNT(*)
+  FROM telegram_updates GROUP BY kind, outcome, outcome_reason;
+```
+
+`outcome` is empty until an update is processed. Afterwards it is `claimed`,
+`rejected` or `ignored`, with the reason in `outcome_reason`.
+
+### Retention
+
+The `/start` token is cleared as soon as an update is processed. Every day,
+`telegram:prune-data` clears the remaining data of updates received more than
+7 days ago, and the text and chat ID of bot replies created more than 7 days
+ago. The update rows stay, so a repeated old update is still recognised. A
+reply cleared this way can no longer be requeued.
 
 ## Room scheduling
 

@@ -1,6 +1,8 @@
 <?php
 
 use App\Support\Outbox\Handlers\TelegramBookingNotificationHandler;
+use App\Support\Telegram\TelegramReplyHandler;
+use App\Support\Telegram\TelegramUpdateHandler;
 
 return [
     'events' => [
@@ -16,8 +18,12 @@ return [
         'booking.cancelled' => [],
         'booking.completed' => [],
         'booking.no_show' => [],
-        // C2b subscribes TelegramUpdateHandler; until then nothing processes stored updates.
-        'telegram.update.received' => [],
+        'telegram.update.received' => [
+            'telegram' => TelegramUpdateHandler::class,
+        ],
+        'telegram.reply' => [
+            'telegram' => TelegramReplyHandler::class,
+        ],
     ],
     'lease_seconds' => 300,
     'max_attempts' => 5,

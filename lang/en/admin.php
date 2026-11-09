@@ -89,5 +89,8 @@ return [
         'activated' => 'Telegram account activated.',
         'revoked' => 'Telegram link removed.',
         'cancelled' => 'Telegram link cancelled.',
+        'bot_claimed' => "Thanks. Your request is waiting for the owner's approval. Tell the owner that your Telegram account ends in :digits.",
+        'bot_start_help' => 'To link your staff account, open the link the owner sent you.',
+        'bot_already_linked' => 'Your Telegram account is already linked to your staff account.',
     ],
 ];

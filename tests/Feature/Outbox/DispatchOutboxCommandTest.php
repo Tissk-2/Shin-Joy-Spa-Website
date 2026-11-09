@@ -174,7 +174,7 @@ class DispatchOutboxCommandTest extends TestCase
         $this->assertCount(0, Queue::pushed(DeliverOutboxMessage::class));
     }
 
-    public function test_the_schedule_registers_one_overlap_guarded_minutely_command(): void
+    public function test_the_schedule_registers_one_overlap_guarded_ten_second_command(): void
     {
         $this->app->make(ConsoleKernel::class)->bootstrap();
 
@@ -183,6 +183,7 @@ class DispatchOutboxCommandTest extends TestCase
 
         $this->assertCount(1, $events);
         $this->assertSame('* * * * *', $events->first()->expression);
+        $this->assertSame(10, $events->first()->repeatSeconds);
         $this->assertTrue($events->first()->withoutOverlapping);
         // A killed run must not hold the mutex (default 24h) and silently stop recovery.
         $this->assertSame(5, $events->first()->expiresAt);
