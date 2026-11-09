@@ -184,6 +184,10 @@ class DispatchOutboxCommandTest extends TestCase
         $this->assertCount(1, $events);
         $this->assertSame('* * * * *', $events->first()->expression);
         $this->assertSame(10, $events->first()->repeatSeconds);
+        // A 10-second task keeps schedule:run looping all minute; without this it reads the
+        // pause and interrupt flags from the cache store every 100 ms.
+        $this->assertFalse(Schedule::$pausable);
+        $this->assertFalse(Schedule::$interruptible);
         $this->assertTrue($events->first()->withoutOverlapping);
         // A killed run must not hold the mutex (default 24h) and silently stop recovery.
         $this->assertSame(5, $events->first()->expiresAt);

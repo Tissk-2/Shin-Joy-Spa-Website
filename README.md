@@ -86,7 +86,11 @@ Delivery then needs three things on the same release and database:
    or keep `php artisan schedule:work` running under a process manager.
 
    Each `schedule:run` stays alive for its whole minute so it can repeat the
-   10-second task.
+   10-second task. If your host stops cron jobs that run that long, use
+   `schedule:work` instead. After a deploy, the previous release's scheduler
+   can keep running until the end of that minute. The scheduler does not poll
+   for `schedule:pause` or `schedule:interrupt` (`routes/console.php` turns
+   that off to spare the cache store), so those commands have no effect.
 
 3. **A queue worker** for the queued delivery jobs:
 
@@ -228,7 +232,10 @@ release stores updates but never processes them.
 1. If you still need the staff group's chat ID for booking notifications, get
    it first: once a webhook is set, Telegram's `getUpdates` stops working.
 2. In BotFather, keep privacy mode on (`/setprivacy`, then **Enable**), so in
-   groups the bot only receives commands and replies to it.
+   groups the bot only receives commands and replies to it. Do not make the bot
+   a group admin: an admin bot receives every group message whatever the
+   privacy setting. A privacy change applies after the bot is re-added to the
+   group.
 3. Create the webhook secret with `openssl rand -hex 32`. Set
    `TELEGRAM_WEBHOOK_SECRET` to it and `TELEGRAM_BOT_USERNAME` to the bot's
    username without `@`; the staff page uses the username for the one-tap link.
@@ -238,8 +245,8 @@ release stores updates but never processes them.
    without echoing them or saving them in shell history:
 
    ```bash
-   read -rsp 'Bot token: ' BOT_TOKEN; echo
-   read -rsp 'Webhook secret: ' WEBHOOK_SECRET; echo
+   printf 'Bot token: '; IFS= read -rs BOT_TOKEN; echo
+   printf 'Webhook secret: '; IFS= read -rs WEBHOOK_SECRET; echo
    curl -sS "https://api.telegram.org/bot${BOT_TOKEN}/setWebhook" \
      --data-urlencode "url=https://spa.example.com/webhooks/telegram" \
      --data-urlencode "secret_token=${WEBHOOK_SECRET}" \
@@ -250,8 +257,8 @@ release stores updates but never processes them.
 
    Replace `spa.example.com` with the site's domain. `getWebhookInfo` should
    show that URL, a `pending_update_count` near 0 and no `last_error_message`.
-   The token is briefly visible in the process list, so run this on a machine
-   you trust.
+   The token and the secret are briefly visible in the process list, so run
+   this on a machine you trust.
 
 5. Check with a test staff account: create a link, open it, and confirm that
    the reply arrives within about 20 seconds, that its four digits match the
@@ -283,7 +290,7 @@ an update that already has an outcome is never processed again. Replies are
 delivered at least once, like booking notifications. Requeue a `failed`
 delivery with `php artisan outbox:requeue <id>` after fixing the cause.
 
-To check recent updates read-only:
+To summarise stored updates read-only (old rows are included):
 
 ```sql
 SELECT kind, outcome, outcome_reason, COUNT(*)
@@ -298,8 +305,10 @@ SELECT kind, outcome, outcome_reason, COUNT(*)
 The `/start` token is cleared as soon as an update is processed. Every day,
 `telegram:prune-data` clears the remaining data of updates received more than
 7 days ago, and the text and chat ID of bot replies created more than 7 days
-ago. The update rows stay, so a repeated old update is still recognised. A
-reply cleared this way can no longer be requeued.
+ago. The update rows stay, so a repeated old update is still recognised.
+Updates and replies older than 7 days can still be requeued, but they no longer
+act: an update is recorded as `ignored` without a reply, and a reply fails with
+`permanent: payload`.
 
 ## Room scheduling
 

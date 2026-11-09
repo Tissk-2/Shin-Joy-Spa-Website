@@ -140,6 +140,18 @@ New migrations use today's date with this plan's number range (for example `2026
   - keep the lock order: the update row (conditional write), then the staff guard, then the booking;
   - keep the 3-attempt transaction.
 
+**C2c complete (9 November 2026).**
+- `PruneTelegramData` runs daily as `telegram:prune-data`.
+  - For `telegram_updates` received more than 7 days ago it clears `payload` and `start_token` and keeps the rows as tombstones.
+  - It sets week-old `telegram.reply` payloads to `{}`.
+- `outbox:dispatch` runs every 10 seconds, with `Schedule::withoutInterruptionPolling()`, so the minute-long `schedule:run` loop doesn't read the cache store every 100 ms.
+- The README has a "Telegram staff linking (webhook)" section.
+
+**Inputs for later parts:**
+- **C3:**
+  - pruned rows have a null `payload` and may have a null `outcome`, so the `callback_query` branch must treat them as stale without failing;
+  - consider an `expired` reason instead of `unsupported` for pruned `/start` rows.
+
 Independently reviewed; full PHP suite 1027 passed. Next: **C1b**. Evidence: `.superpowers/sdd/2026-10-22-booking-scheduling-pricing/task-C1a-review.md`.
 
 ## Task C1: Owner-controlled Telegram identity enrollment

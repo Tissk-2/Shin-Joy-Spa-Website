@@ -12,6 +12,10 @@ Artisan::command('inspire', function () {
 
 // Every 10 seconds, so bot replies and booking notifications go out within seconds.
 Schedule::command('outbox:dispatch --limit=100')->everyTenSeconds()->withoutOverlapping(5);
+// That keeps schedule:run looping for the whole minute. Stop it reading the pause and interrupt
+// flags from the cache store (the database by default) every 100 ms; schedule:pause and
+// schedule:interrupt are not used here.
+Schedule::withoutInterruptionPolling();
 
 Schedule::call(fn () => app(ExpirePendingBookings::class)->handle())
     ->name('bookings:expire-pending')

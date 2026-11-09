@@ -91,18 +91,28 @@ class PruneTelegramDataTest extends TestCase
             $writer->record('telegram.reply', 'telegram.reply:1', ['chat_id' => 5550001111, 'text' => 'Old']);
             $writer->record('telegram.reply', 'telegram.reply:2', ['chat_id' => 5550002222, 'text' => 'New']);
             $writer->record('telegram.update.received', 'telegram.update:123456789:1', ['telegram_update_id' => 1]);
+            $writer->record('telegram.reply', 'telegram.reply:3', ['chat_id' => 5550003333, 'text' => 'Boundary']);
+            $writer->record('telegram.reply', 'telegram.reply:4', ['chat_id' => 5550004444, 'text' => 'Cleared']);
         });
 
         DB::table('outbox_messages')->whereIn('deduplication_key', ['telegram.reply:1', 'telegram.update:123456789:1'])
-            ->update(['created_at' => '2026-11-08 00:00:00']);
+            ->update(['created_at' => '2026-11-08 00:00:00', 'updated_at' => '2026-11-08 00:00:00']);
         DB::table('outbox_messages')->where('deduplication_key', 'telegram.reply:2')
             ->update(['created_at' => '2026-11-15 03:00:00']);
+        DB::table('outbox_messages')->where('deduplication_key', 'telegram.reply:3')
+            ->update(['created_at' => '2026-11-09 03:00:00']);
+        DB::table('outbox_messages')->where('deduplication_key', 'telegram.reply:4')
+            ->update(['created_at' => '2026-11-01 00:00:00', 'payload' => '{}', 'updated_at' => '2026-11-02 00:00:00']);
 
         app(PruneTelegramData::class)->handle();
 
         $this->assertSame('{}', $this->messagePayload('telegram.reply:1'));
+        $this->assertSame('2026-11-16 03:00:00', $this->messageUpdatedAt('telegram.reply:1'));
         $this->assertStringContainsString('5550002222', $this->messagePayload('telegram.reply:2'));
         $this->assertStringContainsString('telegram_update_id', $this->messagePayload('telegram.update:123456789:1'));
+        // Exactly 7 days old is kept, and an already cleared reply is not written again.
+        $this->assertStringContainsString('5550003333', $this->messagePayload('telegram.reply:3'));
+        $this->assertSame('2026-11-02 00:00:00', $this->messageUpdatedAt('telegram.reply:4'));
 
         // A requeued cleared reply fails permanently instead of sending an empty message.
         Http::fake();
@@ -160,6 +170,11 @@ class PruneTelegramDataTest extends TestCase
     private function messagePayload(string $key): string
     {
         return DB::table('outbox_messages')->where('deduplication_key', $key)->value('payload');
+    }
+
+    private function messageUpdatedAt(string $key): string
+    {
+        return (string) DB::table('outbox_messages')->where('deduplication_key', $key)->value('updated_at');
     }
 
     private function sendJson(string $body): TestResponse
