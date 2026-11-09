@@ -157,3 +157,41 @@ test("a hostile external intended redirect is rejected after login", async ({
   await expect(page).toHaveURL("/profile");
   expect(new URL(page.url()).origin).toBe("http://127.0.0.1:8000");
 });
+
+test("changing the password revokes another session but keeps the current one", async ({
+  browser,
+}) => {
+  const email = "session-revocation@example.com";
+  const newPassword = "calmspa10";
+  const contextA = await browser.newContext();
+  const contextB = await browser.newContext();
+
+  try {
+    const pageA = await contextA.newPage();
+    const pageB = await contextB.newPage();
+
+    await registerCustomer(pageA, email);
+    await verifyCustomer(pageA, email);
+
+    await login(pageB, email, customerPassword);
+    await expect(pageB).toHaveURL("/profile");
+    await pageB.goto("/bookings");
+    await expect(pageB).toHaveURL(/\/bookings$/);
+
+    await pageA.goto("/settings/password");
+    await pageA.getByLabel(/^current password$/i).fill(customerPassword);
+    await pageA.getByLabel(/^new password$/i).fill(newPassword);
+    await pageA.getByLabel(/^confirm password$/i).fill(newPassword);
+    await pageA.getByRole("button", { name: /save password/i }).click();
+    await expect(pageA.getByText("Saved", { exact: true })).toBeVisible();
+
+    await pageB.reload();
+    await expect(pageB).toHaveURL(/\/login$/);
+
+    await pageA.goto("/bookings");
+    await expect(pageA).toHaveURL(/\/bookings$/);
+  } finally {
+    await contextA.close();
+    await contextB.close();
+  }
+});

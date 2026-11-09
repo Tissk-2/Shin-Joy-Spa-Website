@@ -5,7 +5,13 @@ export type Locale = "id" | "en";
 
 export type TreatmentMode = "regular" | "double_therapist";
 
-export type BookingStatus = "pending" | "confirmed" | "completed" | "cancelled";
+export type BookingStatus =
+  | "pending"
+  | "confirmed"
+  | "completed"
+  | "cancelled"
+  | "awaiting_payment"
+  | "no_show";
 
 export type CatalogStatus = "draft" | "published" | "archived";
 
@@ -206,6 +212,9 @@ export interface BookingDetailData extends BookingSummaryData {
   base: BookingChoiceData;
   extension: BookingChoiceData | null;
   notes: string | null;
+  paymentPreference?: "at_spa" | "online" | null;
+  pricingVerified?: boolean;
+  room?: string | null;
 }
 
 export interface AdminBookingSummaryData {
@@ -216,7 +225,9 @@ export interface AdminBookingSummaryData {
   >;
   readonly treatmentMode: TreatmentMode;
   readonly appointment: Readonly<BookingAppointmentData>;
-  readonly customer: Readonly<BookingCustomerData>;
+  readonly customer: Readonly<
+    Omit<BookingCustomerData, "email"> & { email: string | null }
+  >;
   readonly guests: number;
   readonly totalDurationMinutes: number;
   readonly totalPriceIdr: number;
@@ -225,11 +236,19 @@ export interface AdminBookingSummaryData {
 
 export interface AdminBookingStatusHistoryData {
   readonly operationalConfirmedAt: string | null;
-  readonly actor: Readonly<{ name: string; email: string }>;
+  readonly actor: Readonly<{
+    name: string | null;
+    email: string | null;
+  }>;
   readonly fromStatus: BookingStatus;
   readonly toStatus: BookingStatus;
   readonly reason: string | null;
   readonly createdAt: string;
+}
+
+export interface AdminBookingOrigin {
+  readonly source: "website" | "walk_in" | "phone" | "whatsapp" | null;
+  readonly staffName: string | null;
 }
 
 export interface AdminBookingDetailData extends AdminBookingSummaryData {
@@ -246,6 +265,7 @@ export interface AdminBookingDetailData extends AdminBookingSummaryData {
   readonly base: Readonly<BookingChoiceData>;
   readonly extension: Readonly<BookingChoiceData> | null;
   readonly notes: string | null;
+  readonly origin?: AdminBookingOrigin;
   readonly history: readonly AdminBookingStatusHistoryData[];
 }
 
@@ -286,6 +306,33 @@ export interface PublicUser {
   email_verified_at: string | null;
 }
 
+export type AdminStaffTelegram =
+  | { state: "none" }
+  | { state: "waiting"; enrollmentId: number; expiresAt: string }
+  | {
+      state: "claimed";
+      enrollmentId: number;
+      identity: string;
+      claimedAt: string;
+    }
+  | { state: "linked"; identity: string; linkedAt: string };
+
+export interface AdminTelegramLinkChange {
+  action: "activated" | "revoked";
+  targetName: string;
+  targetDeleted: boolean;
+  identity: string;
+  actorName: string;
+  at: string;
+}
+
+export interface AdminFreshTelegramLink {
+  staffId: number;
+  command: string;
+  url: string | null;
+  expiresAt: string;
+}
+
 export interface AdminStaffMember {
   id: number;
   name: string;
@@ -293,6 +340,7 @@ export interface AdminStaffMember {
   role: "owner" | "admin";
   verified: boolean;
   canManageBookings: boolean;
+  telegram?: AdminStaffTelegram;
 }
 
 export interface AdminStaffPage {
@@ -465,4 +513,52 @@ export interface RoomBlockSchedule {
     readonly previous: string | null;
     readonly next: string | null;
   };
+}
+export interface AdminScheduleBookingItem {
+  readonly kind: "booking";
+  readonly reference: string;
+  readonly status: BookingStatus;
+  readonly customerName: string;
+  readonly guests: number;
+  readonly packageNameId: string;
+  readonly packageNameEn: string;
+  readonly startsAt: string;
+  readonly treatmentEndsAt: string;
+  readonly endsAt: string;
+}
+export interface AdminScheduleBlockItem {
+  readonly kind: "block";
+  readonly id: number;
+  readonly reason: string;
+  readonly startsAt: string;
+  readonly endsAt: string;
+}
+export interface AdminScheduleRoom {
+  readonly id: number;
+  readonly code: string;
+  readonly name: string;
+  readonly capacity: number;
+  readonly isActive: boolean;
+  readonly items: readonly (
+    AdminScheduleBookingItem | AdminScheduleBlockItem
+  )[];
+}
+export interface AdminScheduleUnassigned {
+  readonly reference: string;
+  readonly status: BookingStatus;
+  readonly customerName: string;
+  readonly guests: number;
+  readonly packageNameId: string;
+  readonly packageNameEn: string;
+  readonly time: string;
+  readonly durationMinutes: number;
+}
+export interface AdminScheduleData {
+  readonly date: string;
+  readonly previousDate: string;
+  readonly nextDate: string;
+  readonly today: string;
+  readonly schedulingEnabled: boolean;
+  readonly rooms: readonly AdminScheduleRoom[];
+  readonly unassigned: readonly AdminScheduleUnassigned[];
 }

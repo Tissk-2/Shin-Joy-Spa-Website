@@ -262,6 +262,9 @@ class BookingPagesTest extends TestCase
             'base',
             'extension',
             'notes',
+            'paymentPreference',
+            'pricingVerified',
+            'room',
         ], array_keys($booking));
         $this->assertSame(['slug', 'nameId', 'nameEn', 'isVip'], array_keys($booking['package']));
         $this->assertSame(['date', 'time', 'timezone'], array_keys($booking['appointment']));
@@ -322,6 +325,9 @@ class BookingPagesTest extends TestCase
                 'priceIdr' => $booking->extension_price_idr,
             ],
             'notes' => $booking->notes,
+            'paymentPreference' => $booking->payment_preference,
+            'pricingVerified' => $booking->pricing_basis !== null,
+            'room' => null,
         ];
     }
 

@@ -9,6 +9,7 @@ use App\Http\Middleware\EnsureUserIsAdmin;
 use App\Models\Booking;
 use App\Models\BookingStatusChange;
 use App\Models\User;
+use App\Support\Bookings\BookingSchedule;
 use Illuminate\Auth\Middleware\EnsureEmailIsVerified;
 use Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests;
 use Illuminate\Contracts\Http\Kernel as HttpKernel;
@@ -39,6 +40,10 @@ class AdminBookingStatusTest extends TestCase
     ): void {
         $admin = User::factory()->bookingStaff()->create();
         $booking = Booking::factory()->create(['status' => $from]);
+
+        if ($to === BookingStatus::Completed) {
+            $this->travelTo((new BookingSchedule)->startsAt($booking));
+        }
 
         $change = app(TransitionBookingStatus::class)(
             $admin,

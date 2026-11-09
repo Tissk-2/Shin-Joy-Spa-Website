@@ -136,6 +136,7 @@ class AdminBookingDetailTest extends TestCase
                 'priceIdr' => 75000,
             ],
             'notes' => 'Shoulders only',
+            'origin' => ['source' => null, 'staffName' => null],
             'history' => [
                 [
                     'actor' => ['name' => 'First Administrator', 'email' => 'first@example.test'],

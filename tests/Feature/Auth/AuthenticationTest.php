@@ -166,6 +166,18 @@ class AuthenticationTest extends TestCase
         $this->assertAuthenticatedAs($user);
     }
 
+    public function test_a_stored_password_beyond_the_72_byte_limit_still_logs_in(): void
+    {
+        $long = str_repeat('a', 80).'1';
+        $this->assertSame(81, strlen($long));
+
+        $user = User::factory()->create(['password' => Hash::make($long)]);
+
+        $this->post(route('login.store'), ['email' => $user->email, 'password' => $long]);
+
+        $this->assertAuthenticatedAs($user);
+    }
+
     public function test_users_can_logout_and_their_session_is_invalidated(): void
     {
         $user = User::factory()->create();
@@ -181,5 +193,15 @@ class AuthenticationTest extends TestCase
         $response->assertRedirect(route('home', absolute: false));
         $response->assertSessionMissing('private-session-value');
         $this->assertNotSame('known-csrf-token', session()->token());
+    }
+
+    public function test_array_login_input_returns_field_errors_instead_of_a_server_error(): void
+    {
+        $this->post(route('login.store'), [
+            'email' => ['x'],
+            'password' => ['x'],
+        ])->assertSessionHasErrors(['email', 'password']);
+
+        $this->assertGuest();
     }
 }

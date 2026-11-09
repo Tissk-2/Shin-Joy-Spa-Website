@@ -96,6 +96,19 @@ class TelegramBookingMessageFormatterTest extends TestCase
         $this->assertStringNotContainsString('Status: Pending', $output);
     }
 
+    public function test_late_delivery_renders_lifecycle_statuses_added_in_b4(): void
+    {
+        foreach (['no_show' => 'No-show', 'awaiting_payment' => 'Awaiting payment'] as $status => $label) {
+            $output = (new TelegramBookingMessageFormatter)->format($this->booking([
+                'status' => $status,
+                'reference' => self::REFERENCE.'-'.$status,
+                'submission_key' => 'late-delivery-'.$status,
+            ]));
+
+            $this->assertStringContainsString("Status: {$label}", $output);
+        }
+    }
+
     public function test_missing_phone_renders_an_em_dash(): void
     {
         $booking = $this->booking(['customer_phone' => '']);

@@ -146,6 +146,8 @@ class TelegramBookingMessageFormatter
             BookingStatus::Confirmed => 'Confirmed',
             BookingStatus::Completed => 'Completed',
             BookingStatus::Cancelled => 'Cancelled',
+            BookingStatus::AwaitingPayment => 'Awaiting payment',
+            BookingStatus::NoShow => 'No-show',
         };
     }
 

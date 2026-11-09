@@ -45,18 +45,21 @@ email delivery.
 
 ## Common commands
 
-| Command                  | Purpose                                                         |
-| ------------------------ | --------------------------------------------------------------- |
-| `npm run build`          | Production frontend build                                       |
-| `npm run dev`            | Vite dev server                                                 |
-| `npm run lint`           | ESLint (with auto-fix)                                          |
-| `npm run format`         | Prettier (write)                                                |
-| `npm run types:check`    | `vue-tsc` type check                                            |
-| `npm run test:frontend`  | Vitest unit tests                                               |
-| `npm run test:legacy`    | Node built-in frontend tests                                    |
-| `composer test:coverage` | PHP tests with coverage (needs Xdebug or PCOV; fails below 80%) |
-| `php artisan test`       | Backend feature tests                                           |
-| `npm run test:e2e`       | Playwright end-to-end tests                                     |
+| Command                                             | Purpose                                                                  |
+| --------------------------------------------------- | ------------------------------------------------------------------------ |
+| `npm run build`                                     | Production frontend build                                                |
+| `npm run dev`                                       | Vite dev server                                                          |
+| `npm run lint`                                      | ESLint (with auto-fix)                                                   |
+| `npm run format`                                    | Prettier (write)                                                         |
+| `npm run types:check`                               | `vue-tsc` type check                                                     |
+| `npm run test:frontend`                             | Vitest unit tests                                                        |
+| `npm run test:legacy`                               | Node built-in frontend tests                                             |
+| `composer test:coverage`                            | PHP tests with coverage (needs Xdebug or PCOV; fails below 80%)          |
+| `php artisan test`                                  | Backend feature tests                                                    |
+| `php artisan bookings:readiness`                    | Read-only check before switching room scheduling on                      |
+| `php artisan bookings:reconcile-rooms`              | List bookings without a room; `--booking= --room= [--apply]` assigns one |
+| `php vendor/bin/phpunit -c phpunit.concurrency.xml` | Multi-process race suite (SQLite, or MySQL via `CONCURRENCY_DB_*`)       |
+| `npm run test:e2e`                                  | Playwright end-to-end tests                                              |
 
 ## Telegram booking notifications (outbox)
 
@@ -198,12 +201,101 @@ booking that already has one.
    Telegram delivery failure leaves the booking successful and shows the
    delivery as `retry` or `failed` with a sanitized `last_error`.
 
+## Room scheduling
+
+Room scheduling assigns a room to confirmed bookings. When
+`BOOKING_SCHEDULING_ENABLED=true`, new bookings reserve a room as they are
+confirmed.
+
+### Before deploying this version
+
+This version sets every MySQL session to `+00:00` (`DB_TIMEZONE`, default
+`+00:00`) as soon as it is deployed, whether or not scheduling is switched on.
+Check the production server first:
+
+```sql
+SELECT @@global.time_zone, @@system_time_zone, TIMEDIFF(NOW(), UTC_TIMESTAMP());
+```
+
+If the offset is not `00:00:00` and the database already holds data, set
+`DB_TIMEZONE` in the deployment's environment to that offset (for example
+`+07:00`) **before** the new code goes live. Otherwise existing `TIMESTAMP`
+values read back shifted and new rows mix with old ones. Remove the override
+only after a separate, reviewed conversion of the `TIMESTAMP` columns.
+
+### Before switching scheduling on
+
+1. Take a database backup and keep it until scheduling has run cleanly.
+2. Run the pending migrations: `php artisan migrate --force`.
+3. Run `php artisan bookings:readiness` and fix every line it prints. It is
+   read-only and never prints customer contact details. Typical fixes:
+   - the owner saves booking settings at `/admin/settings/booking`, and attests
+     pricing on each package's page under `/admin/catalog`;
+   - rooms are added, activated or linked to treatments;
+   - conflicting bookings or maintenance periods are resolved by staff.
+
+   Leave the `[assignments] … holds no room` lines for the next step; only it
+   fixes them.
+
+4. Run `php artisan bookings:reconcile-rooms` to list confirmed bookings that
+   hold no room, with free rooms for each. For each booking:
+   - check a room with
+     `php artisan bookings:reconcile-rooms --booking=<reference> --room=<code>`,
+     which is read-only;
+   - then add `--apply`, which writes one room reservation and never changes
+     the booking's status or price;
+   - bookings it says to cancel and record again need staff, not the command.
+5. Run `php artisan bookings:readiness` again; it must now say
+   `Booking readiness: ready.`
+6. Set `BOOKING_SCHEDULING_ENABLED=true` in the deployment's environment, then
+   run `php artisan config:cache` and `php artisan queue:restart`, and restart
+   the web processes. Keep the scheduler from the Telegram section running; it
+   also expires pending requests.
+7. Make one controlled test booking with test contact details, approve it in
+   the admin panel, and confirm that it shows an assigned room on its detail
+   page and in `/admin/schedule`. Then cancel it.
+
+### Switching scheduling off again
+
+Set `BOOKING_SCHEDULING_ENABLED=false`, run `php artisan config:cache` and
+`php artisan queue:restart`, and restart the web processes. Room reservations
+already made stay in place and do no harm. Do not restore the backup once real
+bookings have arrived after the switch: they would be lost.
+
+### Concurrency checks (MySQL)
+
+`php vendor/bin/phpunit -c phpunit.concurrency.xml` runs real multi-process
+races, plus a migration round trip, against a **temporary SQLite file**. It is
+not part of `php artisan test`.
+
+**To check the production engine:**
+
+- create an **empty, throwaway** database on a server that holds no real data.
+  Its name may use only lowercase letters, digits and underscores, and must end
+  in `concurrency_test` (for example `shinjoy_concurrency_test`);
+- export `CONCURRENCY_DB_DRIVER=mysql` (or `mariadb`), `CONCURRENCY_DB_HOST`,
+  `CONCURRENCY_DB_PORT`, `CONCURRENCY_DB_DATABASE`, `CONCURRENCY_DB_USERNAME`
+  and `CONCURRENCY_DB_PASSWORD`;
+- run the same command.
+
+**The suite wipes and rebuilds that database** (`migrate:fresh`). It refuses any
+database name that does not end in `concurrency_test`.
+
+On MySQL every test should pass, with none skipped. **Room scheduling is not
+production-ready until this has passed at least once on the production engine.**
+
+**What it proves:** the app's lock order serializes approvals, maintenance
+blocks and outcome recording. The contended lock is the single staff-guard row,
+so it proves the serialization design rather than contention on individual room
+or reservation rows.
+
 ## Testing
 
 `php artisan test` runs the backend tests against an in-memory SQLite database
 with the array mailer, a synchronous queue, and Telegram notifications disabled
 with empty credentials (Telegram tests fake HTTP); it refuses to start if
-credentials or delivery settings leak in from `.env`.
+credentials or delivery settings leak in from `.env`. The multi-process race
+suite is separate: see Concurrency checks (MySQL).
 
 Playwright boots its own Laravel and Vite servers against an isolated SQLite
 database (`storage/framework/testing.sqlite`), so E2E runs never touch your

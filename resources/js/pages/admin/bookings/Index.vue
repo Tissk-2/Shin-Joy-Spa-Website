@@ -16,6 +16,7 @@ const props = defineProps<{
   counts: AdminBookingCounts;
   filters: AdminBookingFilters;
   bookings: AdminBookingPagination;
+  canCreate?: boolean;
 }>();
 
 const { language, tr } = useLanguage();
@@ -27,7 +28,14 @@ const filterForm = ref({
 });
 const loading = ref(false);
 const scopes = ["upcoming", "past", "all"] as const;
-const statuses = ["pending", "confirmed", "completed", "cancelled"] as const;
+const statuses = [
+  "pending",
+  "confirmed",
+  "awaiting_payment",
+  "completed",
+  "cancelled",
+  "no_show",
+] as const;
 const countKeys = ["today", "pending", "confirmed", "completed"] as const;
 const hasOptionalFilters = computed(() =>
   Boolean(
@@ -136,6 +144,14 @@ function paginationLabel(label: string, index: number): string {
       :subtitle="tr('ad.booking.subtitle')"
     >
       <div class="admin-content">
+        <Link
+          v-if="canCreate"
+          href="/admin/bookings/create"
+          class="admin-button w-fit"
+          data-new-booking
+        >
+          {{ tr("ad.manual.new") }}
+        </Link>
         <dl class="admin-count-grid">
           <div
             v-for="key in countKeys"

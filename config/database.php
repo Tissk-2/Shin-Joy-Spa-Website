@@ -60,6 +60,7 @@ return [
             'prefix' => '',
             'prefix_indexes' => true,
             'strict' => true,
+            'timezone' => env('DB_TIMEZONE', '+00:00'),
             'engine' => null,
             'options' => $mysqlSslCaAttribute !== null ? array_filter([
                 $mysqlSslCaAttribute => env('MYSQL_ATTR_SSL_CA'),
@@ -80,6 +81,7 @@ return [
             'prefix' => '',
             'prefix_indexes' => true,
             'strict' => true,
+            'timezone' => env('DB_TIMEZONE', '+00:00'),
             'engine' => null,
             'options' => $mysqlSslCaAttribute !== null ? array_filter([
                 $mysqlSslCaAttribute => env('MYSQL_ATTR_SSL_CA'),

@@ -11,7 +11,11 @@ export const buildInputs = [
   "tailwind.config.js",
   "tsconfig.json",
   "package-lock.json",
+  // Tailwind scans vendor pagination views, so a Composer update can change CSS.
+  "composer.lock",
 ] as const;
+// ponytail: VITE_* values in .env are baked into the build but deliberately not
+// tracked here; rebuild after changing them. Symlinked inputs are skipped.
 
 function inputFiles(root: string, relative: string): string[] {
   const absolute = path.join(root, relative);

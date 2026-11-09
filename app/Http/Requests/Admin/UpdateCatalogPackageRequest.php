@@ -9,6 +9,7 @@ use App\Enums\TreatmentMode;
 use App\Models\Service;
 use App\Models\ServiceExtension;
 use App\Models\ServiceVariant;
+use App\Support\BookingSelectionLimits;
 use App\Support\Catalog\ManagedCatalogPath;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -122,8 +123,8 @@ class UpdateCatalogPackageRequest extends FormRequest
             'galleryUploads.*' => ['required', $this->imageRule()],
             'variants' => ['present', 'array'],
             'extensions' => ['present', 'array'],
-            ...$this->choiceRules('variants'),
-            ...$this->choiceRules('extensions'),
+            ...$this->choiceRules('variants', BookingSelectionLimits::BASE_DURATION_MINUTES),
+            ...$this->choiceRules('extensions', BookingSelectionLimits::TOTAL_DURATION_MINUTES),
         ];
     }
 
@@ -147,6 +148,7 @@ class UpdateCatalogPackageRequest extends FormRequest
             $this->validateChoices($validator, 'variants', ServiceVariant::class);
             $this->validateChoices($validator, 'extensions', ServiceExtension::class);
             $this->validatePublishedIdentifiers($validator);
+            $this->validateNewOrChangedIdentifierLengths($validator);
         }];
     }
 
@@ -187,14 +189,14 @@ class UpdateCatalogPackageRequest extends FormRequest
     }
 
     /** @return array<string, list<mixed>> */
-    private function choiceRules(string $field): array
+    private function choiceRules(string $field, int $maxDurationMinutes): array
     {
         return [
             "{$field}.*" => ['array'],
             "{$field}.*.id" => [$this->isCreate() ? 'prohibited' : 'sometimes', 'nullable', 'integer', 'min:1'],
             "{$field}.*.code" => ['required', 'string', 'max:255', 'regex:/\A[a-z0-9]+(?:-[a-z0-9]+)*\z/'],
             "{$field}.*.mode" => ['required', Rule::enum(TreatmentMode::class)],
-            "{$field}.*.durationMinutes" => ['required', 'integer', 'min:1'],
+            "{$field}.*.durationMinutes" => ['required', 'integer', 'min:1', 'max:'.$maxDurationMinutes],
             "{$field}.*.priceIdr" => ['required', 'integer', 'min:1'],
             "{$field}.*.isActive" => ['required', 'boolean'],
             "{$field}.*.displayOrder" => ['required', 'integer', 'min:0'],
@@ -373,6 +375,42 @@ class UpdateCatalogPackageRequest extends FormRequest
                 if (($row['code'] ?? null) !== $published[(int) $row['id']]->code) {
                     $validator->errors()->add("{$field}.{$index}.code", __('validation.in', ['attribute' => 'code']));
                 }
+            }
+        }
+    }
+
+    private function validateNewOrChangedIdentifierLengths(Validator $validator): void
+    {
+        $service = $this->route('service');
+        $limit = BookingSelectionLimits::CODE_LENGTH;
+
+        $slug = $this->input('slug');
+        if (is_string($slug) && strlen($slug) > $limit
+            && (! $service instanceof Service || $slug !== $service->slug)) {
+            $validator->errors()->add('slug', __('validation.max.string', ['attribute' => 'slug', 'max' => $limit]));
+        }
+
+        foreach ([['variants', ServiceVariant::class], ['extensions', ServiceExtension::class]] as [$field, $model]) {
+            $rows = $this->input($field, []);
+            if (! is_array($rows)) {
+                continue;
+            }
+
+            $storedCodes = $service instanceof Service
+                ? $model::query()->where('service_id', $service->id)->pluck('code', 'id')
+                : collect();
+
+            foreach ($rows as $index => $row) {
+                if (! is_array($row) || ! is_string($row['code'] ?? null) || strlen($row['code']) <= $limit) {
+                    continue;
+                }
+
+                $id = filter_var($row['id'] ?? null, FILTER_VALIDATE_INT, FILTER_NULL_ON_FAILURE);
+                if ($id !== null && $storedCodes->get($id) === $row['code']) {
+                    continue;
+                }
+
+                $validator->errors()->add("{$field}.{$index}.code", __('validation.max.string', ['attribute' => 'code', 'max' => $limit]));
             }
         }
     }

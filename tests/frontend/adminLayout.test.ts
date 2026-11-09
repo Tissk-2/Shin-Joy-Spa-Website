@@ -178,6 +178,18 @@ describe("administrator layout", () => {
     }
   });
 
+  it("links to the room schedule and marks it current", () => {
+    inertia.page.url = "/admin/schedule?date=2026-12-01";
+    const wrapper = mount(AdminLayout, { props: { title: "Schedule" } });
+
+    const schedule = wrapper.get('nav a[href="/admin/schedule"]');
+    const bookings = wrapper.get('nav a[href="/admin/bookings"]');
+
+    expect(schedule.text()).toBe("Schedule");
+    expect(schedule.attributes("aria-current")).toBe("page");
+    expect(bookings.attributes("aria-current")).toBeUndefined();
+  });
+
   it("offers paired locale controls through the server locale action", async () => {
     const wrapper = mount(AdminLayout, { props: { title: "Bookings" } });
     const localeGroup = wrapper.get('[role="group"]');

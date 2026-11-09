@@ -102,6 +102,7 @@ abstract class TestCase extends BaseTestCase
         'services.slack.notifications.bot_user_oauth_token',
         'services.telegram.bot_token',
         'services.telegram.staff_chat_id',
+        'services.telegram.webhook_secret',
     ];
 
     public function createApplication()
@@ -113,6 +114,8 @@ abstract class TestCase extends BaseTestCase
         $app->make('config')->set('services.telegram', [
             'booking_notifications_enabled' => false,
             'bot_token' => null,
+            'bot_username' => null,
+            'webhook_secret' => null,
             'staff_chat_id' => null,
             'message_thread_id' => null,
             'ca_bundle' => null,

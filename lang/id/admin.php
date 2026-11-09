@@ -55,6 +55,16 @@ return [
     'content' => [
         'saved' => 'Konten halaman disimpan.',
         'reset' => 'Konten dikembalikan ke teks bawaan.',
+        'stale' => 'Orang lain sudah menyimpan konten halaman lebih dulu. Muat ulang untuk melihat teks terbaru, lalu terapkan ulang perubahan Anda.',
+        'empty' => 'Ubah setidaknya satu kolom sebelum menyimpan.',
+    ],
+    'catalog' => [
+        'validation' => [
+            'extension_total' => 'Tambahan ini ditambah perawatan terpanjang dengan mode yang sama harus muat dalam jam layanan 09.00–21.00 (maksimal :max menit).',
+        ],
+    ],
+    'manual' => [
+        'created' => 'Reservasi berhasil dibuat.',
     ],
     'status' => [
         'operational_required' => 'Konfirmasikan terapis yang sesuai tersedia untuk perawatan ini dan seluruh tamu.',
@@ -62,6 +72,22 @@ return [
         'stale' => 'Status reservasi ini telah berubah. Muat ulang halaman lalu coba lagi.',
         'invalid' => 'Perubahan status reservasi yang diminta tidak diizinkan.',
         'unsupported_field' => 'Permintaan berisi kolom yang tidak didukung.',
+        'online_payments_disabled' => 'Pembayaran online belum tersedia; permintaan ini tidak dapat disetujui untuk pembayaran online.',
+        'no_show_too_early' => 'Tidak hadir hanya dapat dicatat setelah jadwal perawatan berakhir.',
+        'complete_too_early' => 'Reservasi hanya dapat diselesaikan setelah jadwal perawatan dimulai.',
         'updated' => 'Status reservasi berhasil diperbarui.',
+    ],
+    'telegram' => [
+        'invalid_target' => 'Akun ini tidak dapat ditautkan ke Telegram. Akun harus berupa akun staf terverifikasi yang dapat mengelola reservasi.',
+        'already_linked' => 'Akun ini sudah tertaut ke Telegram. Hapus tautannya terlebih dahulu.',
+        'invalid_token' => 'Tautan ini tidak valid atau sudah kedaluwarsa. Minta tautan baru kepada pemilik.',
+        'invalid_identity' => 'Akun Telegram ini tidak dapat digunakan.',
+        'telegram_in_use' => 'Akun Telegram ini sudah tertaut ke akun staf lain.',
+        'not_claimed' => 'Pendaftaran ini belum diklaim di Telegram atau sudah tidak berlaku.',
+        'not_linked' => 'Akun ini tidak memiliki tautan Telegram untuk dihapus.',
+        'issued' => 'Tautan Telegram dibuat. Kirimkan secara pribadi kepada staf; tautan hanya berlaku sekali dan kedaluwarsa dalam 15 menit.',
+        'activated' => 'Akun Telegram diaktifkan.',
+        'revoked' => 'Tautan Telegram dihapus.',
+        'cancelled' => 'Tautan Telegram dibatalkan.',
     ],
 ];

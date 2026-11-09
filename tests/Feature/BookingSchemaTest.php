@@ -32,10 +32,10 @@ class BookingSchemaTest extends TestCase
     }
 
     // Production break caught: changing backed values would make existing booking rows unreadable or expose unsupported statuses.
-    public function test_booking_status_enum_contains_only_phase_one_statuses(): void
+    public function test_booking_status_enum_contains_the_lifecycle_statuses(): void
     {
         $this->assertSame(
-            ['pending', 'confirmed', 'completed', 'cancelled'],
+            ['pending', 'confirmed', 'awaiting_payment', 'completed', 'cancelled', 'no_show'],
             array_map(fn (BookingStatus $status) => $status->value, BookingStatus::cases()),
         );
     }

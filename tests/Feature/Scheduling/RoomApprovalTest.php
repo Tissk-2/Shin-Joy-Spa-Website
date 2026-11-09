@@ -187,10 +187,11 @@ class RoomApprovalTest extends TestCase
         $this->transition($actor, $booking, true);
         $hold = RoomReservation::firstOrFail();
         $end = $hold->ends_at;
+        $this->travelTo($hold->starts_at);
         $this->transition($actor, $booking->fresh(), false, BookingStatus::Completed);
         $this->assertNull($hold->fresh()->released_at);
         $this->assertTrue($end->equalTo($hold->fresh()->ends_at));
-        $legacy = Booking::factory()->create(['status' => 'confirmed']);
+        $legacy = Booking::factory()->create(['status' => 'confirmed', 'appointment_date' => '2026-10-24']);
         $this->transition($actor, $legacy, false, BookingStatus::Completed);
         $pending = Booking::factory()->create();
         $this->transition($actor, $pending, false, BookingStatus::Cancelled);

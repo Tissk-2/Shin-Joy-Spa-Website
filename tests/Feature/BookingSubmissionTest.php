@@ -478,6 +478,43 @@ class BookingSubmissionTest extends TestCase
         $this->assertDatabaseCount('bookings', 0);
     }
 
+    public function test_new_booking_stores_the_lifecycle_fields(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)->post('/bookings', $this->validPayload())->assertStatus(303);
+
+        $booking = Booking::query()->sole();
+
+        $this->assertSame('2026-09-07 03:30:00', $booking->getRawOriginal('starts_at'));
+        $this->assertSame('2026-09-07 06:00:00', $booking->getRawOriginal('treatment_ends_at'));
+        $this->assertSame('at_spa', $booking->payment_preference);
+        $this->assertSame('website', $booking->source_channel);
+        $this->assertNull($booking->created_by_staff_id);
+        $this->assertSame(1, $booking->booking_version);
+    }
+
+    public function test_hostile_lifecycle_input_is_ignored(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)->post('/bookings', $this->validPayload([
+            'payment_preference' => 'online',
+            'source_channel' => 'phone',
+            'starts_at' => '2000-01-01 00:00:00',
+            'created_by_staff_id' => 1,
+        ]))->assertStatus(303);
+
+        $booking = Booking::query()->sole();
+
+        $this->assertSame('2026-09-07 03:30:00', $booking->getRawOriginal('starts_at'));
+        $this->assertSame('2026-09-07 06:00:00', $booking->getRawOriginal('treatment_ends_at'));
+        $this->assertSame('at_spa', $booking->payment_preference);
+        $this->assertSame('website', $booking->source_channel);
+        $this->assertNull($booking->created_by_staff_id);
+        $this->assertSame(1, $booking->booking_version);
+    }
+
     /**
      * @param  array<string, mixed>  $overrides
      * @return array<string, mixed>

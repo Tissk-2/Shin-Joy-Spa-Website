@@ -26,9 +26,9 @@ class CreateNewUser implements CreatesNewUsers
     public function create(array $input): User
     {
         $normalized = [
-            'name' => CustomerIdentity::name((string) ($input['name'] ?? '')),
-            'email' => CustomerIdentity::email((string) ($input['email'] ?? '')),
-            'phone' => CustomerIdentity::phone((string) ($input['phone'] ?? '')),
+            'name' => is_string($input['name'] ?? null) ? CustomerIdentity::name($input['name']) : ($input['name'] ?? null),
+            'email' => is_string($input['email'] ?? null) ? CustomerIdentity::email($input['email']) : ($input['email'] ?? null),
+            'phone' => is_string($input['phone'] ?? null) ? CustomerIdentity::phone($input['phone']) : ($input['phone'] ?? null),
             'password' => $input['password'] ?? null,
             'password_confirmation' => $input['password_confirmation'] ?? null,
         ];

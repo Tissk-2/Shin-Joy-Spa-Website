@@ -10,6 +10,14 @@ return [
         'booking.created' => [
             'telegram' => TelegramBookingNotificationHandler::class,
         ],
+        // Lifecycle events are recorded for later consumers; no delivery yet.
+        'booking.approved' => [],
+        'booking.confirmed' => [],
+        'booking.cancelled' => [],
+        'booking.completed' => [],
+        'booking.no_show' => [],
+        // C2b subscribes TelegramUpdateHandler; until then nothing processes stored updates.
+        'telegram.update.received' => [],
     ],
     'lease_seconds' => 300,
     'max_attempts' => 5,

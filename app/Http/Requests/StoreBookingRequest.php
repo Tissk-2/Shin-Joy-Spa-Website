@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Enums\TreatmentMode;
 use App\Models\Booking;
+use App\Support\BookingSelectionLimits;
 use App\Support\CustomerIdentity;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Http\FormRequest;
@@ -39,15 +40,15 @@ class StoreBookingRequest extends FormRequest
                 'regex:/\A[+\d][\d\s-]{7,}\z/',
                 fn (string $attribute, mixed $value, callable $fail) => $this->validatePhoneDigits($attribute, $value, $fail),
             ],
-            'service' => ['bail', 'required', 'string', 'max:80'],
+            'service' => ['bail', 'required', 'string', 'max:'.BookingSelectionLimits::CODE_LENGTH],
             'mode' => [
                 'bail',
                 'required',
                 'string',
                 Rule::in(array_map(fn (TreatmentMode $mode): string => $mode->value, TreatmentMode::cases())),
             ],
-            'duration' => ['bail', 'required', 'integer', 'min:1', 'max:480'],
-            'extension' => ['bail', 'nullable', 'string', 'max:80'],
+            'duration' => ['bail', 'required', 'integer', 'min:1', 'max:'.BookingSelectionLimits::BASE_DURATION_MINUTES],
+            'extension' => ['bail', 'nullable', 'string', 'max:'.BookingSelectionLimits::CODE_LENGTH],
             'date' => [
                 'bail',
                 'required',
@@ -205,7 +206,7 @@ class StoreBookingRequest extends FormRequest
         }
     }
 
-    private function hasExistingSubmission(): bool
+    protected function hasExistingSubmission(): bool
     {
         $key = $this->input('submission_key');
         $user = $this->user();

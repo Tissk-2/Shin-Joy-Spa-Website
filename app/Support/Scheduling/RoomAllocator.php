@@ -14,7 +14,7 @@ use Throwable;
 
 final class RoomAllocator
 {
-    public function allocateLocked(Booking $booking): RoomReservation
+    public function allocateLocked(Booking $booking, ?int $onlyRoomId = null): RoomReservation
     {
         (new RoomBlockTerminationSchema)->requireReadable();
         $saved = $this->booking($booking);
@@ -36,6 +36,7 @@ final class RoomAllocator
         // Future catalog/settings/inventory writers must acquire ScheduleLock
         // first too; row locks alone cannot serialize newly inserted eligibility.
         $ids = DB::table('room_service_variant')->where('service_variant_id', $saved->service_variant_id)
+            ->when($onlyRoomId !== null, fn ($query) => $query->where('room_id', $onlyRoomId))
             ->orderBy('room_id')->lockForUpdate()->pluck('room_id');
         $rooms = DB::table('rooms')->whereIn('id', $ids)->where('is_active', true)
             ->where('capacity', '>=', $saved->guests)

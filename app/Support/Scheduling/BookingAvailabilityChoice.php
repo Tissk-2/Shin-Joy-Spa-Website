@@ -5,6 +5,7 @@ namespace App\Support\Scheduling;
 use App\Models\ServiceExtension;
 use App\Models\ServiceVariant;
 use App\Queries\PublicCatalogQuery;
+use App\Support\BookingSelectionLimits;
 use App\Support\Rooms\RoomInput;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Validation\ValidationException;
@@ -23,7 +24,7 @@ final class BookingAvailabilityChoice
             $this->invalid('service');
         }
         $variant = $service->variants->first(fn (ServiceVariant $choice) => $choice->getRawOriginal('treatment_mode') === $selection['mode']
-            && RoomInput::integer($choice->getRawOriginal('duration_minutes'), 1, 480)
+            && RoomInput::integer($choice->getRawOriginal('duration_minutes'), 1, BookingSelectionLimits::BASE_DURATION_MINUTES)
             && $choice->duration_minutes === $selection['duration']);
         if (! $variant) {
             $this->invalid('duration');
@@ -31,13 +32,13 @@ final class BookingAvailabilityChoice
         $extension = null;
         if ($selection['extension'] !== null) {
             $extension = $service->extensions->first(fn (ServiceExtension $choice) => $choice->code === $selection['extension'] && $choice->getRawOriginal('treatment_mode') === $selection['mode']);
-            if (! $extension || ! RoomInput::integer($extension->getRawOriginal('duration_minutes'), 1, 720)) {
+            if (! $extension || ! RoomInput::integer($extension->getRawOriginal('duration_minutes'), 1, BookingSelectionLimits::TOTAL_DURATION_MINUTES)) {
                 $this->invalid('extension');
             }
         }
         // Bounded trusted operands prevent overflow before addition.
         $duration = $variant->duration_minutes + ($extension?->duration_minutes ?? 0);
-        if ($duration > 720) {
+        if ($duration > BookingSelectionLimits::TOTAL_DURATION_MINUTES) {
             $this->invalid('extension');
         }
 

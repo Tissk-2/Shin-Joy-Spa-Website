@@ -70,6 +70,10 @@ final class AdminBookingPresenter
                 'priceIdr' => $booking->extension_price_idr,
             ],
             'notes' => $booking->notes,
+            'origin' => [
+                'source' => $booking->source_channel,
+                'staffName' => $booking->createdByStaff?->name,
+            ],
             'history' => $booking->statusChanges
                 ->map(fn (BookingStatusChange $change): array => [
                     'actor' => [

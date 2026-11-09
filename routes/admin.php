@@ -9,7 +9,9 @@ use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Http\Controllers\Admin\AdminLoginController;
 use App\Http\Controllers\Admin\AdminRoomBlockController;
 use App\Http\Controllers\Admin\AdminRoomController;
+use App\Http\Controllers\Admin\AdminScheduleController;
 use App\Http\Controllers\Admin\AdminStaffController;
+use App\Http\Controllers\Admin\AdminTelegramStaffController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('admin')->name('admin.')->group(function (): void {
@@ -20,11 +22,21 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
         Route::get('/staff', [AdminStaffController::class, 'index'])->name('staff.index');
         Route::patch('/staff/{user}/booking-permission', [AdminStaffController::class, 'update'])
             ->whereNumber('user')->middleware('throttle:room-write')->name('staff.booking-permission.update');
+        Route::middleware('throttle:room-write')->group(function (): void {
+            Route::post('/staff/{user}/telegram-enrollment', [AdminTelegramStaffController::class, 'issue'])
+                ->whereNumber('user')->name('staff.telegram.issue');
+            Route::post('/telegram-enrollments/{enrollment}/activate', [AdminTelegramStaffController::class, 'activate'])
+                ->whereNumber('enrollment')->name('telegram.enrollments.activate');
+            Route::delete('/staff/{user}/telegram-link', [AdminTelegramStaffController::class, 'revoke'])
+                ->whereNumber('user')->name('staff.telegram.revoke');
+        });
         Route::get('/settings/booking', [AdminBookingSettingsController::class, 'edit'])->name('settings.booking.edit');
         Route::patch('/settings/booking', [AdminBookingSettingsController::class, 'update'])
             ->middleware('throttle:room-write')->name('settings.booking.update');
         Route::get('/content', [AdminContentController::class, 'index'])->name('content.index');
-        Route::post('/content', [AdminContentController::class, 'store'])->name('content.store');
+        Route::post('/content', [AdminContentController::class, 'store'])
+            ->middleware('throttle:catalog-write')
+            ->name('content.store');
         Route::post('/content/reset', [AdminContentController::class, 'reset'])
             ->middleware('throttle:catalog-write')
             ->name('content.reset');
@@ -46,10 +58,15 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
                 ->name('catalog.packages.destroy');
         });
         Route::get('/bookings', [AdminBookingController::class, 'index'])->name('bookings.index');
+        Route::get('/bookings/create', [AdminBookingController::class, 'create'])->name('bookings.create');
+        Route::post('/bookings', [AdminBookingController::class, 'store'])
+            ->middleware('throttle:admin-booking-status')
+            ->name('bookings.store');
         Route::get('/bookings/{booking:reference}', [AdminBookingController::class, 'show'])->name('bookings.show');
         Route::patch('/bookings/{booking:reference}/status', [AdminBookingController::class, 'updateStatus'])
             ->middleware('throttle:admin-booking-status')
             ->name('bookings.status.update');
+        Route::get('/schedule', AdminScheduleController::class)->name('schedule');
         Route::get('/room-blocks', [AdminRoomBlockController::class, 'index'])->name('room-blocks.index');
         Route::get('/room-blocks/create', [AdminRoomBlockController::class, 'create'])->name('room-blocks.create');
         Route::get('/room-blocks/{block}/edit', [AdminRoomBlockController::class, 'edit'])->whereNumber('block')->name('room-blocks.edit');

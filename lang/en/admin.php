@@ -55,6 +55,16 @@ return [
     'content' => [
         'saved' => 'Page content saved.',
         'reset' => 'Page content reset to the default text.',
+        'stale' => 'Someone else saved the page content first. Reload to see the latest text, then reapply your changes.',
+        'empty' => 'Change at least one field before saving.',
+    ],
+    'catalog' => [
+        'validation' => [
+            'extension_total' => 'This extension plus the longest treatment in the same mode must fit within the 09:00–21:00 service day (at most :max minutes).',
+        ],
+    ],
+    'manual' => [
+        'created' => 'Booking created successfully.',
     ],
     'status' => [
         'operational_required' => 'Confirm that suitable therapists are available for this treatment and the whole group.',
@@ -62,6 +72,22 @@ return [
         'stale' => 'This booking status has changed. Refresh the page and try again.',
         'invalid' => 'The requested booking status transition is not allowed.',
         'unsupported_field' => 'The request contains an unsupported field.',
+        'online_payments_disabled' => 'Online payment is not available yet; this request cannot be approved for online payment.',
+        'no_show_too_early' => "A no-show can only be recorded after the treatment's scheduled end.",
+        'complete_too_early' => 'A booking can only be completed once its appointment has started.',
         'updated' => 'Booking status updated successfully.',
+    ],
+    'telegram' => [
+        'invalid_target' => "This account can't be linked to Telegram. It must be a verified staff account that can manage bookings.",
+        'already_linked' => 'This account is already linked to Telegram. Remove the link first.',
+        'invalid_token' => 'This link is invalid or has expired. Ask the owner for a new one.',
+        'invalid_identity' => "This Telegram account can't be used.",
+        'telegram_in_use' => 'This Telegram account is already linked to another staff account.',
+        'not_claimed' => "This enrollment hasn't been claimed in Telegram yet, or it is no longer open.",
+        'not_linked' => 'This account has no Telegram link to remove.',
+        'issued' => 'Telegram link created. Send it to the staff member privately; it works once and expires in 15 minutes.',
+        'activated' => 'Telegram account activated.',
+        'revoked' => 'Telegram link removed.',
+        'cancelled' => 'Telegram link cancelled.',
     ],
 ];

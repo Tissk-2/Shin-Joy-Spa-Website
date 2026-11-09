@@ -311,6 +311,8 @@ const labels = computed(() =>
         noExtension: "Tanpa tambahan",
         notProvided: "Tidak dicantumkan",
         noNotes: "Belum ada catatan",
+        approvalNote:
+          "Setelah dikirim, reservasi Anda menunggu persetujuan staf. Belum ada yang dipesan sampai staf mengonfirmasinya.",
         estimateScope:
           "Estimasi ini mencakup perawatan yang dipilih dan tambahan apa pun. Jumlah tamu tidak mengalikan jumlah tersebut; total untuk semua tamu belum dikonfirmasi.",
         s1: "Paket & Perawatan",
@@ -344,6 +346,8 @@ const labels = computed(() =>
         noExtension: "No extension",
         notProvided: "Not provided",
         noNotes: "No notes provided",
+        approvalNote:
+          "Once sent, your booking waits for staff approval. Nothing is reserved until staff confirm it.",
         estimateScope:
           "This estimate covers the selected treatment and any extension. Guest count does not multiply it; the total for all guests has not been confirmed.",
         s1: "Package & Treatment",
@@ -537,6 +541,9 @@ function confirm(): void {
           </h2>
           <p class="muted">
             {{ bookingForm.processing ? labels.pending : labels.noReservation }}
+          </p>
+          <p class="muted" data-booking-approval-note>
+            {{ labels.approvalNote }}
           </p>
           <div class="booking-recap">
             <div class="summary-row">

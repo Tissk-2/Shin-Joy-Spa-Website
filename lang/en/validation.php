@@ -41,14 +41,22 @@ return [
     ],
     'custom' => [
         'phone' => [
+            'required_without' => 'Enter a phone number or an email so the guest can be reached.',
             'regex' => 'The phone number must contain between 8 and 15 digits.',
         ],
         'password' => [
             'regex' => 'The password must contain at least one letter and one number.',
+            'bytes' => 'The password is too long. Use fewer characters (accented letters and emoji count extra).',
         ],
     ],
     'attributes' => [
         'currentStatus' => 'current status',
+        'date' => 'date',
+        'duration' => 'duration',
+        'guests' => 'guest count',
+        'mode' => 'treatment type',
+        'source' => 'source',
+        'time' => 'time',
         'email' => 'email',
         'locale' => 'locale',
         'name' => 'name',

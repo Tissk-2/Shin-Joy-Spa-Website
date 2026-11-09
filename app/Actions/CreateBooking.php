@@ -6,6 +6,7 @@ use App\Enums\BookingStatus;
 use App\Models\Booking;
 use App\Models\User;
 use App\Support\BookingQuoteResolver;
+use App\Support\Bookings\BookingSchedule;
 use App\Support\Outbox\BookingCreatedOutbox;
 use App\Support\Scheduling\BookingSubmissionAvailability;
 use Illuminate\Database\QueryException;
@@ -49,14 +50,21 @@ class CreateBooking
                     ]);
                 }
 
-                $booking = Booking::query()->forceCreate([
+                $booking = (new Booking)->forceFill([
                     'user_id' => $user->id,
                     'reference' => $this->reference(),
                     'submission_key' => (string) $data['submission_key'],
                     'request_fingerprint' => $fingerprint,
                     'status' => BookingStatus::Pending,
                     ...$bookingAttributes,
+                    'payment_preference' => 'at_spa',
+                    'source_channel' => 'website',
                 ]);
+                $schedule = new BookingSchedule;
+                $booking->forceFill([
+                    'starts_at' => $schedule->startsAt($booking),
+                    'treatment_ends_at' => $schedule->treatmentEndsAt($booking),
+                ])->save();
 
                 if (config('services.telegram.booking_notifications_enabled')) {
                     $this->bookingOutbox->record($booking);
@@ -103,12 +111,12 @@ class CreateBooking
      *
      * @throws JsonException
      */
-    private function fingerprint(array $attributes): string
+    public static function fingerprint(array $attributes): string
     {
         unset($attributes['submission_key'], $attributes['expected_total_price_idr']);
 
         return hash('sha256', json_encode(
-            $this->canonicalize($attributes),
+            self::canonicalize($attributes),
             JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
         ));
     }
@@ -117,20 +125,20 @@ class CreateBooking
      * @param  array<string, mixed>  $value
      * @return array<string, mixed>
      */
-    private function canonicalize(array $value): array
+    private static function canonicalize(array $value): array
     {
         ksort($value);
 
         foreach ($value as $key => $nested) {
             if (is_array($nested)) {
-                $value[$key] = $this->canonicalize($nested);
+                $value[$key] = self::canonicalize($nested);
             }
         }
 
         return $value;
     }
 
-    private function reference(): string
+    public static function reference(): string
     {
         return 'SJ-'.Str::ulid()->toBase32();
     }

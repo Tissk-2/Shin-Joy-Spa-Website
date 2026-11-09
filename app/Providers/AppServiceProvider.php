@@ -63,6 +63,11 @@ class AppServiceProvider extends ServiceProvider
             Limit::perMinute(20)->by('ip:'.$request->ip()),
         ]);
 
+        RateLimiter::for('password-update', fn (Request $request): array => [
+            Limit::perMinute(5)->by('user:'.$request->user()?->getAuthIdentifier()),
+            Limit::perMinute(20)->by('ip:'.$request->ip()),
+        ]);
+
         RateLimiter::for('admin-booking-status', fn (Request $request): array => [
             Limit::perMinute(30)->by('admin:'.$request->user()?->getAuthIdentifier().'|ip:'.$request->ip()),
             Limit::perHour(100)->by('ip:'.$request->ip()),

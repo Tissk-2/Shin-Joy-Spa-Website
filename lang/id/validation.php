@@ -42,13 +42,21 @@ return [
     'custom' => [
         'phone' => [
             'regex' => 'Nomor telepon harus berisi antara 8 dan 15 digit.',
+            'required_without' => 'Isi nomor telepon atau email agar tamu dapat dihubungi.',
         ],
         'password' => [
             'regex' => 'Kata sandi harus berisi setidaknya satu huruf dan satu angka.',
+            'bytes' => 'Kata sandi terlalu panjang. Gunakan lebih sedikit karakter (huruf beraksen dan emoji dihitung lebih).',
         ],
     ],
     'attributes' => [
         'currentStatus' => 'Status saat ini',
+        'date' => 'Tanggal',
+        'duration' => 'Durasi',
+        'guests' => 'Jumlah tamu',
+        'mode' => 'Jenis perawatan',
+        'source' => 'Sumber',
+        'time' => 'Waktu',
         'email' => 'Email',
         'locale' => 'Bahasa',
         'name' => 'Nama',

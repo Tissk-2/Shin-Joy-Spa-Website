@@ -1,6 +1,5 @@
 <?php
 
-use App\Enums\BookingStatus;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -15,8 +14,9 @@ return new class extends Migration
             $table->foreignId('admin_user_id')->nullable()->constrained('users')->nullOnDelete();
             $table->string('actor_name');
             $table->string('actor_email', 254);
-            $table->enum('from_status', array_column(BookingStatus::cases(), 'value'));
-            $table->enum('to_status', array_column(BookingStatus::cases(), 'value'));
+            // Frozen at the original four statuses; later statuses arrive in 2026_10_22_010003.
+            $table->enum('from_status', ['pending', 'confirmed', 'completed', 'cancelled']);
+            $table->enum('to_status', ['pending', 'confirmed', 'completed', 'cancelled']);
             $table->string('reason', 500)->nullable();
             $table->string('ip_address', 45)->nullable();
             $table->string('user_agent', 1024)->nullable();

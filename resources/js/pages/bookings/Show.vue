@@ -61,6 +61,15 @@ function statusLabel(status: BookingStatus): string {
   return tr(`bookings.status.${status}`);
 }
 
+const statusNote = computed(() =>
+  ["pending", "confirmed", "cancelled"].includes(props.booking.status)
+    ? tr(`bookings.statusNote.${props.booking.status}`)
+    : null,
+);
+const canStillChange = computed(() =>
+  ["pending", "awaiting_payment", "confirmed"].includes(props.booking.status),
+);
+
 function modeLabel(): string {
   return tr(`bookings.treatmentMode.${props.booking.treatmentMode}`);
 }
@@ -121,6 +130,14 @@ async function downloadCard(): Promise<void> {
 
     <section class="section booking-detail-section">
       <div class="container booking-detail">
+        <p
+          v-if="statusNote"
+          class="booking-status-note"
+          data-booking-status-note
+        >
+          {{ statusNote }}
+        </p>
+
         <div class="booking-appointment-band">
           <dl>
             <div>
@@ -141,6 +158,10 @@ async function downloadCard(): Promise<void> {
             <div>
               <dt>{{ tr("bookings.treatmentType") }}</dt>
               <dd>{{ modeLabel() }}</dd>
+            </div>
+            <div v-if="props.booking.room" data-booking-room>
+              <dt>{{ tr("bookings.room") }}</dt>
+              <dd>{{ props.booking.room }}</dd>
             </div>
           </dl>
         </div>
@@ -186,6 +207,25 @@ async function downloadCard(): Promise<void> {
                 <dd>{{ formatPrice(props.booking.totalPriceIdr) }}</dd>
               </div>
             </dl>
+            <p
+              v-if="props.booking.pricingVerified"
+              class="booking-total-note"
+              data-booking-price-fixed
+            >
+              {{ tr("bookings.priceFixed") }}
+            </p>
+            <p v-else class="booking-total-note" data-booking-price-estimate>
+              {{ tr("bookings.priceEstimate") }}
+            </p>
+            <p
+              v-if="
+                canStillChange && props.booking.paymentPreference === 'at_spa'
+              "
+              class="booking-total-note"
+              data-booking-pay-at-spa
+            >
+              {{ tr("bookings.payAtSpa") }}
+            </p>
           </aside>
 
           <article class="booking-panel">
@@ -211,6 +251,32 @@ async function downloadCard(): Promise<void> {
           <article class="booking-panel booking-notes-panel">
             <h2>{{ tr("bookings.notes") }}</h2>
             <p>{{ props.booking.notes || tr("bookings.noNotes") }}</p>
+          </article>
+
+          <article
+            v-if="canStillChange"
+            class="booking-panel booking-changes-panel"
+            data-booking-changes
+          >
+            <h2>{{ tr("bookings.changesTitle") }}</h2>
+            <p>{{ tr("bookings.changesBody") }}</p>
+            <a
+              v-if="contactInformation.whatsappUrl"
+              :href="contactInformation.whatsappUrl"
+              class="btn btn--ghost booking-changes-panel__contact"
+              target="_blank"
+              rel="noopener noreferrer"
+              data-booking-contact
+              >{{ tr("bookings.contactSpa") }}
+              <span class="sr-only">{{ tr("bookings.newTab") }}</span></a
+            >
+            <p v-else>
+              <a
+                class="ulink"
+                :href="'tel:' + contactInformation.phone.replace(/[^+\d]/g, '')"
+                >{{ contactInformation.phone }}</a
+              >
+            </p>
           </article>
         </div>
 

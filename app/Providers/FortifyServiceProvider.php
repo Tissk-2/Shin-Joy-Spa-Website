@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Actions\Fortify\CreateNewUser;
 use App\Actions\Fortify\ResetUserPassword;
+use App\Http\Middleware\RejectArrayIdentityInput;
 use App\Http\Responses\LoginResponse;
 use App\Models\User;
 use App\Support\BookingAuthContextResolver;
@@ -73,7 +74,8 @@ class FortifyServiceProvider extends ServiceProvider
         });
 
         RateLimiter::for('login', function (Request $request) {
-            $key = CustomerIdentity::email((string) $request->input('email')).'|'.$request->ip();
+            $email = $request->input('email');
+            $key = (is_string($email) ? CustomerIdentity::email($email) : '').'|'.$request->ip();
 
             return Limit::perMinute(5)->by($key);
         });
@@ -82,7 +84,8 @@ class FortifyServiceProvider extends ServiceProvider
             ->by($request->ip()));
 
         RateLimiter::for('registration', function (Request $request): array {
-            $key = CustomerIdentity::email((string) $request->input('email')).'|'.$request->ip();
+            $email = $request->input('email');
+            $key = (is_string($email) ? CustomerIdentity::email($email) : '').'|'.$request->ip();
 
             return [
                 Limit::perMinute(3)->by($key),
@@ -97,6 +100,11 @@ class FortifyServiceProvider extends ServiceProvider
 
             if ($event->route->getName() === 'register.store') {
                 $event->route->middleware('throttle:registration');
+                $event->route->middleware(RejectArrayIdentityInput::class);
+            }
+
+            if ($event->route->getName() === 'password.update') {
+                $event->route->middleware(RejectArrayIdentityInput::class);
             }
         });
     }

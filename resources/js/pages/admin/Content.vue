@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { router, useForm, usePage } from "@inertiajs/vue3";
-import { nextTick, onBeforeUnmount, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import { useLanguage } from "@/composables/useLanguage";
 import AdminLayout from "@/layouts/admin/AdminLayout.vue";
 import type { AppPageProps } from "@/types";
@@ -8,6 +8,7 @@ import type { AppPageProps } from "@/types";
 interface ContentProps {
   sections: Record<string, string[]>;
   values: Record<string, { id?: string; en?: string }>;
+  revision: number;
 }
 
 const props = defineProps<ContentProps>();
@@ -44,29 +45,53 @@ const longFields = new Set([
   "loc.address",
 ]);
 
-const initialValues: Record<string, { id: string; en: string }> = {};
-for (const keys of Object.values(props.sections)) {
-  for (const key of keys) {
-    initialValues[key] = {
-      id: props.values[key]?.id ?? "",
-      en: props.values[key]?.en ?? "",
-    };
+function editorValues(
+  source: ContentProps["values"],
+): Record<string, { id: string; en: string }> {
+  const next: Record<string, { id: string; en: string }> = {};
+  for (const keys of Object.values(props.sections)) {
+    for (const key of keys) {
+      next[key] = {
+        id: source[key]?.id ?? "",
+        en: source[key]?.en ?? "",
+      };
+    }
   }
+  return next;
 }
 
-const form = useForm({ values: initialValues });
+function cloneValues(
+  source: Record<string, { id: string; en: string }>,
+): Record<string, { id: string; en: string }> {
+  return Object.fromEntries(
+    Object.entries(source).map(([key, entry]) => [key, { ...entry }]),
+  );
+}
+
+const form = useForm({
+  revision: props.revision,
+  values: editorValues(props.values),
+});
+const original = ref(cloneValues(form.values));
 
 // The editor stays mounted across save/reset round trips, so the inputs follow
 // the authoritative server state instead of the values typed before the post.
+// A rejected save keeps the admin's typing (and the old revision, so a stale
+// save stays stale) instead of overwriting it with the server's values.
 watch(
   () => props.values,
   (next) => {
+    if (Object.keys(page.props.errors ?? {}).length > 0) {
+      return;
+    }
     for (const key of Object.keys(form.values)) {
       form.values[key] = {
         id: next[key]?.id ?? "",
         en: next[key]?.en ?? "",
       };
     }
+    form.revision = props.revision;
+    original.value = cloneValues(form.values);
   },
 );
 
@@ -93,8 +118,30 @@ function isLong(key: string): boolean {
   return longFields.has(key);
 }
 
+const dirty = computed(() => {
+  const changed: Record<string, { id: string; en: string }> = {};
+  for (const [key, entry] of Object.entries(form.values)) {
+    const before = original.value[key] ?? { id: "", en: "" };
+    if (entry.id !== before.id || entry.en !== before.en) {
+      changed[key] = { id: entry.id, en: entry.en };
+    }
+  }
+  return changed;
+});
+const hasChanges = computed(() => Object.keys(dirty.value).length > 0);
+// Reset posts through the router, so its stale error lands in page errors.
+const revisionError = computed(
+  () => form.errors.revision ?? page.props.errors?.revision,
+);
+
 function submit(): void {
-  form.post("/admin/content", { preserveScroll: true });
+  if (!hasChanges.value) {
+    return;
+  }
+  const values = dirty.value;
+  form
+    .transform(() => ({ revision: form.revision, values }))
+    .post("/admin/content", { preserveScroll: true });
 }
 
 function openReset(): void {
@@ -108,7 +155,11 @@ function closeReset(): void {
 
 function confirmReset(): void {
   confirmingReset.value = false;
-  router.post("/admin/content/reset", {}, { preserveScroll: true });
+  router.post(
+    "/admin/content/reset",
+    { revision: form.revision },
+    { preserveScroll: true },
+  );
 }
 
 function handleKeydown(event: KeyboardEvent): void {
@@ -140,6 +191,9 @@ document.addEventListener("keydown", handleKeydown);
       <p class="admin-content-editor__note">{{ tr("ad.content.note") }}</p>
       <p v-if="form.errors.values" class="admin-filter-error" role="alert">
         {{ form.errors.values }}
+      </p>
+      <p v-if="revisionError" class="admin-filter-error" role="alert">
+        {{ revisionError }}
       </p>
 
       <form novalidate :aria-busy="form.processing" @submit.prevent="submit">
@@ -261,7 +315,7 @@ document.addEventListener("keydown", handleKeydown);
             type="submit"
             class="admin-button admin-button--primary"
             data-content-save
-            :disabled="form.processing"
+            :disabled="form.processing || !hasChanges"
             :aria-busy="form.processing"
           >
             {{

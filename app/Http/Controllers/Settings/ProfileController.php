@@ -13,6 +13,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Password;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -40,6 +41,7 @@ class ProfileController extends Controller
             $attributes = $request->validated();
             if ($user->email !== $attributes['email']) {
                 StaffAuthority::protectEmailChange($user);
+                Password::broker()->deleteToken($user);
                 $attributes = [...$attributes, 'email_verified_at' => null];
             }
             $user->forceFill($attributes)->save();
@@ -71,6 +73,8 @@ class ProfileController extends Controller
                 }
 
                 StaffAuthority::protectDeletion($user);
+
+                Password::broker()->deleteToken($user);
 
                 $user->delete();
             });

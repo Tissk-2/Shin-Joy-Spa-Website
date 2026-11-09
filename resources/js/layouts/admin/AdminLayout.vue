@@ -2,6 +2,7 @@
 import { Head, Link, router, usePage } from "@inertiajs/vue3";
 import {
   BookOpen,
+  CalendarClock,
   CalendarDays,
   DoorOpen,
   LayoutDashboard,
@@ -107,6 +108,15 @@ function logout(): void {
           "
         >
           <CalendarDays aria-hidden="true" />{{ tr("ad.nav.bookings") }}
+        </Link>
+        <Link
+          href="/admin/schedule"
+          class="admin-nav-link"
+          :aria-current="
+            isActiveAdminLink('/admin/schedule') ? 'page' : undefined
+          "
+        >
+          <CalendarClock aria-hidden="true" />{{ tr("ad.nav.schedule") }}
         </Link>
         <Link
           href="/admin/rooms"

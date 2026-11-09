@@ -2,9 +2,12 @@
 
 namespace App\Support;
 
+use App\Enums\BookingStatus;
 use App\Models\Booking;
+use App\Models\RoomReservation;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Schema;
 
 class BookingPresenter
 {
@@ -82,7 +85,21 @@ class BookingPresenter
                 'priceIdr' => $booking->extension_price_idr,
             ],
             'notes' => $booking->notes,
+            'paymentPreference' => $booking->payment_preference,
+            // Unverified pricing was never multiplied by guests, so it stays an estimate.
+            'pricingVerified' => $booking->pricing_basis !== null,
+            'room' => $this->assignedRoomName($booking),
         ];
+    }
+
+    private function assignedRoomName(Booking $booking): ?string
+    {
+        if ($booking->status === BookingStatus::Cancelled || ! Schema::hasTable('room_reservations')) {
+            return null;
+        }
+
+        return RoomReservation::query()->with('room')->where('booking_id', $booking->getKey())
+            ->whereNull('released_at')->first()?->room->name;
     }
 
     private function appointmentInstant(Booking $booking): CarbonImmutable

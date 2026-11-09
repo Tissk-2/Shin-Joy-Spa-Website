@@ -481,6 +481,18 @@
   font-weight: 800;
 }
 
+.booking-status-note {
+  margin: 0 0 1.5rem;
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.booking-total-note {
+  margin: 0.75rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
 .booking-detail-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.6fr) minmax(16rem, 0.8fr);
@@ -517,8 +529,14 @@
 }
 
 .booking-notes-panel,
+.booking-changes-panel,
 .booking-actions {
   grid-column: 1 / -1;
+}
+
+.booking-changes-panel__contact {
+  margin-top: 1rem;
+  width: fit-content;
 }
 
 .booking-actions {

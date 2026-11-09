@@ -438,7 +438,15 @@ describe("admin booking console", () => {
       "Hapus filter",
     ]);
     expect(wrapper.findAll("select option").map((node) => node.text())).toEqual(
-      ["Semua", "Menunggu", "Terkonfirmasi", "Selesai", "Dibatalkan"],
+      [
+        "Semua",
+        "Menunggu",
+        "Terkonfirmasi",
+        "Menunggu pembayaran",
+        "Selesai",
+        "Dibatalkan",
+        "Tidak hadir",
+      ],
     );
     expect(wrapper.findAll("thead th").map((node) => node.text())).toEqual([
       "Referensi",

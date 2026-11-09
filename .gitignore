@@ -24,3 +24,15 @@ dist/
 /.impeccable/
 /inspect_rooms.cjs
 /tests/e2e/screenshots/
+*.mutbak
+
+# Standalone promo film projects with their own toolchains
+/promo-keynote/
+/promo-video/
+
+# Local deliverables and review screenshots
+/LAPORAN PBL SHIN JOY SPA.docx
+/LAPORAN PBL SHIN JOY SPA.pdf
+/admin_block_modal.png
+/admin_edit_modal.png
+/MADU - Magasabe 12-screenshot.png

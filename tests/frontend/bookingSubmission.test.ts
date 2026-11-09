@@ -482,6 +482,18 @@ describe("reviewed booking submission", () => {
     );
   });
 
+  it("tells the customer that staff approval comes next on the review step", async () => {
+    inertia.page.props.locale = "en";
+    const wrapper = mountBooking();
+
+    await completeDetails(wrapper);
+    await wrapper.get("form").trigger("submit");
+
+    expect(wrapper.get("[data-booking-approval-note]").text()).toBe(
+      "Once sent, your booking waits for staff approval. Nothing is reserved until staff confirm it.",
+    );
+  });
+
   it("returns to the editable form with associated server errors while preserving values and the submission key", async () => {
     inertia.nextPostError = {
       date: "Please choose a future appointment date.",

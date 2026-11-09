@@ -1,6 +1,5 @@
 <?php
 
-use App\Enums\BookingStatus;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -18,7 +17,8 @@ return new class extends Migration
             $table->string('reference', 32)->unique();
             $table->uuid('submission_key');
             $table->char('request_fingerprint', 64);
-            $table->enum('status', BookingStatus::cases())->default(BookingStatus::Pending->value);
+            // Frozen at the original four statuses; later statuses arrive in 2026_10_22_010003.
+            $table->enum('status', ['pending', 'confirmed', 'completed', 'cancelled'])->default('pending');
             $table->string('customer_name');
             $table->string('customer_email');
             $table->string('customer_phone', 32);

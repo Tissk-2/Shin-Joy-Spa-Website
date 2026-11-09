@@ -3,6 +3,7 @@
 namespace App\Support\Scheduling;
 
 use App\Enums\TreatmentMode;
+use App\Support\BookingSelectionLimits;
 use App\Support\Rooms\RoomInput;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
@@ -32,12 +33,12 @@ final class BookingAvailabilityInput
             }
         };
         $data = Validator::make($normalized, [
-            'service' => ['bail', 'required', 'string', 'max:80'],
+            'service' => ['bail', 'required', 'string', 'max:'.BookingSelectionLimits::CODE_LENGTH],
             'mode' => ['bail', 'required', 'string', Rule::in(array_column(TreatmentMode::cases(), 'value'))],
-            'duration' => ['bail', 'required', $integer(480)],
+            'duration' => ['bail', 'required', $integer(BookingSelectionLimits::BASE_DURATION_MINUTES)],
             'guests' => ['bail', 'required', $integer(4)],
             'date' => ['bail', 'required', $date],
-            'extension' => ['bail', 'nullable', 'string', 'max:80'],
+            'extension' => ['bail', 'nullable', 'string', 'max:'.BookingSelectionLimits::CODE_LENGTH],
             'room_type' => ['bail', 'nullable', 'string', 'regex:/\A[\pL\pN][\pL\pN _-]{0,63}\z/u'],
         ])->validate();
 

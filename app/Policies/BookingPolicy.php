@@ -21,6 +21,11 @@ final class BookingPolicy
         return $this->viewAny($user);
     }
 
+    public function create(User $user): bool
+    {
+        return $this->updateStatus($user, new Booking);
+    }
+
     public function updateStatus(User $user, Booking $booking): bool
     {
         $actor = $this->current($user, lock: true);

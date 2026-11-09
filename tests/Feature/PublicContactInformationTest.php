@@ -19,6 +19,7 @@ class PublicContactInformationTest extends TestCase
 
         $this->actingAs($admin)
             ->post('/admin/content', [
+                'revision' => 0,
                 'values' => [
                     'loc.address' => [
                         'id' => 'Jl. Mawar No. 8, Malang',
@@ -61,6 +62,7 @@ class PublicContactInformationTest extends TestCase
 
         $this->actingAs($admin)
             ->post('/admin/content', [
+                'revision' => 0,
                 'values' => [
                     'loc.address' => ['id' => 'Alamat CMS Indonesia', 'en' => ''],
                     'loc.phone' => ['id' => '', 'en' => '+62 813 1111 2222'],

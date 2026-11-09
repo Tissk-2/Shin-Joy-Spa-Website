@@ -76,6 +76,19 @@ test("a newer input is named in the stale message", () => {
   });
 });
 
+test("a newer single-file input such as vite.config.ts is stale", () => {
+  withFixture((root) => {
+    write(root, "public/build/manifest.json", built);
+    write(root, "resources/js/app.ts", older);
+    write(root, "vite.config.ts", new Date("2026-01-03T00:00:00Z"));
+
+    assert.throws(() => assertBuildIsFresh(root), {
+      message:
+        "E2E assets are stale: vite.config.ts changed after public/build/manifest.json was built. Run `npm run build` before `npm run test:e2e`.",
+    });
+  });
+});
+
 test("several newer inputs name the newest file and count the rest", () => {
   withFixture((root) => {
     write(root, "public/build/manifest.json", built);

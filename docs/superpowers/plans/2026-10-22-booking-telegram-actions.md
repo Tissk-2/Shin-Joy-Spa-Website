@@ -43,6 +43,84 @@ Migration numbers `2026_10_22_020000` through `020002` belong to this plan. Path
 - Produce `App\Contracts\BookingPaymentSummary::forBooking(Booking $booking): array{state:string,deadline:?string,checkout_url:?string,refunds:array}` and concrete `App\Support\Payments\BookingPaymentSummary`. C4 creates both; the payment plan extends that concrete implementation and retains the binding/shape.
 - Produce `App\Support\Bookings\BookingCommunicationFanout implements OutboxHandler`, creating `telegram.booking.sync` and `customer.booking.notice` child outbox rows. Children have separate dedupe keys and retries; never couple successful email delivery to Telegram availability.
 
+## Stage C split (8 November 2026, before implementation)
+
+This plan was written before stage B was built. Every part below must be prepared against the code as it is when that part starts. B moved several shared contracts:
+- `ApproveBooking` now also takes `bool $operationalConfirmed` and `?string $reason`;
+- `booking_status_changes` has `actor_type` and `channel`;
+- the outbox config is keyed `event → [stableKey => handler]`;
+- `Tests\TestCase` replaces the whole `services.telegram` config with a fixed array, so new Telegram config keys must be added there deliberately.
+
+New migrations use today's date with this plan's number range (for example `2026_11_08_020000_…`) so they sort after B's `2026_11_05_010011`. `BookingLifecycleRealMigratorTest` rolls back every migration from 010003 onward, so each new `down()` must work on the full schema.
+
+| Part | Scope |
+|---|---|
+| **C1a** | Enrollment schema plus the four actions (issue, claim, activate, revoke) under `StaffAccessLock`, with an audit table. No HTTP and no UI. |
+| C1b | Owner routes, `AdminTelegramStaffController`, and the staff-page UI (issue a deep link with its expiry, review a pending claim with a masked ID, activate, revoke, history). `services.telegram.bot_username`. |
+| C2a | Webhook ingress: a separate route file, constant-time secret check, a 64 KiB limit, normalized shapes, the `telegram_updates` table, and the recorder writing `telegram.update.received` atomically. 403, 503 and 200 semantics; a limiter. `webhook_secret` config plus the `TestCase` keys. |
+| C2b | `TelegramUpdateHandler`: private `/start <token>` → `ClaimStaffEnrollment` (rejecting bots and non-private chats), ignored outcomes, recovery after a dispatch outage, payload retention and scrubbing, README. |
+| C3a | Message and action-token schema, `BookingActionKeyboard`, and the initial booking message persisting its identity and rendering buttons when `actions_enabled`. |
+| C3b | `ProcessBookingCallback`: Confirm, two-step actor-bound Decline, stale, revoked and denied outcomes, and `telegram.callback.answer` work. |
+| C3c | Separate-process races in the concurrency harness: Telegram against dashboard approval for the last room, and revocation against a callback. |
+| C4a | The `BookingPaymentSummary` contract (stage C states only) and `BookingCommunicationFanout`, replacing the `booking.created` consumer. |
+| C4b | Telegram message sync and edit on lifecycle events (latest state, per-message ordering, "not modified" counts as success, replacement after a deletion). |
+| C4c | Customer email notices (`BookingStatusNotification`, mail view), including the decision on staff-entered bookings: those without an email record a skipped outcome. |
+| C4d | Delivery status on the admin booking page, README webhook setup and recovery, and the stage C close-out. |
+
+**C1a complete (8 November 2026, uncommitted).**
+- Migration `2026_11_08_020000` adds `telegram_enrollments`, `telegram_staff_links` (unique `user_id` and unique `telegram_user_id`) and the `telegram_staff_link_changes` audit table.
+- The actions `Issue`, `Claim`, `Activate` and `RevokeStaffLink` all run under `StaffAccessLock`, with the owner checked first.
+- Eligibility is exactly `BookingPolicy::create`, rechecked at activation.
+- The token is one-use, 43 characters and expires after 15 minutes; only its SHA-256 is stored, and `token_hash` is hidden.
+- Every token failure gives one generic message. Unknown tokens are refused before the lock, and link checks are locking reads.
+- A cancelled claim can never be activated.
+
+**Inputs for later parts:**
+- **C2:** the bot's `/start` reply shows the claimer their Telegram ID digits, and rejects bots and group chats.
+- **C1b:**
+  - show the same digits and the claim time for the owner to confirm with the staff member before activating;
+  - hide expired, unclaimed enrollments;
+  - show "account deleted" for history rows whose `target_user_id` is null;
+  - warn when a linked account can no longer manage bookings;
+  - re-read the enrollment to show its expiry, because Issue returns only the token.
+
+**C1b complete (8 November 2026, uncommitted).**
+- The staff page shows each member's Telegram state with only the last four ID digits.
+- The owner can create a one-time link (a `t.me` URL when `TELEGRAM_BOT_USERNAME` is a valid username), activate a claim and remove a link, each after an inline confirmation. The link history is on the same page.
+- Every action returns to the staff page that shows the member (`AdminStaffController::pageOf`).
+- Refusals and failures appear in that member's row, and focus returns to the control that started the action.
+- `RevokeStaffLink` returns whether it removed an active link; otherwise the message says the link was cancelled.
+
+**Inputs for later parts:**
+- **C2:** the claimer sees their own ID digits in the bot's reply, to match the four digits the owner checks on the staff page.
+- **C2:** `TelegramStaffQuery::botUsername()` is the single check for a valid bot username.
+
+**C2a complete (9 November 2026, uncommitted).**
+- `POST /webhooks/telegram` (`routes/webhooks.php`, no middleware) checks, in order:
+  1. config, returning 503;
+  2. the constant-time secret header, returning 403;
+  3. a global limiter of 300 per minute, applied only after authentication, returning 429;
+  4. a 64 KiB raw body.
+- Unusable authenticated bodies are logged by reason and acknowledged with 200. Storage failures log only the exception class and return 503.
+- `TelegramUpdateRecorder` stores each `(bot_id, update_id)` once in `telegram_updates`, keeping identity fields only.
+  - A `/start` message is `kind=start`; its token sits in the hidden `start_token` column.
+  - A callback query is `kind=callback_query`.
+  - Anything else is `other`/`ignored`.
+- For new actionable rows only, it writes `telegram.update.received` with `{telegram_update_id}` in the same transaction.
+- `config/outbox.php` has `'telegram.update.received' => []` until C2b subscribes its handler.
+
+**Inputs for later parts:**
+- **C2b, handler:**
+  - subscribe it under a stable key;
+  - recover from `telegram_updates` rows whose `outcome` is null, not only from failed deliveries, because messages recorded before a handler is subscribed have no delivery;
+  - process `/start` only in private chats, from non-bot senders. `/start@AnyBot` matches the pattern, so optionally compare the name with `TelegramStaffQuery::botUsername()`;
+  - scrub `start_token` after processing.
+- **C2b, retention:** after a week with no updates, Telegram picks the next `update_id` at random. Keep the tombstones in `telegram_updates` and `outbox_messages` consistent, or a reused ID becomes a poison update (`OutboxWriter`'s "different content" error, then 503 on every retry).
+- **C4d:** register the webhook with `allowed_updates: ["message","callback_query"]` and keep bot privacy mode on.
+- **MySQL** reorders JSON keys, so always read the payload by key.
+
+Independently reviewed; full PHP suite 1027 passed. Next: **C1b**. Evidence: `.superpowers/sdd/2026-10-22-booking-scheduling-pricing/task-C1a-review.md`.
+
 ## Task C1: Owner-controlled Telegram identity enrollment
 
 **Files:** Create `database/migrations/2026_10_22_020000_create_telegram_staff_links.php`, `app/Models/{TelegramStaffLink,TelegramEnrollment}.php`, `app/Actions/Telegram/{IssueStaffEnrollment,ClaimStaffEnrollment,ActivateStaffLink,RevokeStaffLink}.php`, `app/Http/Controllers/Admin/AdminTelegramStaffController.php`, `app/Http/Requests/Admin/IssueTelegramEnrollmentRequest.php`. Modify `routes/admin.php`, `resources/js/pages/admin/staff/Index.vue`, `config/services.php`, `.env.example`. Create `tests/Feature/Telegram/StaffLinkTest.php` and `tests/frontend/telegramStaffLinks.test.ts`.

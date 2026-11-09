@@ -38,6 +38,8 @@ return [
     'telegram' => [
         'booking_notifications_enabled' => env('TELEGRAM_BOOKING_NOTIFICATIONS_ENABLED', false),
         'bot_token' => env('TELEGRAM_BOT_TOKEN'),
+        'bot_username' => env('TELEGRAM_BOT_USERNAME'),
+        'webhook_secret' => env('TELEGRAM_WEBHOOK_SECRET'),
         'staff_chat_id' => env('TELEGRAM_STAFF_CHAT_ID'),
         'message_thread_id' => env('TELEGRAM_MESSAGE_THREAD_ID'),
         'ca_bundle' => env('TELEGRAM_CA_BUNDLE'),

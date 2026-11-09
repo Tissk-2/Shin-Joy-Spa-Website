@@ -6,6 +6,7 @@ use App\Actions\Catalog\SaveCatalogPackage;
 use App\Data\Admin\Catalog\CatalogChoiceData;
 use App\Data\Admin\Catalog\CatalogPackageData;
 use App\Enums\TreatmentMode;
+use App\Http\Requests\Admin\StoreCatalogPackageRequest;
 use App\Models\Booking;
 use App\Models\Service;
 use App\Models\ServiceCategory;
@@ -487,6 +488,214 @@ class AdminCatalogPackageTest extends TestCase
         $fresh = $service->fresh();
         $this->assertSame(['/img/legacy.jpg'], $fresh->gallery_paths);
         $this->assertSame(0, $fresh->lock_version);
+    }
+
+    // Production break caught: a new choice code must stay within the identifier length every booking accepts.
+    public function test_save_rejects_a_new_choice_code_longer_than_the_booking_limit(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $category = $this->category();
+        $service = $this->service($category);
+
+        $this->actingAs($admin)->patchJson("/admin/catalog/packages/{$service->slug}", [
+            ...$this->payload($category),
+            'version' => 0,
+            'variants' => [$this->choice(['code' => str_repeat('a', 81)])],
+        ])->assertUnprocessable()->assertJsonValidationErrors('variants.0.code');
+
+        $this->assertSame(0, $service->fresh()->lock_version);
+        $this->assertCount(0, $service->fresh()->variants);
+    }
+
+    // Production break caught: a variant longer than the booking form accepts must never be saved into the catalog.
+    public function test_save_rejects_a_variant_longer_than_the_booking_limit(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $category = $this->category();
+        $service = $this->service($category);
+
+        $this->actingAs($admin)->patchJson("/admin/catalog/packages/{$service->slug}", [
+            ...$this->payload($category),
+            'version' => 0,
+            'variants' => [$this->choice(['durationMinutes' => 481])],
+        ])->assertUnprocessable()->assertJsonValidationErrors('variants.0.durationMinutes');
+
+        $this->assertSame(0, $service->fresh()->lock_version);
+        $this->assertCount(0, $service->fresh()->variants);
+    }
+
+    // Production break caught: an extension longer than the service day must never be saved into the catalog.
+    public function test_save_rejects_an_extension_longer_than_the_booking_total(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $category = $this->category();
+        $service = $this->service($category);
+
+        $this->actingAs($admin)->patchJson("/admin/catalog/packages/{$service->slug}", [
+            ...$this->payload($category),
+            'version' => 0,
+            'extensions' => [$this->choice(['code' => 'extra-regular-30', 'durationMinutes' => 721])],
+        ])->assertUnprocessable()->assertJsonValidationErrors('extensions.0.durationMinutes');
+
+        $this->assertSame(0, $service->fresh()->lock_version);
+        $this->assertCount(0, $service->fresh()->extensions);
+    }
+
+    // Guard: the booking limit itself must stay accepted at the write boundary.
+    public function test_save_accepts_a_choice_code_exactly_at_the_booking_limit(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $category = $this->category();
+        $service = $this->service($category);
+        $code = str_repeat('a', 80);
+
+        $this->actingAs($admin)->patch("/admin/catalog/packages/{$service->slug}", [
+            ...$this->payload($category),
+            'version' => 0,
+            'variants' => [$this->choice(['code' => $code])],
+        ])->assertStatus(303);
+
+        $this->assertDatabaseHas('service_variants', ['service_id' => $service->id, 'code' => $code]);
+    }
+
+    // Guard: a 480-minute variant is the longest one the booking form accepts.
+    public function test_save_accepts_a_variant_exactly_at_the_booking_duration_limit(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $category = $this->category();
+        $service = $this->service($category);
+
+        $this->actingAs($admin)->patch("/admin/catalog/packages/{$service->slug}", [
+            ...$this->payload($category),
+            'version' => 0,
+            'variants' => [$this->choice(['durationMinutes' => 480])],
+        ])->assertStatus(303);
+
+        $this->assertDatabaseHas('service_variants', ['service_id' => $service->id, 'duration_minutes' => 480]);
+    }
+
+    // Guard: a 720-minute extension fits the 09:00–21:00 service day exactly.
+    public function test_save_accepts_an_extension_exactly_at_the_booking_total(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $category = $this->category();
+        $service = $this->service($category);
+
+        $this->actingAs($admin)->patch("/admin/catalog/packages/{$service->slug}", [
+            ...$this->payload($category),
+            'version' => 0,
+            'extensions' => [$this->choice(['code' => 'extra-regular-30', 'durationMinutes' => 720])],
+        ])->assertStatus(303);
+
+        $this->assertDatabaseHas('service_extensions', ['service_id' => $service->id, 'duration_minutes' => 720]);
+    }
+
+    // Production break caught: a newly created package slug must stay within the identifier length every booking accepts.
+    public function test_create_rejects_a_slug_longer_than_the_booking_limit(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $request = $this->createPackageRequest($admin, $this->payload($this->category(), [
+            'slug' => str_repeat('a', 81),
+        ]));
+
+        try {
+            $request->validateResolved();
+            $this->fail('Expected the create request to reject an 81-character slug.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('slug', $exception->errors());
+        }
+    }
+
+    // Guard: the booking limit itself must stay accepted for a new package slug.
+    public function test_create_accepts_a_slug_exactly_at_the_booking_limit(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $slug = str_repeat('a', 80);
+        $request = $this->createPackageRequest($admin, $this->payload($this->category(), ['slug' => $slug]));
+
+        $request->validateResolved();
+
+        $this->assertSame($slug, $request->validated('slug'));
+    }
+
+    // Production break caught: an inactive published package must stay editable even when its published identifiers predate the booking limits.
+    public function test_inactive_published_long_identifiers_stay_editable(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $category = $this->category();
+        $longSlug = str_repeat('s', 100);
+        $longCode = str_repeat('c', 100);
+        $service = $this->service($category, [
+            'slug' => $longSlug,
+            'published_at' => now(),
+            'is_active' => false,
+        ]);
+        $variant = $this->variant($service, $longCode, 60, ['published_at' => now()]);
+
+        $this->actingAs($admin)->patch("/admin/catalog/packages/{$longSlug}", [
+            ...$this->payload($category, [
+                'slug' => $longSlug,
+                'nameId' => 'Renamed Package',
+                'variants' => [$this->choice(['id' => $variant->id, 'code' => $longCode])],
+            ]),
+            'version' => 0,
+        ])->assertStatus(303);
+
+        $fresh = $service->fresh();
+        $this->assertSame('Renamed Package', $fresh->name_id);
+        $this->assertSame($longSlug, $fresh->slug);
+        $this->assertSame($longCode, $variant->fresh()->code);
+        $this->assertSame(1, $fresh->lock_version);
+    }
+
+    // Production break caught: over-long published identifiers on a live package must be reported, never truncated or silently saved.
+    public function test_active_published_long_identifiers_are_reported_not_truncated(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $category = $this->category(['published_at' => now(), 'is_active' => true, 'image_path' => '/img/category.jpg']);
+        $longSlug = str_repeat('s', 100);
+        $longCode = str_repeat('c', 100);
+        $service = $this->service($category, [
+            'slug' => $longSlug,
+            'description_id' => 'Deskripsi',
+            'description_en' => 'Description',
+            'long_description_id' => 'Panjang',
+            'long_description_en' => 'Long',
+            'image_path' => '/img/package.jpg',
+            'published_at' => now(),
+            'is_active' => true,
+        ]);
+        $variant = $this->variant($service, $longCode, 60, ['published_at' => now()]);
+
+        $this->actingAs($admin)->patchJson("/admin/catalog/packages/{$longSlug}", [
+            ...$this->payload($category, [
+                'slug' => $longSlug,
+                'nameId' => 'Renamed Package',
+                'descId' => 'Deskripsi',
+                'descEn' => 'Description',
+                'longId' => 'Panjang',
+                'longEn' => 'Long',
+                'variants' => [$this->choice(['id' => $variant->id, 'code' => $longCode])],
+            ]),
+            'version' => 0,
+        ])->assertUnprocessable()->assertJsonValidationErrors(['slug', 'variants.0.code']);
+
+        $fresh = $service->fresh();
+        $this->assertSame('Balinese Signature', $fresh->name_id);
+        $this->assertSame($longSlug, $fresh->slug);
+        $this->assertSame($longCode, $variant->fresh()->code);
+        $this->assertSame(0, $fresh->lock_version);
+    }
+
+    /** @param array<string, mixed> $payload */
+    private function createPackageRequest(User $admin, array $payload): StoreCatalogPackageRequest
+    {
+        $request = StoreCatalogPackageRequest::create('/admin/catalog/packages', 'POST', $payload);
+        $request->setContainer(app());
+        $request->setRedirector(app('redirect'));
+        $request->setUserResolver(fn (): User => $admin);
+
+        return $request;
     }
 
     /** @param array<string, mixed> $overrides */

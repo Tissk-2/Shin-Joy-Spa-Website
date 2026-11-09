@@ -10,6 +10,7 @@ use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Validation\ValidationException;
 use Inertia\Testing\AssertableInertia as Assert;
 use PDOException;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -340,6 +341,63 @@ class RegistrationTest extends TestCase
         $this->assertMatchesRegularExpression('/^\+?\d{8,15}$/', $user->phone);
     }
 
+    public function test_array_input_returns_field_errors_instead_of_crashing(): void
+    {
+        $this->post(route('register.store'), [
+            'name' => ['x'],
+            'email' => ['x'],
+            'phone' => ['x'],
+            'password' => ['x'],
+            'password_confirmation' => ['x'],
+        ])->assertSessionHasErrors(['name', 'email', 'phone', 'password']);
+
+        $this->assertDatabaseCount('users', 0);
+    }
+
+    public function test_registration_accepts_a_password_at_the_72_byte_boundary(): void
+    {
+        Notification::fake();
+
+        $password = str_repeat('a', 71).'1';
+        $this->assertSame(72, strlen($password));
+
+        $this->post(route('register.store'), $this->validRegistrationData([
+            'password' => $password,
+            'password_confirmation' => $password,
+        ]))->assertSessionHasNoErrors();
+
+        $user = User::firstOrFail();
+
+        $this->assertTrue(Hash::check($password, $user->password));
+    }
+
+    public function test_registration_rejects_a_password_beyond_the_72_byte_boundary(): void
+    {
+        $password = str_repeat('a', 72).'1';
+        $this->assertSame(73, strlen($password));
+
+        $this->post(route('register.store'), $this->validRegistrationData([
+            'password' => $password,
+            'password_confirmation' => $password,
+        ]))->assertSessionHasErrors(['password' => trans('validation.custom.password.bytes')]);
+
+        $this->assertDatabaseCount('users', 0);
+    }
+
+    public function test_registration_rejects_a_multi_byte_password_beyond_the_byte_limit(): void
+    {
+        $password = 'a'.str_repeat('é', 35).'12';
+        $this->assertSame(38, mb_strlen($password));
+        $this->assertSame(73, strlen($password));
+
+        $this->post(route('register.store'), $this->validRegistrationData([
+            'password' => $password,
+            'password_confirmation' => $password,
+        ]))->assertSessionHasErrors(['password' => trans('validation.custom.password.bytes')]);
+
+        $this->assertDatabaseCount('users', 0);
+    }
+
     /**
      * @param  array<string, string>  $overrides
      * @return array<string, string>
@@ -353,5 +411,19 @@ class RegistrationTest extends TestCase
             'password' => 'calmspa9',
             'password_confirmation' => 'calmspa9',
         ], $overrides);
+    }
+
+    public function test_the_creator_rejects_array_input_with_validation_errors(): void
+    {
+        // Defence in depth: HTTP requests are stopped earlier by RejectArrayIdentityInput.
+        $this->expectException(ValidationException::class);
+
+        app(CreateNewUser::class)->create([
+            'name' => ['x'],
+            'email' => ['x'],
+            'phone' => ['x'],
+            'password' => 'calmspa9',
+            'password_confirmation' => 'calmspa9',
+        ]);
     }
 }

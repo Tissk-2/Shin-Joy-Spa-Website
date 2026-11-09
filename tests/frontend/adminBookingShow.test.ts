@@ -532,3 +532,51 @@ describe("room scheduling display", () => {
     );
   });
 });
+
+describe("system history actor", () => {
+  it("labels a null actor as the automatic expiry system", () => {
+    inertia.page.props.locale = "id";
+    const wrapper = mountPage({
+      ...booking,
+      history: [{ ...booking.history[0]!, actor: { name: null, email: null } }],
+    });
+
+    expect(wrapper.get(".admin-history-item").text()).toContain(
+      "Sistem (kedaluwarsa otomatis)",
+    );
+  });
+});
+
+describe("accountless customer", () => {
+  it("shows a plain no-email note instead of a mailto link", () => {
+    const wrapper = mountPage({
+      ...booking,
+      customer: { ...booking.customer, email: null },
+    });
+
+    expect(wrapper.find("a[href^='mailto:']").exists()).toBe(false);
+    expect(wrapper.text()).toContain("No email was added.");
+    expect(wrapper.text()).not.toContain("null");
+  });
+});
+
+describe("booking origin", () => {
+  it("shows the source and the staff member who entered it", () => {
+    const entered = mountPage({
+      ...booking,
+      origin: { source: "walk_in", staffName: "Rani" },
+    });
+
+    expect(entered.get("[data-booking-origin]").text()).toContain("Walk-in");
+    expect(entered.get("[data-booking-origin]").text()).toContain(
+      "entered by Rani",
+    );
+
+    const unattributed = mountPage({
+      ...booking,
+      origin: { source: null, staffName: null },
+    });
+
+    expect(unattributed.find("[data-booking-origin]").exists()).toBe(false);
+  });
+});

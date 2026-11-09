@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\PageContent;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
 use Inertia\Response;
 
 final class AdminContentController extends Controller
@@ -43,57 +45,121 @@ final class AdminContentController extends Controller
                     ],
                 ])
                 ->all(),
+            'revision' => $this->currentRevision(),
         ]);
     }
 
     public function store(Request $request): RedirectResponse
     {
-        $rules = [
-            'values' => ['array'],
-            'values.*' => ['array'],
-            'values.*.id' => ['nullable', 'string', 'max:1000'],
-            'values.*.en' => ['nullable', 'string', 'max:1000'],
-        ];
+        $changes = $this->validatedChanges($request);
+        $expected = (int) $request->input('revision');
 
-        $validator = Validator::make($request->all(), $rules);
-        $rulesFailed = $validator->fails();
-        $hasUnknownKeys = $this->hasUnknownKeys($request);
+        DB::transaction(function () use ($expected, $changes): void {
+            $this->claimRevision($expected);
 
-        if ($hasUnknownKeys) {
-            $validator->errors()->add('values', __('admin.status.unsupported_field'));
-        }
+            foreach ($changes as $key => $entry) {
+                $row = PageContent::query()->firstOrNew(['key' => $key]);
 
-        if ($rulesFailed || $hasUnknownKeys) {
-            return back()->withErrors($validator)->withInput();
-        }
+                foreach (['id' => 'value_id', 'en' => 'value_en'] as $locale => $column) {
+                    if (! array_key_exists($locale, $entry)) {
+                        continue;
+                    }
 
-        $values = $request->input('values', []);
+                    $value = is_string($entry[$locale]) ? trim($entry[$locale]) : '';
+                    $row->{$column} = $value === '' ? null : $value;
+                }
 
-        foreach (self::keys() as $key) {
-            $entry = is_array($values[$key] ?? null) ? $values[$key] : [];
-            $indonesian = trim((string) ($entry['id'] ?? ''));
-            $english = trim((string) ($entry['en'] ?? ''));
+                if ($row->value_id === null && $row->value_en === null) {
+                    if ($row->exists) {
+                        $row->delete();
+                    }
 
-            if ($indonesian === '' && $english === '') {
-                PageContent::query()->where('key', $key)->delete();
+                    continue;
+                }
 
-                continue;
+                $row->save();
             }
-
-            PageContent::query()->updateOrCreate(
-                ['key' => $key],
-                ['value_id' => $indonesian ?: null, 'value_en' => $english ?: null],
-            );
-        }
+        });
 
         return back(303)->with('status', __('admin.content.saved'));
     }
 
-    public function reset(): RedirectResponse
+    public function reset(Request $request): RedirectResponse
     {
-        PageContent::query()->delete();
+        $validated = $request->validate([
+            'revision' => ['required', 'integer', 'min:0'],
+        ]);
+
+        DB::transaction(function () use ($validated): void {
+            $this->claimRevision((int) $validated['revision']);
+            PageContent::query()->delete();
+        });
 
         return back(303)->with('status', __('admin.content.reset'));
+    }
+
+    private function claimRevision(int $expected): void
+    {
+        // A missing singleton row would otherwise make every save stale forever.
+        DB::table('content_revisions')->insertOrIgnore([
+            'id' => 1, 'revision' => 0, 'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $claimed = DB::table('content_revisions')
+            ->where('id', 1)
+            ->where('revision', $expected)
+            ->update(['revision' => $expected + 1, 'updated_at' => now()]);
+
+        if ($claimed !== 1) {
+            throw ValidationException::withMessages([
+                'revision' => __('admin.content.stale'),
+            ]);
+        }
+    }
+
+    private function currentRevision(): int
+    {
+        return (int) DB::table('content_revisions')->where('id', 1)->value('revision');
+    }
+
+    /**
+     * @return array<string, array<string, string|null>>
+     */
+    private function validatedChanges(Request $request): array
+    {
+        $validator = Validator::make($request->all(), [
+            'revision' => ['required', 'integer', 'min:0'],
+            'values' => ['required', 'array', 'min:1'],
+            'values.*' => ['array'],
+            'values.*.id' => ['nullable', 'string', 'max:1000'],
+            'values.*.en' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $failed = $validator->fails();
+
+        if ($this->hasUnknownKeys($request)) {
+            $validator->errors()->add('values', __('admin.status.unsupported_field'));
+            $failed = true;
+        }
+
+        $values = $request->input('values');
+
+        if (is_array($values)) {
+            foreach ($values as $entry) {
+                if (! is_array($entry) || (! array_key_exists('id', $entry) && ! array_key_exists('en', $entry))) {
+                    $validator->errors()->add('values', __('admin.content.empty'));
+                    $failed = true;
+
+                    break;
+                }
+            }
+        }
+
+        if ($failed || ! is_array($values)) {
+            throw new ValidationException($validator);
+        }
+
+        return $values;
     }
 
     private function hasUnknownKeys(Request $request): bool

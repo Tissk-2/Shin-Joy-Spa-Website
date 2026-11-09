@@ -269,10 +269,12 @@ function confirmTransition(): void {
                 <dt>{{ tr("bookings.customerEmail") }}</dt>
                 <dd>
                   <a
+                    v-if="booking.customer.email"
                     class="admin-record-link"
                     :href="`mailto:${encodeURIComponent(booking.customer.email)}`"
                     >{{ booking.customer.email }}</a
                   >
+                  <template v-else>{{ tr("ad.detail.noEmail") }}</template>
                 </dd>
               </div>
               <div>
@@ -285,6 +287,20 @@ function confirmTransition(): void {
                     >{{ booking.customer.phone }}</a
                   >
                   <template v-else>{{ tr("ad.detail.noPhone") }}</template>
+                </dd>
+              </div>
+              <div v-if="booking.origin?.source" data-booking-origin>
+                <dt>{{ tr("ad.detail.source") }}</dt>
+                <dd>
+                  {{ tr(`ad.source.${booking.origin.source}`) }}
+                  <template v-if="booking.origin.staffName">
+                    ·
+                    {{
+                      tr("ad.detail.enteredBy", {
+                        name: booking.origin.staffName,
+                      })
+                    }}
+                  </template>
                 </dd>
               </div>
             </dl>
@@ -317,7 +333,11 @@ function confirmTransition(): void {
             {{ tr("ad.room.released") }}
             {{ formatDate(booking.assignedRoom.releasedAt, true) }}
           </p>
-          <p v-else-if="['cancelled', 'completed'].includes(booking.status)">
+          <p
+            v-else-if="
+              ['cancelled', 'completed', 'no_show'].includes(booking.status)
+            "
+          >
             {{ tr("ad.room.retained") }}
           </p>
         </section>
@@ -341,7 +361,7 @@ function confirmTransition(): void {
                   >
                 </p>
                 <p>
-                  {{ change.actor.name
+                  {{ change.actor.name ?? tr("ad.history.system")
                   }}<span class="admin-record-secondary">{{
                     change.actor.email
                   }}</span>

@@ -74,7 +74,15 @@ class RoomBlockTerminationContentionTest extends TestCase
                 'approve' => 'unavailable', 'cancel' => 'cancelled', 'end' => 'ended', 'edit' => 'saved', default => 'held'
             }, $workers['first']->getOutput());
             $this->assertPersisted($block, $original, $state, $second);
-            $this->assertSame($bookingBefore, $state === 'confirmed' ? [...$booking->fresh()->getRawOriginal(), 'status' => $bookingBefore['status'], 'updated_at' => $bookingBefore['updated_at']] : $booking->fresh()->getRawOriginal());
+            $bookingAfter = $booking->fresh()->getRawOriginal();
+            if ($state === 'confirmed') {
+                // Approval bumps the version and stamps approved_at (B4b); assert both, then compare the rest.
+                $this->assertSame([1, 2], [(int) $bookingBefore['booking_version'], (int) $bookingAfter['booking_version']]);
+                $this->assertNull($bookingBefore['approved_at']);
+                $this->assertNotNull($bookingAfter['approved_at']);
+                $bookingAfter = [...$bookingAfter, ...array_intersect_key($bookingBefore, array_flip(['status', 'updated_at', 'booking_version', 'approved_at']))];
+            }
+            $this->assertSame($bookingBefore, $bookingAfter);
             $this->assertDatabaseCount('room_reservations', $state === 'confirmed' ? 1 : 0);
             $this->assertDatabaseCount('booking_status_changes', $state === 'confirmed' ? 1 : 0);
         } finally {

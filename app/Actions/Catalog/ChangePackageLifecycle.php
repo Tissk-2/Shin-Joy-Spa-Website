@@ -7,6 +7,7 @@ use App\Enums\CatalogStatus;
 use App\Enums\TreatmentMode;
 use App\Models\Service;
 use App\Models\ServiceCategory;
+use App\Support\BookingSelectionLimits;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
@@ -66,6 +67,7 @@ final class ChangePackageLifecycle
         self::validateValues(
             $category,
             [
+                'slug' => $data->slug,
                 'nameId' => $data->nameId,
                 'nameEn' => $data->nameEn,
                 'descId' => $data->descId,
@@ -109,6 +111,7 @@ final class ChangePackageLifecycle
         self::validateValues(
             $service->category,
             [
+                'slug' => $service->slug,
                 'nameId' => $service->name_id,
                 'nameEn' => $service->name_en,
                 'descId' => $service->description_id,
@@ -147,6 +150,7 @@ final class ChangePackageLifecycle
             'variants' => $variantRows,
             'extensions' => $extensionRows,
         ], [
+            'slug' => ['required', 'string', 'max:'.BookingSelectionLimits::CODE_LENGTH],
             'nameId' => ['required', 'string', 'max:255'],
             'nameEn' => ['required', 'string', 'max:255'],
             'descId' => ['required', 'string'],
@@ -197,6 +201,42 @@ final class ChangePackageLifecycle
                     $validator->errors()->add("extensions.{$index}.mode", __('validation.unique', ['attribute' => 'mode']));
                 }
                 $seenModes[$row['mode']] = true;
+            }
+
+            // Only active choices are bookable. Inactive published choices can be
+            // neither edited nor deleted, so limiting them would block restore forever.
+            foreach ([
+                ['variants', $variantRows, BookingSelectionLimits::BASE_DURATION_MINUTES],
+                ['extensions', $extensionRows, BookingSelectionLimits::TOTAL_DURATION_MINUTES],
+            ] as [$field, $rows, $maxMinutes]) {
+                foreach ($rows as $index => $row) {
+                    if (! $row['isActive']) {
+                        continue;
+                    }
+                    if (is_string($row['code']) && strlen($row['code']) > BookingSelectionLimits::CODE_LENGTH) {
+                        $validator->errors()->add("{$field}.{$index}.code", __('validation.max.string', ['attribute' => 'code', 'max' => BookingSelectionLimits::CODE_LENGTH]));
+                    }
+                    if (is_numeric($row['durationMinutes']) && (int) $row['durationMinutes'] > $maxMinutes) {
+                        $validator->errors()->add("{$field}.{$index}.durationMinutes", __('validation.max.numeric', ['attribute' => 'durationMinutes', 'max' => $maxMinutes]));
+                    }
+                }
+            }
+
+            foreach ($extensionRows as $extensionIndex => $extension) {
+                if (! $extension['isActive']) {
+                    continue;
+                }
+                foreach ($variantRows as $variant) {
+                    if ($variant['isActive']
+                        && $variant['mode'] === $extension['mode']
+                        && $variant['durationMinutes'] + $extension['durationMinutes'] > BookingSelectionLimits::TOTAL_DURATION_MINUTES) {
+                        $validator->errors()->add(
+                            "extensions.{$extensionIndex}.durationMinutes",
+                            __('admin.catalog.validation.extension_total', ['max' => BookingSelectionLimits::TOTAL_DURATION_MINUTES]),
+                        );
+                        break;
+                    }
+                }
             }
         });
         $validator->validate();

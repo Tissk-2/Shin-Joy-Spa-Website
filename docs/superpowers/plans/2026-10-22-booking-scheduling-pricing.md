@@ -207,6 +207,41 @@ The B3a helper is `RoomAvailabilityQuery::forInterval(ServiceVariant $variant, i
 - [ ] Route the existing generic status endpoint through these explicit actions; remove any direct state-write bypass. Existing `TransitionBookingStatus` becomes a compatibility dispatcher, not a second implementation. Schedule pending expiry once per minute: online when minimum checkout window is no longer possible; other pending requests at start. Review-target breach only raises attention. Unknown-payment expiry belongs to the payments plan, not this timer.
 - [ ] Run the same tests; expect PASS. Refactor repeated authorization/audit code without mutating input DTOs. Review financial eligibility and locked stale checks; conditionally commit `feat: unify approved booking lifecycle and reservations`.
 
+**B4a complete (4 November 2026, uncommitted; schema foundation only):** migration `2026_10_22_010003_expand_booking_lifecycle` adds the statuses `awaiting_payment` and `no_show`, the booking lifecycle columns (`booking_version`, payment preference, source channel, created-by-staff, lifecycle timestamps, refund reason) and the system-actor history columns. The original create migrations are frozen to their four statuses. A real-migrator test proves the upgrade keeps existing rows and status CHECKs on SQLite. Transitions are unchanged, and only the lifecycle instants are normalized to UTC. Independently reviewed; full PHP suite 945 passed. Next: **B4b** (state writer and explicit actions), then **B4c** (expiry, sources, labels). Evidence: `.superpowers/sdd/2026-10-22-booking-scheduling-pricing/task-B4a-review.md`.
+
+**B4b complete (4 November 2026, uncommitted).**
+- `BookingStateWriter` is the single status-write path. Each transition bumps the version, writes audit fields (actor type, channel) and records an outbox event.
+- The explicit actions are Approve, Cancel, Complete and No-show. The generic endpoint dispatches to them.
+- `Confirmed → NoShow` is enabled.
+
+Deferred:
+- to **B4c**: the completion time rule and the `no_show` list filter;
+- to **D (payments)**: the `AwaitingPayment` dispatcher mappings, the `Pending → AwaitingPayment` enum edge, and releasing reservations for cancelled online bookings.
+
+Independently reviewed; full PHP suite 958 passed. Next: **B4c**. Evidence: `.superpowers/sdd/2026-10-22-booking-scheduling-pricing/task-B4b-review.md`.
+
+**B4c complete (5 November 2026, uncommitted).**
+- Website bookings now store `payment_preference = at_spa`, `source_channel = website` and UTC `starts_at` / `treatment_ends_at`.
+- The data-only migration `2026_11_04_010010` backfills existing rows.
+- A booking can't be completed before its start.
+- The admin filter and card show all six statuses.
+
+Not done: the customer payment choice (D) and an explicit delivered-service attestation. Production MySQL needs `'timezone' => '+00:00'` (B6). Independently reviewed; full PHP suite 963 passed, Vitest 250 passed. Next: **B4d**, the `ExpirePendingBookings` job, run every minute as a system actor through the guarded writer. Evidence: `.superpowers/sdd/2026-10-22-booking-scheduling-pricing/task-B4c-review.md`.
+
+**B4d complete (5 November 2026, uncommitted). Task B4 is now complete.**
+- `App\Jobs\ExpirePendingBookings` runs every minute through `Schedule::call` (`bookings:expire-pending`, `withoutOverlapping(5)`). It cancels due pending bookings through `BookingMutation` and `BookingStateWriter` as a system actor, with no `StaffAccessLock`.
+- A booking is due at `starts_at`. For online bookings it is due at `starts_at - minimum_provider_checkout_minutes`.
+- Expiry stamps `refund_reason = expired`.
+- The admin history shows "System (expired automatically)" for a null actor.
+
+Not done:
+- Bookings with a null `starts_at` never expire.
+- Expiry sends no messages.
+- At most 200 expiries per minute.
+- The label keys on a null actor name; C and D must expose `actor_type` if they also write null-actor rows.
+
+Independently reviewed; full PHP suite 970 passed, Vitest 251 passed. Next: **B5**. Evidence: `.superpowers/sdd/2026-10-22-booking-scheduling-pricing/task-B4d-review.md`.
+
 ## Task B5: Customer availability, staff schedule, and manual bookings
 
 **Files:** Create `app/Actions/CreateStaffBooking.php`, `app/Http/Requests/Admin/StoreStaffBookingRequest.php`, `app/Http/Controllers/Admin/AdminScheduleController.php`, `resources/js/pages/admin/{schedule/Index,rooms/Index,settings/Booking,bookings/Create}.vue`, `resources/js/components/booking/RoomAvailability.vue`, `resources/js/composables/useRoomAvailability.ts`, migration `2026_10_22_010004_support_manual_booking_identity.php`. Modify `app/Http/Requests/StoreBookingRequest.php`, `app/Http/Controllers/Admin/AdminBookingController.php`, `routes/admin.php`, `resources/js/pages/{Booking,bookings/Show,admin/bookings/Show,admin/bookings/Index}.vue`, `resources/js/lib/{booking,bookingCard}.ts`, `resources/js/types/index.ts`, `resources/js/data/{translations,faq}.ts`, `lang/{id,en}/admin.php`, `resources/js/layouts/admin/AdminLayout.vue`. Tests: `tests/Feature/StaffBookingTest.php`, `tests/frontend/roomAvailability.test.ts`, extend `bookingPages.test.ts`/`adminBookingShow.test.ts`, create `tests/e2e/room-booking.spec.ts`.
@@ -230,6 +265,62 @@ The B3a helper is `RoomAvailabilityQuery::forInterval(ServiceVariant $variant, i
 - [ ] Implement customer room/status/price presentation and staff calendar/manual entry/inventory/settings UI. A customer sees room name/type/capacity and availability only; staff sees contact data under existing authorization. Show selection-specific empty states, refresh stale slots, and explain that staff approval reserves the room. Same-slot pending requests remain valid; an already occupied slot is rejected on new submission and rechecked on approval. Persist immutable submitted price; catalog edits after submission cannot silently change it. Include contact-spa cancellation action, policy explanation, and new booking link after cancellation. Localize ID/EN; keep existing styling and accessibility conventions.
 - [ ] Run focused tests, `npm run types:check`, and `npm run test:e2e -- tests/e2e/room-booking.spec.ts` against isolated fixtures; expect PASS. Review customer ownership/privacy and manual idempotency; conditionally commit `feat: expose room availability and staff booking entry`.
 
+**B5 is split into B5a–B5d:**
+- **B5a:** manual booking backend.
+- **B5b:** admin entry UI.
+- **B5c:** staff schedule view.
+- **B5d:** customer copy. The stale-availability guard already exists from B3.
+
+**B5a complete (5 November 2026, uncommitted).**
+- `POST /admin/bookings` calls `CreateStaffBooking` under `StaffAccessLock`. It creates an accountless at-spa booking with `created_by_staff_id` and a source (`walk_in`, `phone` or `whatsapp`), and can optionally approve it through `ApproveBooking` inside the same guard.
+- Replays are per staff member and never rerun approval.
+- Migration `2026_11_05_010011` makes `customer_email` nullable and adds the unique index `(submission_key, created_by_staff_id)`. That column order keeps MySQL's own foreign-key index.
+- A staff booking needs a phone or an email.
+
+These replace the master plan's `submission_scope_key`. `submission_schema_version` is deferred to D.
+
+Independently reviewed; full PHP suite 983 passed, Vitest 252 passed. Next: **B5b**. Evidence: `.superpowers/sdd/2026-10-22-booking-scheduling-pricing/task-B5a-review.md`.
+
+**B5b complete (5 November 2026, uncommitted).**
+- `GET /admin/bookings/create` renders `Create.vue`, which reuses `PackageConfigurator`, `RoomAvailability` and `useRoomAvailability`. It keeps one submission key per page load and posts to `POST /admin/bookings`.
+- The index shows a "New booking" link to staff with booking permission.
+- The detail page shows the source and the staff member who entered the booking.
+- Staff validation messages are localized.
+
+Independently reviewed, with a browser check on the isolated E2E harness; full PHP suite 989 passed, Vitest 260 passed. Next: **B5c**, the staff schedule view. Evidence: `.superpowers/sdd/2026-10-22-booking-scheduling-pricing/task-B5b-review.md`.
+
+**B5c complete (5 November 2026, uncommitted).**
+- `GET /admin/schedule?date=` is a read-only page for any verified admin (`BookingPolicy::viewAny`). It shows one Jakarta day per room. It is built by `AdminScheduleQuery`, which uses the allocator's occupancy rules: unreleased reservations in any status, and blocks adjusted for their terminations.
+- Each booking shows its cleaning time, and times on another day show their date.
+- A "Bookings without a room" list shows the day's pending, awaiting-payment and confirmed bookings that hold no room.
+- The admin sidebar has a "Schedule" link.
+
+Not done:
+- a time grid or week view;
+- actions on the page;
+- feedback for a malformed `?date=`, which redirects back silently.
+
+Independently reviewed, with a browser check on the isolated E2E harness; full PHP suite 994 passed, Vitest 266 passed. Next: **B5d**, the customer presentation copy. Evidence: `.superpowers/sdd/2026-10-22-booking-scheduling-pricing/task-B5c-review.md`.
+
+**B5d complete (6 November 2026, uncommitted). Task B5 is now complete.**
+- The customer booking page shows:
+  - a status note ("awaiting staff approval" for a pending booking);
+  - the held room's name (never on a cancelled booking);
+  - under the total, "price fixed" for verified pricing, or estimate wording for unverified pricing, which is never multiplied by guests;
+  - "pay at the spa" on active bookings only;
+  - a "Need to change or cancel?" panel with a WhatsApp link.
+- The booking form's review step says "nothing is reserved until staff confirm it".
+- All wording is true with scheduling on or off, and keeps the legacy rule against promising payment or rescheduling.
+
+Not done:
+- online cancel or reschedule;
+- room, estimate or payment lines on the downloadable card;
+- notes for completed or no-show bookings.
+
+The legacy `translation-parity.test.mjs` still fails on the B4c `awaiting_payment` labels, for **D** to resolve.
+
+Independently reviewed, with a browser check on the isolated E2E harness; full PHP suite 996 passed, Vitest 272 passed. Next: **B6**. Evidence: `.superpowers/sdd/2026-10-22-booking-scheduling-pricing/task-B5d-review.md`.
+
 ## Task B6: Migration readiness and real concurrency verification
 
 **Files:** Create `app/Console/Commands/CheckBookingReadiness.php`, `app/Console/Commands/ReconcileLegacyRooms.php`, `tests/Feature/BookingMigrationReadinessTest.php`, `tests/Concurrency/RoomApprovalRaceTest.php`, `tests/Concurrency/ConcurrencyTestCase.php`, `tests/Concurrency/fixtures/approve-booking.php`, `phpunit.concurrency.xml`; update `README.md` with approved operating procedures and the existing `PRODUCT.md` scope. No production data changes in tests.
@@ -247,6 +338,90 @@ The B3a helper is `RoomAvailabilityQuery::forInterval(ServiceVariant $variant, i
 - [ ] Implement readiness and explicit reconciliation commands; do not turn flags on automatically. Add the harness with `CONCURRENCY_DB_*` configuration in `phpunit.concurrency.xml` and isolation checks in `ConcurrencyTestCase`. The commands themselves do not certify staff availability or merchant readiness.
 - [ ] Run `php artisan test --filter=BookingMigrationReadinessTest`, then `php vendor/phpunit/phpunit --configuration phpunit.concurrency.xml`; expect all scenarios PASS against the declared engine. If its test database is unavailable, record this verification as blocked and do not label scheduling production-ready. Also run `npm run types:check`, focused frontend/E2E tests, and the master-plan regression checks.
 - [ ] Review migration evidence and all schedule writers; conditionally commit `test: verify booking migration and concurrent allocation`.
+
+**B6 is split into B6a–B6d** (revised when B6b was prepared):
+- **B6a:** `bookings:readiness`.
+- **B6b:** the read-only `RoomAssignmentAudit` (conflicts, pending bookings that approval would refuse, and confirmed bookings needing a room); readiness `[pending]` and `[conflicts]` lines; the `bookings:reconcile-rooms` report.
+- **B6c:** `bookings:reconcile-rooms --booking= --room= --apply` through `RoomAllocator` under `ScheduleLock`.
+- **B6d:** the cross-engine concurrency harness (`phpunit.concurrency.xml`, the `ConcurrencyDatabase` guard and `ConcurrencyTestCase`), the two-approvals race, the migration round trip that checks the B5a index order, and MySQL `'timezone' => '+00:00'`. It runs on a temporary SQLite file locally; the MySQL run is blocked, because no MySQL server is installed.
+- **B6e:** the remaining races (approval against a maintenance block, completion against no-show), README procedures, and the B6 close-out.
+
+**B6a complete (6 November 2026, uncommitted).**
+- `php artisan bookings:readiness` is read-only and never changes the flag. It exits 0 only when:
+  - the schema is complete;
+  - booking settings are saved and valid;
+  - every published package has verified pricing;
+  - every bookable variant has an active compatible room for its attested **maximum** group;
+  - every confirmed or awaiting-payment booking that hasn't finished holds a room;
+  - no active future booking lacks a start time.
+- Output names references, packages and variants only, never contact data.
+
+Not done:
+- conflict detection and the approvability of pending bookings (B6b);
+- staff, therapist and payment checks.
+
+Independently reviewed; full PHP suite 1001 passed, Vitest 272 passed. Next: **B6b**. Evidence: `.superpowers/sdd/2026-10-22-booking-scheduling-pricing/task-B6a-review.md`.
+
+**B6b complete (7 November 2026, uncommitted).**
+- The read-only `RoomAssignmentAudit` covers:
+  - overlapping upcoming occupancy per room (unreleased reservations and termination-aware blocks; touching ends are fine);
+  - pending bookings that approval would refuse, checked through `RoomAvailabilityQuery::forInterval()`;
+  - confirmed bookings needing a room.
+- `bookings:readiness` adds `[pending]` and `[conflicts]`.
+- `bookings:reconcile-rooms` is a read-only worklist with free and busy room suggestions. A booking with no treatment is told to be recreated, never auto-mapped.
+
+Not done:
+- applying an assignment (B6c);
+- awaiting-payment bookings are listed, but `RoomAllocator` refuses them, which B6c must handle.
+
+Independently reviewed; full PHP suite 1006 passed, Vitest 272 passed. Next: **B6c**. Evidence: `.superpowers/sdd/2026-10-22-booking-scheduling-pricing/task-B6b-review.md`.
+
+**B6c complete (7 November 2026, uncommitted).**
+- `bookings:reconcile-rooms --booking=REF --room=CODE` previews (read-only). `--apply` assigns that one room to that one confirmed booking through `BookingMutation` → `ScheduleLock` → `RoomAllocator::allocateLocked($locked, $roomId)`. The new optional room restriction means the chosen room is never silently swapped.
+- The booking row stays byte-identical, with no history or outbox. The only write is one reservation, plus a log line.
+- Every refusal names its cause:
+  - booking state: pending, awaiting payment, already holds a room, released, finished, no treatment;
+  - room: too small, wrong type, inactive, not set up, taken.
+- A rerun is harmless, a concurrent same-room apply is reported rather than claimed, and `--report` never writes.
+
+Not done:
+- batch mode;
+- reopening a released reservation;
+- a history row for the assignment (there is no staff actor);
+- real-process and MySQL races (B6d).
+
+Independently reviewed; full PHP suite 1012 passed, Vitest 272 passed. Next: **B6d**, which is blocked locally without MySQL. Evidence: `.superpowers/sdd/2026-10-22-booking-scheduling-pricing/task-B6c-review.md`.
+
+**B6d complete (8 November 2026, uncommitted).**
+- `phpunit.concurrency.xml` is a separate suite (`tests/Concurrency`), not part of `php artisan test`.
+- The `ConcurrencyDatabase` guard accepts only a fresh temp SQLite file, or a MySQL or MariaDB database named `…concurrency_test`, and refuses before connecting. It uses its own `concurrency` connection.
+- `ConcurrencyTestCase` keeps `Tests\TestCase` isolation, runs `migrate:fresh` on the disposable database only, and restores and cleans up afterwards.
+- Engine-neutral workers fail fast with their own error.
+- `ScheduleRaceTest` covers the two-approvals race, the migration round trip checking the B5a index order `['submission_key', 'created_by_staff_id']`, and the MySQL session time zone.
+- The MySQL and MariaDB connections now default to `'timezone' => '+00:00'`.
+
+Not done:
+- the remaining races and the README procedures (B6e). The README must say to convert existing `TIMESTAMP` data before switching a non-UTC MySQL to `+00:00`, and that the race contends on the staff guard row.
+
+Independently reviewed; full PHP suite 1017 passed, Vitest 272 passed; concurrency suite 4 tests, 1 skipped. **SQLite: passed. MySQL: BLOCKED, so scheduling is not production-ready.** Next: **B6e**. Evidence: `.superpowers/sdd/2026-10-22-booking-scheduling-pricing/task-B6d-review.md`.
+
+**B6e complete (8 November 2026, uncommitted). Task B6 is complete as code.**
+- The concurrency harness adds two races, each in both orders, asserting what ends up stored:
+  - approval against a maintenance block: exactly one holds the room, never both;
+  - completion against no-show: one outcome, one history row, and the refund flag only for a no-show.
+- `README.md` gains a `## Room scheduling` runbook:
+  - **before deploying this version:** check the MySQL time zone (`SYSTEM`-aware), and set the `DB_TIMEZONE` override first if the server is not on UTC;
+  - **before switching scheduling on:** back up, `migrate --force`, run `bookings:readiness`, then `bookings:reconcile-rooms` (check, then `--apply`), `readiness` again until ready, the flag with `config:cache`, `queue:restart` and the scheduler, and a controlled test booking;
+  - **switching scheduling off again;**
+  - **running the concurrency suite on MySQL.**
+
+Still open before production:
+1. run `phpunit.concurrency.xml` against a throwaway MySQL or MariaDB database (**blocked locally**);
+2. follow the runbook on the real deployment.
+
+The room-update and owner-demotion races remain SQLite-only.
+
+Independently reviewed; full PHP suite 1017 passed, Vitest 272 passed; concurrency suite 8 tests, 1 skipped. **SQLite: passed. MySQL: BLOCKED, so scheduling is not production-ready.** Evidence: `.superpowers/sdd/2026-10-22-booking-scheduling-pricing/task-B6e-review.md`.
 
 ## Self-review and handoff
 

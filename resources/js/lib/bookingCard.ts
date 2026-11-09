@@ -80,6 +80,13 @@ function statusColors(status: BookingSummaryData["status"]): {
       return { background: "#e9edef", foreground: "#3d5860" };
     case "cancelled":
       return { background: "#f5e8e8", foreground: "#823943" };
+    case "awaiting_payment":
+      return { background: "#f3e6d8", foreground: "#6b4a1f" };
+    case "no_show":
+      return { background: "#efe6ee", foreground: "#5e3b58" };
+    default:
+      // Unknown future statuses fall back to neutral colors.
+      return { background: colors.inset, foreground: colors.muted };
   }
 }
 

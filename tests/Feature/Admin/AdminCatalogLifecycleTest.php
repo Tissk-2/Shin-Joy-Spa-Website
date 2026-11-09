@@ -290,6 +290,225 @@ class AdminCatalogLifecycleTest extends TestCase
         }
     }
 
+    // Production break caught: publishing must reject a variant duration every booking would refuse.
+    public function test_publish_rejects_a_variant_longer_than_the_booking_limit(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $service = $this->draftPackage($this->publishedCategory());
+        ServiceVariant::query()->create([
+            'service_id' => $service->id,
+            'code' => 'too-long-regular-481',
+            'treatment_mode' => 'regular',
+            'duration_minutes' => 481,
+            'price_idr' => 180000,
+            'is_active' => true,
+            'published_at' => null,
+            'display_order' => 0,
+        ]);
+
+        $this->actingAs($admin)
+            ->postJson("/admin/catalog/packages/{$service->slug}/publish", ['version' => 0])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('variants.0.durationMinutes');
+
+        $this->assertNull($service->fresh()->published_at);
+        $this->assertSame(0, $service->fresh()->lock_version);
+    }
+
+    // Production break caught: publishing must reject a choice code longer than every booking accepts.
+    public function test_publish_rejects_a_choice_code_longer_than_the_booking_limit(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $service = $this->draftPackage($this->publishedCategory());
+        ServiceVariant::query()->create([
+            'service_id' => $service->id,
+            'code' => str_repeat('c', 81),
+            'treatment_mode' => 'regular',
+            'duration_minutes' => 60,
+            'price_idr' => 180000,
+            'is_active' => true,
+            'published_at' => null,
+            'display_order' => 0,
+        ]);
+
+        $this->actingAs($admin)
+            ->postJson("/admin/catalog/packages/{$service->slug}/publish", ['version' => 0])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('variants.0.code');
+
+        $this->assertNull($service->fresh()->published_at);
+        $this->assertSame(0, $service->fresh()->lock_version);
+    }
+
+    // Production break caught: a same-mode variant plus extension that outlasts the service day must not publish.
+    public function test_publish_rejects_a_same_mode_variant_and_extension_over_the_service_day(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $service = $this->draftPackage($this->publishedCategory());
+        ServiceVariant::query()->create([
+            'service_id' => $service->id,
+            'code' => 'service-day-regular-480',
+            'treatment_mode' => 'regular',
+            'duration_minutes' => 480,
+            'price_idr' => 180000,
+            'is_active' => true,
+            'published_at' => null,
+            'display_order' => 0,
+        ]);
+        ServiceExtension::query()->create([
+            'service_id' => $service->id,
+            'code' => 'service-day-extra-300',
+            'treatment_mode' => 'regular',
+            'duration_minutes' => 300,
+            'price_idr' => 50000,
+            'is_active' => true,
+            'published_at' => null,
+            'display_order' => 0,
+        ]);
+
+        $this->actingAs($admin)
+            ->postJson("/admin/catalog/packages/{$service->slug}/publish", ['version' => 0])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('extensions.0.durationMinutes');
+
+        $this->assertNull($service->fresh()->published_at);
+        $this->assertSame(0, $service->fresh()->lock_version);
+    }
+
+    // Guard: a same-mode variant plus extension that fits the service day exactly must publish.
+    public function test_publish_accepts_a_same_mode_total_exactly_at_the_service_day(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $service = $this->draftPackage($this->publishedCategory());
+        $variant = ServiceVariant::query()->create([
+            'service_id' => $service->id,
+            'code' => 'service-day-regular-480',
+            'treatment_mode' => 'regular',
+            'duration_minutes' => 480,
+            'price_idr' => 180000,
+            'is_active' => true,
+            'published_at' => null,
+            'display_order' => 0,
+        ]);
+        $extension = ServiceExtension::query()->create([
+            'service_id' => $service->id,
+            'code' => 'service-day-extra-240',
+            'treatment_mode' => 'regular',
+            'duration_minutes' => 240,
+            'price_idr' => 50000,
+            'is_active' => true,
+            'published_at' => null,
+            'display_order' => 0,
+        ]);
+
+        $this->actingAs($admin)
+            ->post("/admin/catalog/packages/{$service->slug}/publish", ['version' => 0])
+            ->assertStatus(303);
+
+        $this->assertNotNull($service->fresh()->published_at);
+        $this->assertNotNull($variant->fresh()->published_at);
+        $this->assertNotNull($extension->fresh()->published_at);
+    }
+
+    // Guard: the total check only pairs an extension with a variant of the same mode.
+    public function test_publish_ignores_the_total_check_for_an_extension_in_a_different_mode(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $service = $this->draftPackage($this->publishedCategory());
+        ServiceVariant::query()->create([
+            'service_id' => $service->id,
+            'code' => 'cross-mode-regular-480',
+            'treatment_mode' => 'regular',
+            'duration_minutes' => 480,
+            'price_idr' => 180000,
+            'is_active' => true,
+            'published_at' => null,
+            'display_order' => 0,
+        ]);
+        ServiceExtension::query()->create([
+            'service_id' => $service->id,
+            'code' => 'cross-mode-extra-300',
+            'treatment_mode' => 'double_therapist',
+            'duration_minutes' => 300,
+            'price_idr' => 50000,
+            'is_active' => true,
+            'published_at' => null,
+            'display_order' => 0,
+        ]);
+
+        $this->actingAs($admin)
+            ->post("/admin/catalog/packages/{$service->slug}/publish", ['version' => 0])
+            ->assertStatus(303);
+
+        $this->assertNotNull($service->fresh()->published_at);
+    }
+
+    // Production break caught: restoring must revalidate durations before reactivating a published package.
+    public function test_restore_rejects_a_variant_longer_than_the_booking_limit(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $service = $this->draftPackage($this->publishedCategory(), [
+            'published_at' => now(),
+            'is_active' => false,
+        ]);
+        ServiceVariant::query()->create([
+            'service_id' => $service->id,
+            'code' => 'too-long-regular-481',
+            'treatment_mode' => 'regular',
+            'duration_minutes' => 481,
+            'price_idr' => 180000,
+            'is_active' => true,
+            'published_at' => now(),
+            'display_order' => 0,
+        ]);
+
+        $this->actingAs($admin)
+            ->postJson("/admin/catalog/packages/{$service->slug}/restore", ['version' => 0])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('variants.0.durationMinutes');
+
+        $this->assertFalse($service->fresh()->is_active);
+        $this->assertSame(0, $service->fresh()->lock_version);
+    }
+
+    // Production break caught: an inactive published choice cannot be edited or deleted,
+    // so booking limits must not block restore on a choice customers can never pick.
+    public function test_restore_ignores_booking_limits_on_an_inactive_legacy_choice(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $service = $this->draftPackage($this->publishedCategory(), [
+            'published_at' => now(),
+            'is_active' => false,
+        ]);
+        ServiceVariant::query()->create([
+            'service_id' => $service->id,
+            'code' => 'regular-90',
+            'treatment_mode' => 'regular',
+            'duration_minutes' => 90,
+            'price_idr' => 180000,
+            'is_active' => true,
+            'published_at' => now(),
+            'display_order' => 0,
+        ]);
+        ServiceVariant::query()->create([
+            'service_id' => $service->id,
+            'code' => str_repeat('a', 100),
+            'treatment_mode' => 'regular',
+            'duration_minutes' => 600,
+            'price_idr' => 180000,
+            'is_active' => false,
+            'published_at' => now(),
+            'display_order' => 1,
+        ]);
+
+        $this->actingAs($admin)
+            ->post("/admin/catalog/packages/{$service->slug}/restore", ['version' => 0])
+            ->assertStatus(303)
+            ->assertSessionHasNoErrors();
+
+        $this->assertTrue($service->fresh()->is_active);
+    }
+
     private function publishedCategory(): ServiceCategory
     {
         return ServiceCategory::query()->create([
