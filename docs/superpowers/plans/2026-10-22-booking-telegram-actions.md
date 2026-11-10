@@ -175,6 +175,40 @@ New migrations use today's date with this plan's number range (for example `2026
   - answer presses that find no live token as expired.
 - **C4d:** the notification path needs these tables even with actions off, so migrate before restarting workers. Before enabling actions, check on a phone that the Confirm label isn't cut off.
 
+**C3b complete (10 November 2026, uncommitted).**
+- **`ProcessBookingCallback`** (`app/Support/Telegram`) handles every `callback_query`. It runs inside `TelegramUpdateHandler`'s transaction. The lock order is: the update row, the message row (only to fill a null `message_id`), the staff guard, the token, the link, then the booking inside the actions.
+- **Confirm** calls `ApproveBooking` with `operationalConfirmed: true` and `expectedVersion`.
+- **Decline** works in two steps. This was the user's decision on 10 November 2026: a **separate prompt message**, not a double tap and not an edit of the booking message.
+  - The first Decline checks `BookingPolicy::cancel` and the booking version, read with a lock.
+  - It then creates a `decline_confirm` token bound to the staff account **and** the Telegram account. The token expires after 5 minutes, or at the start if that is sooner, and the prompt states the real minutes.
+  - The prompt is sent through `telegram.decline.prompt`, with its nonce encrypted in the payload.
+  - Its **Yes, decline** button calls `CancelBooking` with the reason `staff_declined` and `expectedVersion`.
+- **`ApproveBooking` and `CancelBooking`** take `?int $expectedVersion = null`. They can't be called inside `BookingMutation`, because `StaffAccessLock::assertHeld()` compares transaction levels.
+- **Refusals change nothing:**
+  - `denied`: `actions_disabled`, `not_linked`, `not_authorized`, `not_initiator`;
+  - `ignored`: `unsupported` and `bot_sender` (both without an answer), `expired`, `wrong_message`, and `used`. A double tap gets a calm "already used" answer.
+  - `stale`/`changed`, `conflict`/`room` (the token stays live) and `rejected`/`<key>`.
+- **Every answered press** records `telegram.callback.answer`, which `TelegramCallbackAnswerHandler` sends with `TelegramClient::answerCallbackQuery()`. Only refusals show an alert.
+- **A press on a live token** whose row has a null `message_id` fills in that ID. A retried send then finds the copy and doesn't post a second one.
+
+**Inputs for later parts:**
+- **C3c:**
+  - race a double tap of one token across two workers: the second answers `used`;
+  - race revocation against a callback;
+  - race the prompt's locking version read against a dashboard decision on MySQL;
+  - a possible deadlock while `message_id` is null: the sender holds the message row and deletes tokens, while a callback holds a `decline_prompt` token and creates a confirmation, which needs the message row's foreign-key lock.
+- **C4b:**
+  - a re-render deletes other staff members' open Decline confirmations;
+  - keep the `message_id` fill limited to live, non-`decline_confirm` tokens, and test the exclusion if a sync can reset `message_id`;
+  - for the sync's lock order, take the message row and then the tokens. Never take the staff guard or a booking lock after the tokens.
+  - Remove or refresh the buttons after a decision.
+- **C4d:**
+  - before enabling actions, measure Telegram's callback-answer window live. Answers take two dispatch hops, about 10–20 seconds; consider a faster dispatch for `telegram.callback.answer`;
+  - prune `telegram.decline.prompt` payloads;
+  - document `TELEGRAM_ACTIONS_ENABLED`.
+
+Independently reviewed ("Ready to merge: Yes"). The review closed five test gaps and fixed four human-path flaws in the plan. Full PHP suite: 1092 passed. Evidence: `.superpowers/sdd/2026-10-22-booking-scheduling-pricing/task-C3b-review.md`.
+
 Independently reviewed; full PHP suite 1027 passed. Next: **C1b**. Evidence: `.superpowers/sdd/2026-10-22-booking-scheduling-pricing/task-C1a-review.md`.
 
 ## Task C1: Owner-controlled Telegram identity enrollment

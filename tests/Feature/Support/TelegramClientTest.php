@@ -151,6 +151,46 @@ class TelegramClientTest extends TestCase
         $this->assertArrayNotHasKey('reply_markup', $requests[1]->data());
     }
 
+    public function test_answer_callback_query_posts_its_method_and_requires_ok(): void
+    {
+        $url = 'https://api.telegram.org/bottest-bot-token/answerCallbackQuery';
+        Http::fake([
+            $url => Http::sequence()
+                ->push(['ok' => true, 'result' => true], 200)
+                ->push(['ok' => false], 200)
+                ->push(['ok' => false, 'error_code' => 400], 400),
+        ]);
+
+        $client = new TelegramClient;
+        $client->answerCallbackQuery('cbq-1', 'Booking confirmed.', true);
+
+        Http::assertSent(function (Request $request) use ($url): bool {
+            $this->assertSame($url, $request->url());
+            $this->assertSame([
+                'callback_query_id' => 'cbq-1',
+                'text' => 'Booking confirmed.',
+                'show_alert' => true,
+            ], $request->data());
+
+            return true;
+        });
+
+        try {
+            $client->answerCallbackQuery('cbq-2', 'Booking declined.', false);
+            $this->fail('Expected TelegramDeliveryException to be thrown.');
+        } catch (TelegramDeliveryException $exception) {
+            $this->assertFalse($exception->permanent());
+        }
+
+        try {
+            $client->answerCallbackQuery('cbq-3', 'Booking declined.', false);
+            $this->fail('Expected TelegramDeliveryException to be thrown.');
+        } catch (TelegramDeliveryException $exception) {
+            $this->assertTrue($exception->permanent());
+            $this->assertSame(400, $exception->httpStatus());
+        }
+    }
+
     public function test_no_bot_token_url_chat_id_or_message_body_is_ever_logged(): void
     {
         Http::fake([

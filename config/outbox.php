@@ -1,6 +1,8 @@
 <?php
 
 use App\Support\Outbox\Handlers\TelegramBookingNotificationHandler;
+use App\Support\Telegram\TelegramCallbackAnswerHandler;
+use App\Support\Telegram\TelegramDeclinePromptHandler;
 use App\Support\Telegram\TelegramReplyHandler;
 use App\Support\Telegram\TelegramUpdateHandler;
 
@@ -23,6 +25,12 @@ return [
         ],
         'telegram.reply' => [
             'telegram' => TelegramReplyHandler::class,
+        ],
+        'telegram.callback.answer' => [
+            'telegram' => TelegramCallbackAnswerHandler::class,
+        ],
+        'telegram.decline.prompt' => [
+            'telegram' => TelegramDeclinePromptHandler::class,
         ],
     ],
     'lease_seconds' => 300,

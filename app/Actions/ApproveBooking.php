@@ -26,8 +26,9 @@ class ApproveBooking
         ActionContext $context,
         bool $operationalConfirmed = false,
         ?string $reason = null,
+        ?int $expectedVersion = null,
     ): Booking {
-        return (new StaffAccessLock)->run(function () use ($actor, $bookingId, $expected, $context, $operationalConfirmed, $reason): Booking {
+        return (new StaffAccessLock)->run(function () use ($actor, $bookingId, $expected, $context, $operationalConfirmed, $reason, $expectedVersion): Booking {
             if (! $actor->exists || ! $actor->getKey() || $actor->getConnection() !== DB::connection()) {
                 throw new AuthorizationException;
             }
@@ -42,8 +43,9 @@ class ApproveBooking
                 throw ValidationException::withMessages(['room' => __('admin.status.room_unavailable')]);
             }
 
-            return (new BookingMutation)->run($bookingId, function (Booking $locked) use ($lockedActor, $expected, $context, $operationalConfirmed, $reason): Booking {
-                if ($locked->status !== $expected) {
+            return (new BookingMutation)->run($bookingId, function (Booking $locked) use ($lockedActor, $expected, $context, $operationalConfirmed, $reason, $expectedVersion): Booking {
+                // Telegram buttons carry the version they were rendered for; a newer version is stale even in the same status.
+                if ($locked->status !== $expected || ($expectedVersion !== null && $locked->booking_version !== $expectedVersion)) {
                     throw ValidationException::withMessages(['currentStatus' => __('admin.status.stale')]);
                 }
 

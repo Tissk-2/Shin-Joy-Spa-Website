@@ -20,6 +20,7 @@ final class TelegramUpdateHandler implements OutboxHandler
     public function __construct(
         private readonly OutboxWriter $outbox,
         private readonly ClaimStaffEnrollment $claim,
+        private readonly ProcessBookingCallback $callbacks,
     ) {}
 
     public function handle(OutboxMessage $message): void
@@ -67,8 +68,14 @@ final class TelegramUpdateHandler implements OutboxHandler
     private function decide(TelegramUpdate $update): array
     {
         $payload = $update->payload;
-        if ($update->kind !== 'start' || ! is_array($payload)) {
-            return ['ignored', 'unsupported', null];   // C3 adds callback_query handling here
+        if (! is_array($payload)) {   // mutation W
+            return ['ignored', 'expired', null];   // pruned unprocessed after seven days; nobody is waiting for an answer
+        }
+        if ($update->kind === 'callback_query') {
+            return [...($this->callbacks)($update), null];
+        }
+        if ($update->kind !== 'start') {
+            return ['ignored', 'unsupported', null];
         }
         if ($payload['chat_type'] !== 'private') {
             return ['ignored', 'not_private', null];

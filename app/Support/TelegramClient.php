@@ -7,7 +7,7 @@ use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 
 /**
- * Focused Telegram sendMessage boundary.
+ * Focused Telegram Bot API boundary: sendMessage and answerCallbackQuery.
  *
  * Stateless and dependency-free: reads only the configured bot token and
  * performs a single POST via Laravel's Http facade. Retries and failure
@@ -35,6 +35,41 @@ class TelegramClient
             $payload['reply_markup'] = $replyMarkup;
         }
 
+        $response = $this->post('sendMessage', $payload);
+
+        $messageId = $this->messageIdFrom($response);
+
+        if ($messageId === null) {
+            throw new TelegramDeliveryException(
+                permanent: false,
+                httpStatus: $response->status(),
+                telegramErrorCode: $this->integerErrorCode($response),
+            );
+        }
+
+        return $messageId;
+    }
+
+    public function answerCallbackQuery(string $callbackQueryId, string $text, bool $showAlert = false): void
+    {
+        $response = $this->post('answerCallbackQuery', [
+            'callback_query_id' => $callbackQueryId,
+            'text' => $text,
+            'show_alert' => $showAlert,
+        ]);
+
+        if ($response->json('ok') !== true) {
+            throw new TelegramDeliveryException(
+                permanent: false,
+                httpStatus: $response->status(),
+                telegramErrorCode: $this->integerErrorCode($response),
+            );
+        }
+    }
+
+    /** POSTs one Bot API method; throws a sanitized TelegramDeliveryException for every non-2xx answer. */
+    private function post(string $method, array $payload): Response
+    {
         $request = Http::connectTimeout(3)->timeout(10);
         $caBundle = config('services.telegram.ca_bundle');
         if (is_string($caBundle) && trim($caBundle) !== '') {
@@ -42,7 +77,7 @@ class TelegramClient
         }
 
         try {
-            $response = $request->post($this->endpoint(), $payload);
+            $response = $request->post($this->endpoint($method), $payload);
         } catch (ConnectionException) {
             // The raw exception message may contain the tokenized URL; it is
             // never retained, attached as previous, or logged.
@@ -88,17 +123,7 @@ class TelegramClient
             );
         }
 
-        $messageId = $this->messageIdFrom($response);
-
-        if ($messageId === null) {
-            throw new TelegramDeliveryException(
-                permanent: false,
-                httpStatus: $status,
-                telegramErrorCode: $this->integerErrorCode($response),
-            );
-        }
-
-        return $messageId;
+        return $response;
     }
 
     /**
@@ -162,8 +187,8 @@ class TelegramClient
         return is_int($retryAfter) && $retryAfter > 0 ? $retryAfter : null;
     }
 
-    private function endpoint(): string
+    private function endpoint(string $method): string
     {
-        return 'https://api.telegram.org/bot'.config('services.telegram.bot_token').'/sendMessage';
+        return 'https://api.telegram.org/bot'.config('services.telegram.bot_token').'/'.$method;
     }
 }
