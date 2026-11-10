@@ -209,6 +209,32 @@ New migrations use today's date with this plan's number range (for example `2026
 
 Independently reviewed ("Ready to merge: Yes"). The review closed five test gaps and fixed four human-path flaws in the plan. Full PHP suite: 1092 passed. Evidence: `.superpowers/sdd/2026-10-22-booking-scheduling-pricing/task-C3b-review.md`.
 
+**C3c complete (10 November 2026, uncommitted).**
+- **The concurrency harness** (`tests/Concurrency/fixtures/worker.php`) gets three scenarios:
+  - `telegram` runs `TelegramUpdateHandler` on a `telegram.update.received` message and prints `outcome/reason`;
+  - `unlink` runs `RevokeStaffLink`;
+  - `unpermit` runs `SetBookingPermission(false)`.
+- **Two barrier rules:**
+  - on SQLite only, "attempting" also fires at a Telegram worker's first write (`update telegram_updates`), where the database-wide write lock makes it wait;
+  - staff-side workers that run first pause at their first `select` under the staff guard.
+- **`TelegramRaceTest` has 8 cases:**
+  - Telegram Confirm against dashboard approval for the last room, in both orders;
+  - link removal and booking-access removal against a press, in both orders each;
+  - a double tap across two workers;
+  - a dashboard approval against a waiting Decline prompt.
+- **Every case asserts the staff guard's `revision` counter.** Each outermost `StaffAccessLock` that commits adds 1, so this is SQLite's only proof that each worker took the guard. A refused dashboard approval rolls its own increment back, so "telegram then dashboard" ends at +1.
+- **Every case also asserts:**
+  - the answer each press records;
+  - who acted;
+  - the audit rows;
+  - the loser's token state.
+
+**Inputs for later parts:**
+- **The MySQL run** (BLOCKED here, as for B6): set `CONCURRENCY_DB_*` to a disposable `…concurrency_test` database and run `phpunit -c phpunit.concurrency.xml`. Then run the mutations in `task-C3c-review.md`'s "What only a MySQL run can prove" table: the token re-read, the link read, the prompt's booking read and the policy's user read, each without `lockForUpdate`. Each must fail there.
+- **C4b:** reproduce the possible deadlock while `message_id` is null (the sender's re-render against a Decline prompt) once a re-render exists. The race harness can host it as a new worker scenario.
+
+Independently reviewed ("Ready to merge: Yes"). The review fixed the MySQL marker placement and added answer, attribution and audit assertions; every new assertion is proven by a mutation. Concurrency suite: 16 tests, 1 skipped; regular suite: 1092 passed. Evidence: `.superpowers/sdd/2026-10-22-booking-scheduling-pricing/task-C3c-review.md`.
+
 Independently reviewed; full PHP suite 1027 passed. Next: **C1b**. Evidence: `.superpowers/sdd/2026-10-22-booking-scheduling-pricing/task-C1a-review.md`.
 
 ## Task C1: Owner-controlled Telegram identity enrollment
