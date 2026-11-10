@@ -445,7 +445,7 @@ class TelegramBookingNotificationHandlerTest extends TestCase
         {
             public function __construct(private readonly \LogicException $unexpected) {}
 
-            public function sendMessage(string $message, string $chatId, ?int $messageThreadId = null): int
+            public function sendMessage(string $message, string $chatId, ?int $messageThreadId = null, ?array $replyMarkup = null): int
             {
                 throw $this->unexpected;
             }

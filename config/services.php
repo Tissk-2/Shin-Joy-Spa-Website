@@ -37,6 +37,7 @@ return [
 
     'telegram' => [
         'booking_notifications_enabled' => env('TELEGRAM_BOOKING_NOTIFICATIONS_ENABLED', false),
+        'actions_enabled' => env('TELEGRAM_ACTIONS_ENABLED', false),
         'bot_token' => env('TELEGRAM_BOT_TOKEN'),
         'bot_username' => env('TELEGRAM_BOT_USERNAME'),
         'webhook_secret' => env('TELEGRAM_WEBHOOK_SECRET'),

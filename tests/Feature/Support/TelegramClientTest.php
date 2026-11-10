@@ -133,6 +133,24 @@ class TelegramClientTest extends TestCase
         });
     }
 
+    public function test_reply_markup_is_sent_only_when_given(): void
+    {
+        Http::fake([
+            $this->endpoint() => Http::response(['ok' => true, 'result' => ['message_id' => 127]], 200),
+        ]);
+
+        $markup = ['inline_keyboard' => [[['text' => 'A', 'callback_data' => 't:x']]]];
+        $client = new TelegramClient;
+        $client->sendMessage(self::MESSAGE, self::CHAT_ID, null, $markup);
+        $client->sendMessage(self::MESSAGE, self::CHAT_ID);
+
+        $requests = Http::recorded()->map(fn (array $pair): Request => $pair[0]);
+
+        $this->assertCount(2, $requests);
+        $this->assertSame($markup, $requests[0]->data()['reply_markup'] ?? null);
+        $this->assertArrayNotHasKey('reply_markup', $requests[1]->data());
+    }
+
     public function test_no_bot_token_url_chat_id_or_message_body_is_ever_logged(): void
     {
         Http::fake([

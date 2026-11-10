@@ -152,6 +152,29 @@ New migrations use today's date with this plan's number range (for example `2026
   - pruned rows have a null `payload` and may have a null `outcome`, so the `callback_query` branch must treat them as stale without failing;
   - consider an `expired` reason instead of `unsupported` for pruned `/start` rows.
 
+**C3a complete (10 November 2026, uncommitted).**
+- Migration `2026_11_09_020002` adds:
+  - `telegram_booking_messages`: booking, chat, topic, `message_id`, the `booking_version` shown, the state `sending|sent`, and a `render_key`, unique per booking and chat;
+  - `telegram_action_tokens`: the message row, booking, version, action, a unique `nonce_hash`, the actor columns for C3b, `expires_at`, `consumed_at` and `result`.
+- `BookingActionKeyboard::forBooking()` deletes the message's unconsumed tokens. Only when `BookingActionKeyboard::actionsEnabled()` is true, the booking is Pending and not started, and the chat ID is canonical numeric, it issues `approve` and `decline_prompt`.
+  - Each nonce is 32 random bytes, of which only the SHA-256 is stored.
+  - The callback data is `t:<nonce>`.
+  - The expiry is `starts_at`.
+  - View booking is a URL button, shown only for https on a public host.
+- `TelegramBookingSender`:
+  - its transaction (3 attempts) writes first, then locks the row and re-checks it;
+  - each render gets a key;
+  - the `message_id` is saved only by the latest render. **Invariant:** the row's `message_id` is the copy carrying the live tokens, or null.
+
+**Inputs for later parts:**
+- **C3b, matching a callback:**
+  - compare the chat as strings and the thread in a null-safe way;
+  - when the row has a `message_id`, require it to equal the callback's;
+  - decide the policy for a row with a null `message_id` whose token is live: the last response was lost, or the final save failed;
+  - recheck with `BookingActionKeyboard::actionsEnabled()`;
+  - answer presses that find no live token as expired.
+- **C4d:** the notification path needs these tables even with actions off, so migrate before restarting workers. Before enabling actions, check on a phone that the Confirm label isn't cut off.
+
 Independently reviewed; full PHP suite 1027 passed. Next: **C1b**. Evidence: `.superpowers/sdd/2026-10-22-booking-scheduling-pricing/task-C1a-review.md`.
 
 ## Task C1: Owner-controlled Telegram identity enrollment

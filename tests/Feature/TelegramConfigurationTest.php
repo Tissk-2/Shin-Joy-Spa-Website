@@ -9,6 +9,7 @@ class TelegramConfigurationTest extends TestCase
 {
     private const TELEGRAM_ENVIRONMENT_KEYS = [
         'TELEGRAM_BOOKING_NOTIFICATIONS_ENABLED',
+        'TELEGRAM_ACTIONS_ENABLED',
         'TELEGRAM_BOT_TOKEN',
         'TELEGRAM_BOT_USERNAME',
         'TELEGRAM_WEBHOOK_SECRET',
@@ -47,6 +48,7 @@ class TelegramConfigurationTest extends TestCase
         $originalValues = $this->snapshotTelegramEnvironment();
         $values = [
             'TELEGRAM_BOOKING_NOTIFICATIONS_ENABLED' => 'true',
+            'TELEGRAM_ACTIONS_ENABLED' => 'true',
             'TELEGRAM_BOT_TOKEN' => 'not-a-real-bot-token',
             'TELEGRAM_BOT_USERNAME' => 'not_a_real_bot',
             'TELEGRAM_WEBHOOK_SECRET' => 'not-a-real-webhook-secret',
@@ -68,6 +70,7 @@ class TelegramConfigurationTest extends TestCase
             $telegram = $telegram['telegram'];
 
             $this->assertTrue($telegram['booking_notifications_enabled']);
+            $this->assertTrue($telegram['actions_enabled']);
             $this->assertSame('not-a-real-bot-token', $telegram['bot_token']);
             $this->assertSame('not_a_real_bot', $telegram['bot_username']);
             $this->assertSame('not-a-real-webhook-secret', $telegram['webhook_secret']);
@@ -87,6 +90,7 @@ class TelegramConfigurationTest extends TestCase
 
         foreach ([
             'TELEGRAM_BOOKING_NOTIFICATIONS_ENABLED' => 'false',
+            'TELEGRAM_ACTIONS_ENABLED' => 'false',
             'TELEGRAM_BOT_TOKEN' => '',
             'TELEGRAM_BOT_USERNAME' => '',
             'TELEGRAM_WEBHOOK_SECRET' => '',
@@ -135,6 +139,7 @@ class TelegramConfigurationTest extends TestCase
         $this->assertIsArray($telegram);
         $this->assertEqualsCanonicalizing([
             'booking_notifications_enabled',
+            'actions_enabled',
             'bot_token',
             'bot_username',
             'webhook_secret',
@@ -143,6 +148,7 @@ class TelegramConfigurationTest extends TestCase
             'ca_bundle',
         ], array_keys($telegram));
         $this->assertFalse($telegram['booking_notifications_enabled']);
+        $this->assertFalse($telegram['actions_enabled']);
         $this->assertNull($telegram['bot_token']);
         $this->assertNull($telegram['bot_username']);
         $this->assertNull($telegram['webhook_secret']);

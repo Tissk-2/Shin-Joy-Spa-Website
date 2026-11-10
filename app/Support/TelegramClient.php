@@ -19,7 +19,7 @@ class TelegramClient
 {
     private const PERMANENT_HTTP_STATUSES = [400, 401, 403, 404];
 
-    public function sendMessage(string $message, string $chatId, ?int $messageThreadId = null): int
+    public function sendMessage(string $message, string $chatId, ?int $messageThreadId = null, ?array $replyMarkup = null): int
     {
         $payload = [
             'chat_id' => $chatId,
@@ -29,6 +29,10 @@ class TelegramClient
 
         if ($messageThreadId !== null) {
             $payload['message_thread_id'] = $messageThreadId;
+        }
+
+        if ($replyMarkup !== null) {
+            $payload['reply_markup'] = $replyMarkup;
         }
 
         $request = Http::connectTimeout(3)->timeout(10);

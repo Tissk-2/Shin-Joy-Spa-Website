@@ -113,6 +113,7 @@ abstract class TestCase extends BaseTestCase
 
         $app->make('config')->set('services.telegram', [
             'booking_notifications_enabled' => false,
+            'actions_enabled' => false,
             'bot_token' => null,
             'bot_username' => null,
             'webhook_secret' => null,
