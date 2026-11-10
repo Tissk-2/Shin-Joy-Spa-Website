@@ -39,7 +39,21 @@ final class TelegramBookingNotificationHandler implements OutboxHandler
         }
 
         try {
+            if ($message->type !== 'booking.created') {   // mutation H
+                // A lifecycle event: bring the delivered message up to date instead of sending another one.
+                if (! $this->sender->refresh($booking)) {
+                    throw new OutboxRetryableException('overtaken');
+                }
+
+                return;
+            }
+
             $messageId = $this->sender->send($booking);
+
+            // A decision that committed while this message was rendered or in flight found nothing to edit then.
+            if (! $this->sender->refresh($booking, onlyIfBehind: true)) {   // mutation U
+                throw new OutboxRetryableException('overtaken');
+            }
         } catch (LogicException $exception) {
             // Only the sender's own permanent categories are absorbed; anything
             // else is unexpected and must stay retryable.

@@ -79,7 +79,10 @@ final class ProcessBookingCallback
     {
         $now = CarbonImmutable::now('UTC')->setMicrosecond(0);
         // Re-read under the guard, so a second press of the same button sees the first one's result.
-        $token = TelegramActionToken::query()->whereKey($tokenId)->lockForUpdate()->firstOrFail();
+        $token = TelegramActionToken::query()->whereKey($tokenId)->lockForUpdate()->first();
+        if ($token === null) {   // mutation G: a message refresh deleted it after the lookup above
+            return $this->answer($update, 'ignored', 'expired');
+        }
         if ($token->consumed_at !== null) {   // mutation E2
             // Usually a second tap while the first answer is still on its way: say calmly what the button did.
             return $this->answer($update, 'ignored', 'used', __('admin.telegram.callback.used_'.$token->result));

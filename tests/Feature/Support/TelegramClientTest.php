@@ -191,6 +191,69 @@ class TelegramClientTest extends TestCase
         }
     }
 
+    public function test_edit_message_reports_edited_unchanged_and_missing(): void
+    {
+        $url = 'https://api.telegram.org/bottest-bot-token/editMessageText';
+        Http::fake([
+            $url => Http::sequence()
+                ->push(['ok' => true, 'result' => ['message_id' => 5]], 200)
+                ->push(['ok' => false, 'error_code' => 400, 'description' => 'Bad Request: message is not modified: specified new message content and reply markup are exactly the same as a current content and reply markup of the message'], 400)
+                ->push(['ok' => false, 'error_code' => 400, 'description' => 'Bad Request: message to edit not found'], 400)
+                ->push(['ok' => false, 'error_code' => 400, 'description' => 'Bad Request: chat not found'], 400)
+                ->push(['ok' => false], 200)
+                // Only a 400 is classified, and only a string description.
+                ->push(['ok' => false, 'error_code' => 403, 'description' => 'Bad Request: message to edit not found'], 403)
+                ->push(['ok' => false, 'error_code' => 400, 'description' => ['message to edit not found']], 400),
+        ]);
+
+        $client = new TelegramClient;
+        $markup = ['inline_keyboard' => []];
+
+        $this->assertSame('edited', $client->editMessage(self::CHAT_ID, 5, 'Hi', $markup));
+
+        Http::assertSent(function (Request $request) use ($url): bool {
+            return $request->url() === $url
+                && $request->data() === [
+                    'chat_id' => self::CHAT_ID,
+                    'message_id' => 5,
+                    'text' => 'Hi',
+                    'link_preview_options' => ['is_disabled' => true],
+                    'reply_markup' => ['inline_keyboard' => []],
+                ];
+        });
+
+        $this->assertSame('not_modified', $client->editMessage(self::CHAT_ID, 5, 'Hi', $markup));
+        $this->assertSame('missing', $client->editMessage(self::CHAT_ID, 5, 'Hi', $markup));
+
+        try {
+            $client->editMessage(self::CHAT_ID, 5, 'Hi', $markup);
+            $this->fail('Expected TelegramDeliveryException to be thrown.');
+        } catch (TelegramDeliveryException $exception) {
+            $this->assertTrue($exception->permanent());
+            $this->assertNull($exception->reason());
+        }
+
+        try {
+            $client->editMessage(self::CHAT_ID, 5, 'Hi', $markup);
+            $this->fail('Expected TelegramDeliveryException to be thrown.');
+        } catch (TelegramDeliveryException $exception) {
+            $this->assertFalse($exception->permanent());
+        }
+
+        foreach ([403, 400] as $status) {
+            try {
+                $client->editMessage(self::CHAT_ID, 5, 'Hi', $markup);
+                $this->fail('Expected TelegramDeliveryException to be thrown.');
+            } catch (TelegramDeliveryException $exception) {
+                $this->assertTrue($exception->permanent());
+                $this->assertSame($status, $exception->httpStatus());
+                $this->assertNull($exception->reason());
+            }
+        }
+
+        $this->assertCount(7, Http::recorded());
+    }
+
     public function test_no_bot_token_url_chat_id_or_message_body_is_ever_logged(): void
     {
         Http::fake([

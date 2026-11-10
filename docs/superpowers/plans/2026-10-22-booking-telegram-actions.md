@@ -63,9 +63,9 @@ New migrations use today's date with this plan's number range (for example `2026
 | C3a | Message and action-token schema, `BookingActionKeyboard`, and the initial booking message persisting its identity and rendering buttons when `actions_enabled`. |
 | C3b | `ProcessBookingCallback`: Confirm, two-step actor-bound Decline, stale, revoked and denied outcomes, and `telegram.callback.answer` work. |
 | C3c | Separate-process races in the concurrency harness: Telegram against dashboard approval for the last room, and revocation against a callback. |
-| C4a | The `BookingPaymentSummary` contract (stage C states only) and `BookingCommunicationFanout`, replacing the `booking.created` consumer. |
-| C4b | Telegram message sync and edit on lifecycle events (latest state, per-message ordering, "not modified" counts as success, replacement after a deletion). |
-| C4c | Customer email notices (`BookingStatusNotification`, mail view), including the decision on staff-entered bookings: those without an email record a skipped outcome. |
+| ~~C4a~~ | **Dropped on 10 November 2026 (user decision).** The outbox already gives every handler subscribed to an event its own delivery row and retries (unique per message and handler key), so a `BookingCommunicationFanout` writing child rows per channel would add a layer without adding behaviour. Channels subscribe directly to the booking events instead. The `BookingPaymentSummary` contract moves into C4c, its first consumer. |
+| C4b | Telegram message sync and edit on lifecycle events (latest state, per-message ordering, "not modified" counts as success, replacement after a deletion). It swaps the class behind `booking.created`'s existing `telegram` key, so in-flight deliveries carry over and no booking gets two initial messages, and subscribes the same key to the lifecycle events. |
+| C4c | Customer email notices (`BookingStatusNotification`, mail view), subscribed directly under a `customer` key, plus the `BookingPaymentSummary` contract and its stage C projection. It also covers the decision on staff-entered bookings: those without an email record a skipped outcome. |
 | C4d | Delivery status on the admin booking page, README webhook setup and recovery, and the stage C close-out. |
 
 **C1a complete (8 November 2026, uncommitted).**
@@ -234,6 +234,30 @@ Independently reviewed ("Ready to merge: Yes"). The review closed five test gaps
 - **C4b:** reproduce the possible deadlock while `message_id` is null (the sender's re-render against a Decline prompt) once a re-render exists. The race harness can host it as a new worker scenario.
 
 Independently reviewed ("Ready to merge: Yes"). The review fixed the MySQL marker placement and added answer, attribution and audit assertions; every new assertion is proven by a mutation. Concurrency suite: 16 tests, 1 skipped; regular suite: 1092 passed. Evidence: `.superpowers/sdd/2026-10-22-booking-scheduling-pricing/task-C3c-review.md`.
+
+**C4b complete (10 November 2026, uncommitted).**
+- **One handler owns the staff message.** `TelegramBookingNotificationHandler` (key `telegram`) handles `booking.created` and the five lifecycle events.
+  - A lifecycle event calls `TelegramBookingSender::refresh()`. Under the C3a render-key protocol, it edits the recorded message to the latest status and removes its buttons.
+  - The transaction writes first, then reads. The edit runs outside it, and an overtaken round edits again, at most 3 rounds, otherwise `overtaken` is retryable.
+- **The catch-up after every first send.** `send()` is followed by `refresh($booking, onlyIfBehind: true)`, which edits only when a decision committed while the first message was rendered or in flight. It skips only in round 1, so a routine first send makes no extra call.
+- **`TelegramClient::editMessage()`** returns `edited`, `not_modified` (success) or `missing`.
+  - Two Telegram 400 descriptions map to a fixed `reason` on `TelegramDeliveryException`; the description is never kept.
+  - A missing message is marked `state = 'deleted'`, its `message_id` is cleared, and it is never edited again by a refresh.
+- **`ProcessBookingCallback`:** a token that a refresh deleted mid-press answers "expired" instead of rolling back.
+
+**Inputs for later parts:**
+- **C4c:** subscribe the customer notice directly under a `customer` key on the events that need one, and add the `BookingPaymentSummary` contract there.
+- **C4d:**
+  - deploy with `config:cache` and `queue:restart` together; an old worker marks new lifecycle deliveries `permanent: handler is not configured`, which `outbox:requeue` recovers;
+  - correct the README's permanent-failure wording, since "not modified" and a missing message are no longer failures;
+  - on the delivery page, a completed lifecycle `telegram` delivery doesn't prove an edit happened (no row, `deleted`, or notifications off), so show `state`;
+  - own stage Review Focus 5 (`test_unknown_send_outcome_cannot_duplicate_booking_action`);
+  - document that decisions made while notifications are off are never reflected, and that **View booking** disappears with the actions.
+- **The MySQL run:**
+  - the C3c sender-render deadlock while `message_id` is null, against a Decline prompt (a refresh can't meet a confirmation insert);
+  - `refresh()`'s row lock.
+
+Independently reviewed ("With fixes"). The important finding, a decision lost while the first message was in flight, was a flaw in Claude's plan and is fixed with the catch-up. Every new guard is proven by a mutation. Regular suite: 1108 passed; concurrency suite: 16 tests, 1 skipped. Evidence: `.superpowers/sdd/2026-10-22-booking-scheduling-pricing/task-C4b-review.md`.
 
 Independently reviewed; full PHP suite 1027 passed. Next: **C1b**. Evidence: `.superpowers/sdd/2026-10-22-booking-scheduling-pricing/task-C1a-review.md`.
 

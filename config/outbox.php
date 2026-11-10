@@ -14,12 +14,23 @@ return [
         'booking.created' => [
             'telegram' => TelegramBookingNotificationHandler::class,
         ],
-        // Lifecycle events are recorded for later consumers; no delivery yet.
-        'booking.approved' => [],
-        'booking.confirmed' => [],
-        'booking.cancelled' => [],
-        'booking.completed' => [],
-        'booking.no_show' => [],
+        // Lifecycle events share booking.created's telegram key, so one handler owns the staff message: it edits
+        // that message to the booking's current status.
+        'booking.approved' => [
+            'telegram' => TelegramBookingNotificationHandler::class,
+        ],
+        'booking.confirmed' => [
+            'telegram' => TelegramBookingNotificationHandler::class,
+        ],
+        'booking.cancelled' => [
+            'telegram' => TelegramBookingNotificationHandler::class,
+        ],
+        'booking.completed' => [
+            'telegram' => TelegramBookingNotificationHandler::class,
+        ],
+        'booking.no_show' => [
+            'telegram' => TelegramBookingNotificationHandler::class,
+        ],
         'telegram.update.received' => [
             'telegram' => TelegramUpdateHandler::class,
         ],

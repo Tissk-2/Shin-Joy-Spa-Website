@@ -273,6 +273,28 @@ class BookingCallbacksTest extends TestCase
         $this->assertSame(__('admin.telegram.callback.expired'), $this->answerFor($unknown)['text']);
     }
 
+    public function test_a_token_deleted_between_lookup_and_lock_is_answered_as_expired(): void
+    {
+        $this->staff();
+        $booking = $this->booking();
+        [$approve] = $this->render($booking);
+        $deleted = false;
+        // A message refresh deletes the button's token after the lookup, while the press waits for the staff guard.
+        DB::connection()->beforeExecuting(function (string $query) use (&$deleted): void {
+            if (! $deleted && preg_match('/\Aupdate "staff_access_guards"/i', $query) === 1) {
+                $deleted = true;
+                DB::table('telegram_action_tokens')->delete();
+            }
+        });
+
+        $update = $this->press($approve, 1);
+
+        $this->assertTrue($deleted);
+        $this->assertSame(['ignored', 'expired'], $this->outcome($update));
+        $this->assertSame(__('admin.telegram.callback.expired'), $this->answerFor($update)['text']);
+        $this->assertSame(BookingStatus::Pending, $booking->fresh()->status);
+    }
+
     public function test_actions_turned_off_after_rendering_are_denied(): void
     {
         $this->staff();

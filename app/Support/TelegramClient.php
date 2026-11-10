@@ -7,7 +7,7 @@ use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 
 /**
- * Focused Telegram Bot API boundary: sendMessage and answerCallbackQuery.
+ * Focused Telegram Bot API boundary: sendMessage, editMessageText and answerCallbackQuery.
  *
  * Stateless and dependency-free: reads only the configured bot token and
  * performs a single POST via Laravel's Http facade. Retries and failure
@@ -48,6 +48,39 @@ class TelegramClient
         }
 
         return $messageId;
+    }
+
+    /**
+     * Edits a sent message's text and buttons. Returns 'edited'; 'not_modified' when Telegram already shows exactly
+     * this content, which counts as success; or 'missing' when the message no longer exists because someone deleted it.
+     */
+    public function editMessage(string $chatId, int $messageId, string $message, array $replyMarkup): string
+    {
+        try {
+            $response = $this->post('editMessageText', [
+                'chat_id' => $chatId,
+                'message_id' => $messageId,
+                'text' => $message,
+                'link_preview_options' => ['is_disabled' => true],
+                'reply_markup' => $replyMarkup,
+            ]);
+        } catch (TelegramDeliveryException $exception) {
+            return match ($exception->reason()) {
+                'not_modified' => 'not_modified',
+                'message_missing' => 'missing',
+                default => throw $exception,
+            };
+        }
+
+        if ($response->json('ok') !== true) {   // mutation K2
+            throw new TelegramDeliveryException(
+                permanent: false,
+                httpStatus: $response->status(),
+                telegramErrorCode: $this->integerErrorCode($response),
+            );
+        }
+
+        return 'edited';
     }
 
     public function answerCallbackQuery(string $callbackQueryId, string $text, bool $showAlert = false): void
@@ -93,6 +126,7 @@ class TelegramClient
                 permanent: true,
                 httpStatus: $status,
                 telegramErrorCode: $this->integerErrorCode($response),
+                reason: $status === 400 ? $this->reasonFrom($response) : null,
             );
         }
 
@@ -124,6 +158,21 @@ class TelegramClient
         }
 
         return $response;
+    }
+
+    /** Telegram's description, reduced to the two edit outcomes callers act on. The description itself is never kept. */
+    private function reasonFrom(Response $response): ?string
+    {
+        $description = $response->json('description');
+        if (! is_string($description)) {
+            return null;
+        }
+
+        return match (true) {
+            str_contains($description, 'message is not modified') => 'not_modified',   // mutation C1
+            str_contains($description, 'message to edit not found') => 'message_missing',   // mutation C2
+            default => null,
+        };
     }
 
     /**

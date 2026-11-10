@@ -19,6 +19,9 @@ use RuntimeException;
  * arbitrary content, so the exception is structurally unable to retain
  * customer data, Telegram descriptions, response bodies, chat IDs, tokens, or
  * tokenized URLs.
+ *
+ * `reason` is one of a fixed set (`not_modified`, `message_missing`) or null;
+ * it never carries Telegram's description.
  */
 class TelegramDeliveryException extends RuntimeException
 {
@@ -27,6 +30,7 @@ class TelegramDeliveryException extends RuntimeException
         private readonly ?int $httpStatus = null,
         private readonly ?int $telegramErrorCode = null,
         private readonly ?int $retryAfterSeconds = null,
+        private readonly ?string $reason = null,
     ) {
         parent::__construct('Telegram delivery failed.');
     }
@@ -49,5 +53,10 @@ class TelegramDeliveryException extends RuntimeException
     public function telegramErrorCode(): ?int
     {
         return $this->telegramErrorCode;
+    }
+
+    public function reason(): ?string
+    {
+        return $this->reason;
     }
 }
