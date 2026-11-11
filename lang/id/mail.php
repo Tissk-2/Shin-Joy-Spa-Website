@@ -25,6 +25,10 @@ return [
             'intro' => 'Reservasi :reference untuk :service pada :date pukul :time telah dibatalkan.',
             'again' => 'Jika Anda ingin memilih waktu lain, silakan buat reservasi baru.',
         ],
+        'expired' => [
+            'subject' => 'Permintaan reservasi Shin Joy Spa Anda telah kedaluwarsa',
+            'intro' => 'Permintaan reservasi :reference untuk :service pada :date pukul :time tidak sempat kami konfirmasi, sehingga permintaan tersebut kedaluwarsa. Mohon maaf atas ketidaknyamanan ini.',
+        ],
         'no_show' => [
             'subject' => 'Janji temu Shin Joy Spa Anda terlewat',
             'intro' => 'Janji temu :reference untuk :service pada :date pukul :time tercatat tidak dihadiri.',

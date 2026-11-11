@@ -37,7 +37,8 @@ return [
 
     'telegram' => [
         'booking_notifications_enabled' => env('TELEGRAM_BOOKING_NOTIFICATIONS_ENABLED', false),
-        'actions_enabled' => env('TELEGRAM_ACTIONS_ENABLED', false),
+        // Parsed, so "1", "on" and "yes" also turn the buttons on: the keyboard checks for a strict true.
+        'actions_enabled' => filter_var(env('TELEGRAM_ACTIONS_ENABLED', false), FILTER_VALIDATE_BOOL),
         'bot_token' => env('TELEGRAM_BOT_TOKEN'),
         'bot_username' => env('TELEGRAM_BOT_USERNAME'),
         'webhook_secret' => env('TELEGRAM_WEBHOOK_SECRET'),

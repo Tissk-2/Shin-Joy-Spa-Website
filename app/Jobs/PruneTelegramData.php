@@ -20,9 +20,10 @@ final class PruneTelegramData
             ->where(fn ($query) => $query->whereNotNull('payload')->orWhereNotNull('start_token'))
             ->update(['payload' => null, 'start_token' => null]);
 
-        // Reply rows hold the sender's full Telegram ID and nothing reads them after delivery.
+        // Reply and Decline prompt rows hold a chat ID, and a staff name or a sender's full Telegram ID. Nothing
+        // reads them after delivery.
         DB::table('outbox_messages')
-            ->where('type', 'telegram.reply')
+            ->whereIn('type', ['telegram.reply', 'telegram.decline.prompt'])   // mutation D
             ->where('created_at', '<', $cutoff)
             ->where('payload', '!=', '{}')
             ->update(['payload' => '{}', 'updated_at' => $now]);

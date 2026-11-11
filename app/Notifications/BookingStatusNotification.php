@@ -43,7 +43,7 @@ final class BookingStatusNotification extends Notification
         $closing = match ($this->kind) {
             'approved' => app(BookingPaymentSummary::class)->forBooking($booking)['state'] === 'at_spa_unrecorded'   // mutation P
                 ? __('mail.booking.pay_at_spa') : null,
-            'cancelled' => __('mail.booking.cancelled.again'),
+            'cancelled', 'expired' => __('mail.booking.cancelled.again'),
             'no_show' => __('mail.booking.no_show.contact'),
         };
 

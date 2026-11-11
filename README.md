@@ -141,6 +141,15 @@ category and, when available, the booking reference and the HTTP status or
 Telegram error code. The success log contains the booking reference and the
 sent message ID. No log contains the message text or customer details.
 
+Two results of editing the staff message are not failures: Telegram's "message
+is not modified" counts as success, and a message that was deleted from the
+chat is recorded as deleted and never edited again.
+
+A customer email that the mail server refuses, or that cannot reach it, is
+retried as `retryable: mail`. Its log line holds the booking reference, the
+event, the exception class and the mail transport's error code (for SMTP, the
+server's reply code), never the address or the server's reply text.
+
 **Turning notifications off drops pending messages.** While
 `TELEGRAM_BOOKING_NOTIFICATIONS_ENABLED=false`, any delivery that runs is
 marked `completed` without sending. Check that no deliveries are `pending`,
@@ -228,8 +237,9 @@ admin area (`/admin/staff`):
 3. The staff page shows the claim with the same four digits. The owner checks
    them with the staff member and selects **Activate**.
 
-Telegram reaches the app through `POST /webhooks/telegram`. Linking gives no
-booking actions in Telegram yet.
+Telegram reaches the app through `POST /webhooks/telegram`. Linking alone gives
+no booking actions: those also need `TELEGRAM_ACTIONS_ENABLED=true`. See
+[Booking actions in Telegram](#booking-actions-in-telegram).
 
 ### Set up the webhook
 
@@ -290,8 +300,9 @@ again with it. To stop receiving updates, call `deleteWebhook`.
 Each update is stored once per bot and `update_id`. The outbox then processes
 it like a booking notification: `outbox:dispatch` runs every 10 seconds, the
 worker runs the `telegram.update.received` delivery, and a second delivery
-sends the bot's reply (`telegram.reply`). A reply normally arrives within about
-20 seconds.
+sends the result: the bot's reply (`telegram.reply`) or, for a button press,
+its answer (`telegram.callback.answer`) and, after Decline, the prompt
+(`telegram.decline.prompt`). It normally arrives within about 20 seconds.
 
 Processing is safe to repeat. A claim and its outcome are saved together, and
 an update that already has an outcome is never processed again. Replies are
@@ -305,18 +316,149 @@ SELECT kind, outcome, outcome_reason, COUNT(*)
   FROM telegram_updates GROUP BY kind, outcome, outcome_reason;
 ```
 
-`outcome` is empty until an update is processed. Afterwards it is `claimed`,
-`rejected` or `ignored`, with the reason in `outcome_reason`.
+`outcome` is empty until an update is processed. Afterwards a message is
+`claimed`, `rejected` or `ignored`, and a button press is `approved`,
+`declined`, `prompted`, `denied`, `stale`, `conflict`, `rejected` or `ignored`,
+with the reason in `outcome_reason`.
 
 ### Retention
 
 The `/start` token is cleared as soon as an update is processed. Every day,
 `telegram:prune-data` clears the remaining data of updates received more than
-7 days ago, and the text and chat ID of bot replies created more than 7 days
-ago. The update rows stay, so a repeated old update is still recognised.
-Updates and replies older than 7 days can still be requeued, but they no longer
-act: an update is recorded as `ignored` without a reply, and a reply fails with
-`permanent: payload`.
+7 days ago, and the text and chat ID of bot replies and Decline prompts created
+more than 7 days ago. The update rows stay, so a repeated old update is still
+recognised. Updates, replies and prompts older than 7 days can still be
+requeued, but they no longer act: an update is recorded as `ignored` without a
+reply, and a reply or a prompt fails with `permanent: payload`.
+
+## Booking actions in Telegram
+
+With `TELEGRAM_ACTIONS_ENABLED=true`, the staff message for a pending booking
+request carries buttons:
+
+- **Confirm: therapists checked for all guests** approves the request as the
+  staff member who pressed it. With room scheduling on, it also assigns a room,
+  or answers that no compatible room is free.
+- **Decline** posts a second message that asks the same staff member to
+  confirm. Only they can press **Yes, decline**, within 5 minutes, or less if
+  the appointment starts sooner.
+- **View booking** opens the admin booking page. It appears only when `APP_URL`
+  is an `https://` address on a real domain.
+
+Every press is checked again when it arrives. The staff member must still be
+linked and still have booking access, and the booking must not have changed
+since the message was posted. A refused press changes nothing and tells the
+staff member why. After any decision, from Telegram or from the dashboard, the
+recorded message is edited to the new status and its buttons are removed.
+
+The answer to a press normally appears within 10 to 25 seconds, because it
+passes through two `outbox:dispatch` runs and the queue worker. Telegram drops
+an answer that arrives too late: the press was still handled, but nothing pops
+up, so check the message or the dashboard.
+
+### Before switching actions on
+
+1. Booking notifications must already work
+   (`TELEGRAM_BOOKING_NOTIFICATIONS_ENABLED=true`): the buttons are part of the
+   notification message.
+2. Run the migrations before restarting the workers. The notification path
+   needs the message tables even while actions are off.
+3. The webhook must be registered with `callback_query` in `allowed_updates`
+   (step 4 of "Set up the webhook").
+4. `TELEGRAM_STAFF_CHAT_ID` must be the chat's numeric ID, such as
+   `-1001234567890`. A chat name gets no buttons.
+5. Every staff member who should act must be linked and have booking access.
+6. Switch `TELEGRAM_ACTIONS_ENABLED` on, refresh the cached configuration and
+   restart the web and worker processes.
+7. Make one controlled booking and check, on a phone:
+   - the Confirm label is not cut off;
+   - a press is answered before Telegram's spinner gives up; time it;
+   - Confirm changes the message to "Confirmed" and removes the buttons;
+   - Decline asks for the second press, and another staff member cannot make
+     it;
+   - a group member who is not linked is refused.
+
+### What to expect
+
+- **Delivery is at least once.** If Telegram posts a message but its reply is
+  lost, the retry posts a second copy. Only the newest copy's buttons work.
+  The older copy answers "This button is no longer valid", and a booking can
+  never be confirmed or declined twice. The older copy is never edited
+  afterwards, so it keeps showing the old status; delete it from the chat by
+  hand. Until the retry succeeds, the admin booking page says the message is
+  "Not confirmed as delivered".
+- **Switching actions off** removes every button from messages posted
+  afterwards, including **View booking**. Presses on older messages are
+  refused.
+- **While notifications are off, decisions do not reach the chat.** The staff
+  message is not edited, and it is not caught up later.
+- **Online-payment requests cannot be confirmed** from Telegram while online
+  payments are off.
+
+## Customer status emails
+
+With `BOOKING_CUSTOMER_NOTICES_ENABLED=true`, the customer is emailed when
+their booking is confirmed, cancelled or declined, when a request expires
+because nobody answered it in time, and when a no-show is recorded. The email
+is in the language the booking was made in; staff-entered and older bookings
+get Indonesian. No email is sent for a new request, for a completed
+appointment, or for a booking that has no email address.
+
+While the switch is off, these notices are dropped, not paused (see "Retries
+and failures").
+
+Emails are delivered at least once. If the mail server accepts an email but
+its answer does not arrive within `MAIL_TIMEOUT`, the retry sends the email
+again.
+
+### Before switching emails on
+
+1. Set a real mail transport. `MAIL_MAILER=log`, the default, writes each email
+   to the log file and sends nothing, and the admin page still shows it as
+   "Sent". The same happens when `failover` falls back to `log`.
+2. Set `MAIL_FROM_ADDRESS` and `MAIL_FROM_NAME`, and set `APP_URL` to the
+   public site address: the email's link is built from it.
+3. Keep `MAIL_TIMEOUT` short (15 seconds by default; it applies to SMTP). A
+   mail server that does not answer would otherwise hold the queue worker for
+   a minute per email. Raise it if your mail server is slow to accept an
+   email, or customers can get the same email twice.
+4. The scheduler and the queue worker must be running, as for Telegram.
+5. Switch the flag on, refresh the cached configuration and restart the web
+   and worker processes.
+6. Make one controlled booking with an address you control and approve it.
+   Check that the email arrives, that its language, date and time are right,
+   and that its link opens the customer's booking page.
+
+### Reading the Notifications section
+
+The admin booking page lists every staff-message update and customer email of
+a booking. It is read-only.
+
+| Label                              | Meaning                                                                                              |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Waiting to send, Sending now       | Queued, or claimed by a worker (a claim lasts up to 5 minutes)                                       |
+| Sent (customer email)              | The mailer accepted the email. This does not prove it reached the inbox                              |
+| Processed (staff Telegram message) | The delivery ran. Whether the chat changed is on the "Staff Telegram message" line above the list    |
+| Failed, will retry                 | A temporary failure; the next attempt is scheduled                                                   |
+| Failed                             | No attempts are left, or the failure is permanent. Fix the cause, then use `outbox:requeue`          |
+| Not sent: (reason)                 | Deliberately skipped, and final                                                                      |
+
+When a customer email was skipped because the booking has no email address,
+the page asks staff to tell the guest by phone or WhatsApp.
+
+## Deploying a release that changes notifications
+
+1. Run `php artisan migrate --force` before restarting any worker.
+2. Refresh the cached configuration (`php artisan config:cache`), then restart
+   the web processes and the workers (`php artisan queue:restart`) together.
+   The previous release's scheduler can keep running until the end of its
+   minute.
+
+A worker that still runs the previous code or the previous configuration fails
+the deliveries it does not know: `permanent: event type is not configured` for
+a new kind of event, or `permanent: handler is not configured` for a new
+handler of a known event. Requeue those with `outbox:requeue` once every
+worker runs the new release.
 
 ## Room scheduling
 

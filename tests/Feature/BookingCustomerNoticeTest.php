@@ -7,7 +7,9 @@ use App\Actions\CancelBooking;
 use App\Actions\RecordNoShow;
 use App\Enums\BookingStatus;
 use App\Exceptions\Outbox\OutboxPermanentException;
+use App\Exceptions\Outbox\OutboxRetryableException;
 use App\Exceptions\Outbox\OutboxSkippedException;
+use App\Jobs\ExpirePendingBookings;
 use App\Models\Booking;
 use App\Models\OutboxMessage;
 use App\Models\User;
@@ -19,8 +21,15 @@ use Carbon\CarbonImmutable;
 use Database\Seeders\ServiceCatalogSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+use RuntimeException;
+use Symfony\Component\Mailer\Exception\UnexpectedResponseException;
+use Symfony\Component\Mailer\SentMessage;
+use Symfony\Component\Mailer\Transport\AbstractTransport;
 use Symfony\Component\Mime\Email;
 use Tests\TestCase;
+use Throwable;
 
 class BookingCustomerNoticeTest extends TestCase
 {
@@ -241,9 +250,8 @@ class BookingCustomerNoticeTest extends TestCase
     }
 
     /** TestCase forces its environment into putenv, $_ENV and $_SERVER, which Env's immutable repository won't change. */
-    private function setSwitch(?string $value): void
+    private function setSwitch(?string $value, string $key = 'BOOKING_CUSTOMER_NOTICES_ENABLED'): void
     {
-        $key = 'BOOKING_CUSTOMER_NOTICES_ENABLED';
         if ($value === null) {
             putenv($key);
             unset($_ENV[$key], $_SERVER[$key]);
@@ -350,6 +358,140 @@ class BookingCustomerNoticeTest extends TestCase
             ->assertRedirect();
 
         $this->assertSame('id', Booking::query()->latest('id')->firstOrFail()->locale);
+    }
+
+    public function test_an_expired_request_gets_its_own_wording_in_both_languages(): void
+    {
+        // Both requests start now and nobody answered them, so the expiry job cancels them.
+        $due = ['appointment_date' => '2026-11-09', 'appointment_time' => '10:00', 'starts_at' => '2026-11-09 03:00:00'];
+        $english = $this->booking($due);
+        $indonesian = $this->booking([...$due, 'locale' => 'id']);
+        (new ExpirePendingBookings)->handle();
+
+        $this->handle($this->event('booking.cancelled', $english));
+        $this->handle($this->event('booking.cancelled', $indonesian));
+
+        [$en, $id] = $this->mails();
+        $this->assertSame('Your Shin Joy Spa booking request has expired', $en->getSubject());
+        $text = (string) $en->getTextBody();
+        $this->assertStringContainsString(
+            'Your booking request '.$english->reference.' for Nezuko Massage on 9 November 2026 at 10:00 WIB was not confirmed in time, so it has expired. We are sorry for the inconvenience.',
+            $text,
+        );
+        $this->assertStringContainsString('make a new booking', $text);
+        foreach (['cancelled', 'refund', 'paid', 'payment'] as $word) {
+            $this->assertStringNotContainsStringIgnoringCase($word, $text);
+        }
+
+        $this->assertSame('Permintaan reservasi Shin Joy Spa Anda telah kedaluwarsa', $id->getSubject());
+        $text = (string) $id->getTextBody();
+        $this->assertStringContainsString(
+            'Permintaan reservasi '.$indonesian->reference.' untuk Pijat Nezuko pada 9 November 2026 pukul 10:00 WIB tidak sempat kami konfirmasi, sehingga permintaan tersebut kedaluwarsa. Mohon maaf atas ketidaknyamanan ini.',
+            $text,
+        );
+        $this->assertStringContainsString('silakan buat reservasi baru', $text);
+        foreach (['dibatalkan', 'dana', 'bayar'] as $word) {
+            $this->assertStringNotContainsStringIgnoringCase($word, $text);
+        }
+
+        // An older cancellation with no recorded reason was not an expiry, so it keeps the "cancelled" wording.
+        $legacy = $this->booking();
+        (new CancelBooking)($this->staff(), $legacy->id, BookingStatus::Pending, null, new ActionContext('dashboard'));
+        DB::table('bookings')->where('id', $legacy->id)->update(['refund_reason' => null]);
+
+        $this->handle($this->event('booking.cancelled', $legacy));
+
+        $this->assertSame('Your Shin Joy Spa booking was cancelled', $this->mails()[2]->getSubject());
+    }
+
+    public function test_a_mail_transport_failure_is_logged_without_customer_data_and_retried(): void
+    {
+        // A real SMTP refusal: a subclass of the transport exception, with the server's reply as its message.
+        $this->failMailWith(new UnexpectedResponseException('550 <ayu@example.com> rejected by smtp.example.com', 550));
+        Log::spy();
+
+        $booking = $this->booking();
+        $this->approve($booking, $this->staff());
+
+        try {
+            $this->handle($this->event('booking.approved', $booking));
+            $this->fail('Expected a retryable outbox failure.');
+        } catch (OutboxRetryableException $exception) {
+            $this->assertSame('mail', $exception->reason());
+        }
+
+        // The whole context is pinned: the exception message, with the address and the host, is not in it.
+        Log::shouldHaveReceived('warning')->once()->with('Customer booking notice delivery failed.', [
+            'category' => 'mail',
+            'booking_reference' => $booking->reference,
+            'event' => 'booking.approved',
+            'exception' => UnexpectedResponseException::class,
+            'code' => 550,
+        ]);
+    }
+
+    public function test_a_failure_that_is_not_the_mail_transport_is_left_to_the_outbox(): void
+    {
+        $this->failMailWith(new RuntimeException('not a transport failure'));
+        Log::spy();
+
+        $booking = $this->booking();
+        $this->approve($booking, $this->staff());
+
+        try {
+            $this->handle($this->event('booking.approved', $booking));
+            $this->fail('Expected the failure to escape.');
+        } catch (RuntimeException $exception) {
+            // The outbox records it as "unexpected: <class>", so it must arrive as itself.
+            $this->assertSame(RuntimeException::class, $exception::class);
+        }
+
+        Log::shouldNotHaveReceived('warning');
+    }
+
+    public function test_smtp_sends_give_up_after_a_short_timeout(): void
+    {
+        $original = getenv('MAIL_TIMEOUT');
+
+        try {
+            // Without a timeout, an unreachable mail server holds a worker for 60 seconds per email. An empty,
+            // zero or invalid value must not become a 0-second timeout, which fails every send at once.
+            foreach (['30' => 30, '15' => 15, '' => 15, '0' => 15, '-5' => 15, 'none' => 15] as $value => $expected) {
+                $this->setSwitch((string) $value, 'MAIL_TIMEOUT');
+                $this->assertSame($expected, (require config_path('mail.php'))['mailers']['smtp']['timeout'], "value '{$value}'");
+            }
+
+            $this->setSwitch(null, 'MAIL_TIMEOUT');
+            $this->assertSame(15, (require config_path('mail.php'))['mailers']['smtp']['timeout']);
+        } finally {
+            $this->setSwitch($original === false ? null : $original, 'MAIL_TIMEOUT');
+        }
+
+        // The mailer hands the configured value to the SMTP connection. Building the mailer connects to nothing.
+        config(['mail.mailers.smtp' => ['transport' => 'smtp', 'host' => '127.0.0.1', 'port' => 2525, 'timeout' => 7]]);
+        $this->assertSame(7.0, Mail::mailer('smtp')->getSymfonyTransport()->getStream()->getTimeout());
+    }
+
+    private function failMailWith(Throwable $failure): void
+    {
+        Mail::extend('failing', fn () => new class($failure) extends AbstractTransport
+        {
+            public function __construct(private readonly Throwable $failure)
+            {
+                parent::__construct();
+            }
+
+            protected function doSend(SentMessage $message): void
+            {
+                throw $this->failure;
+            }
+
+            public function __toString(): string
+            {
+                return 'failing://';
+            }
+        });
+        config(['mail.default' => 'failing', 'mail.mailers.failing' => ['transport' => 'failing']]);
     }
 
     private function booking(array $overrides = []): Booking

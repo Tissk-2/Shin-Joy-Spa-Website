@@ -5,11 +5,14 @@ namespace App\Support\Bookings;
 use App\Contracts\OutboxHandler;
 use App\Enums\BookingStatus;
 use App\Exceptions\Outbox\OutboxPermanentException;
+use App\Exceptions\Outbox\OutboxRetryableException;
 use App\Exceptions\Outbox\OutboxSkippedException;
 use App\Models\Booking;
 use App\Models\OutboxMessage;
 use App\Notifications\BookingStatusNotification;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
+use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
 
 final class SendCustomerBookingNotice implements OutboxHandler
 {
@@ -54,7 +57,25 @@ final class SendCustomerBookingNotice implements OutboxHandler
 
         $locale = in_array($booking->locale, ['id', 'en'], true) ? $booking->locale : 'id';   // mutation Lc
 
-        // Sent at once: the outbox already retries, and a mail transport failure retries as "unexpected".
-        Notification::route('mail', $email)->notify((new BookingStatusNotification($booking, $kind))->locale($locale));
+        // The expiry job cancelled a request that staff never answered, which reads differently from a decline.
+        if ($kind === 'cancelled' && $booking->refund_reason === 'expired') {   // mutation X
+            $kind = 'expired';
+        }
+
+        // Sent at once: the outbox already retries.
+        try {
+            Notification::route('mail', $email)->notify((new BookingStatusNotification($booking, $kind))->locale($locale));
+        } catch (TransportExceptionInterface $exception) {
+            // The exception's message can hold the customer's address and the mail host, so it is never logged.
+            Log::warning('Customer booking notice delivery failed.', [
+                'category' => 'mail',
+                'booking_reference' => $booking->reference,
+                'event' => $message->type,
+                'exception' => $exception::class,
+                'code' => $exception->getCode(),
+            ]);
+
+            throw new OutboxRetryableException('mail');   // mutation M
+        }
     }
 }

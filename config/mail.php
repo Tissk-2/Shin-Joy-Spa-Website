@@ -45,7 +45,8 @@ return [
             'port' => env('MAIL_PORT', 2525),
             'username' => env('MAIL_USERNAME'),
             'password' => env('MAIL_PASSWORD'),
-            'timeout' => null,
+            // Seconds. An empty, zero or invalid value falls back to 15: a 0-second timeout fails every send at once.
+            'timeout' => max(0, (int) env('MAIL_TIMEOUT', 15)) ?: 15,
             'local_domain' => env('MAIL_EHLO_DOMAIN', parse_url(env('APP_URL', 'http://localhost'), PHP_URL_HOST)),
         ],
 

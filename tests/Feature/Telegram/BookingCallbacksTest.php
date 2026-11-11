@@ -540,6 +540,51 @@ class BookingCallbacksTest extends TestCase
         }
     }
 
+    public function test_unknown_send_outcome_cannot_duplicate_booking_action(): void
+    {
+        // Stage Review Focus 5. Telegram posts the message but its reply is lost, so the outbox sends it again and
+        // the staff chat holds two copies of one booking. Delivery is at least once; the buttons keep that safe.
+        config(['booking.scheduling_enabled' => true]);
+        [$booking] = (new RoomAllocationTest('fixture'))->fixture();
+        $booking->forceFill(['starts_at' => '2026-11-20 03:30:00'])->save();
+        $this->staff();
+
+        // The first copy reached the chat, but nothing recorded it. The row stays "sending", which the admin
+        // booking page shows as "Not confirmed as delivered". The fake numbers every send 123, so the lost copy
+        // is called 122 here.
+        [$lostApprove, $lostDecline] = $this->render($booking);
+        DB::table('telegram_booking_messages')->update(['message_id' => null, 'state' => 'sending', 'sent_at' => null]);
+        $lost = ['message_id' => 122];
+
+        // The retry posts a second copy with new buttons, and records it.
+        [$approve, $decline] = $this->render($booking);
+        Http::assertSentCount(2);
+        $this->assertNotSame($lostApprove, $approve);
+        $row = TelegramBookingMessage::query()->sole();
+        $this->assertSame([123, 'sent'], [$row->message_id, $row->state]);
+
+        // The lost copy's buttons are dead.
+        $this->assertSame(['ignored', 'expired'], $this->outcome($this->press($lostApprove, 1, [], $lost)));
+        $this->assertSame(['ignored', 'expired'], $this->outcome($this->press($lostDecline, 2, [], $lost)));
+        $this->assertSame(BookingStatus::Pending, $booking->fresh()->status);
+        $this->assertSame(0, BookingStatusChange::query()->where('booking_id', $booking->id)->count());
+
+        // The recorded copy confirms the booking, once.
+        $this->assertSame(['approved', null], $this->outcome($this->press($approve, 3)));
+
+        // After that, no button on either copy changes anything.
+        $this->assertSame(['ignored', 'expired'], $this->outcome($this->press($lostApprove, 4, [], $lost)));
+        $this->assertSame(['ignored', 'used'], $this->outcome($this->press($approve, 5)));
+        $this->assertSame(['stale', 'changed'], $this->outcome($this->press($decline, 6)));
+
+        $fresh = $booking->fresh();
+        $this->assertSame(BookingStatus::Confirmed, $fresh->status);
+        $this->assertSame(2, $fresh->booking_version);
+        $this->assertSame(1, BookingStatusChange::query()->where('booking_id', $booking->id)->count());
+        $this->assertSame(1, RoomReservation::query()->where('booking_id', $booking->id)->count());
+        $this->assertSame(1, OutboxMessage::query()->where('type', 'booking.approved')->count());
+    }
+
     private function endpoint(string $method = 'sendMessage'): string
     {
         return 'https://api.telegram.org/bot123456789:'.str_repeat('A', 35).'/'.$method;

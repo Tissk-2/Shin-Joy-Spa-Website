@@ -310,6 +310,17 @@ Independently reviewed ("With fixes"). The important finding, an untested lease 
 
 Independently reviewed ("With fixes"). The important finding was a flaw in Claude's plan: the notices reused the history item's CSS class and broke `tests/e2e/admin-bookings.spec.ts`, which was proven in a browser and fixed in the spec. The review also closed two important test gaps and fixed two wording gaps, and every new guard is proven by a mutation. Regular suite: 1132 passed; Vitest: 299 in 30 files; Playwright `admin-bookings.spec.ts`: 2 passed. Evidence: `.superpowers/sdd/2026-10-22-booking-scheduling-pricing/task-C4d-review.md`.
 
+**C4e complete (11 November 2026, uncommitted). It is the last part of stage C.**
+- **A failed customer email** is caught in `SendCustomerBookingNotice`, logged with the booking reference, the event, the exception class and the transport's error code (never the message, which can hold the address), and retried as `retryable: mail`. Other exceptions still surface as `unexpected: <class>`.
+- **`MAIL_TIMEOUT`** bounds an SMTP send: 15 seconds by default, and an empty, zero or invalid value also means 15.
+- **An expired request has its own email** (user decision). A cancellation whose `refund_reason` is `expired` uses the `expired` wording; a staff decline, and an older cancellation with no reason, keep "cancelled". It is still a `booking.cancelled` event.
+- **`telegram:prune-data`** also clears `telegram.decline.prompt` payloads after 7 days.
+- **`TELEGRAM_ACTIONS_ENABLED`** is parsed with `FILTER_VALIDATE_BOOL`, so `1`, `on` and `yes` work like `true`.
+- **Stage Review Focus 5** has its test, `test_unknown_send_outcome_cannot_duplicate_booking_action`.
+- **The README** gains "Booking actions in Telegram", "Customer status emails" (with "Reading the Notifications section") and "Deploying a release that changes notifications".
+
+Independently reviewed ("With fixes"). The important findings were two configuration traps and four README statements that were wrong or incomplete; all are fixed, and every new guard is proven by a mutation. Regular suite: 1139 passed; concurrency suite: 16 tests, 1 skipped. Evidence: `.superpowers/sdd/2026-10-22-booking-scheduling-pricing/task-C4e-review.md`.
+
 Independently reviewed; full PHP suite 1027 passed. Next: **C1b**. Evidence: `.superpowers/sdd/2026-10-22-booking-scheduling-pricing/task-C1a-review.md`.
 
 ## Task C1: Owner-controlled Telegram identity enrollment
@@ -407,8 +418,72 @@ Independently reviewed; full PHP suite 1027 passed. Next: **C1b**. Evidence: `.s
 - [ ] Run the same tests, `npm run types:check`, and the master-plan regression checks; expect PASS with external services faked. Readiness requires configured real mail transport and a separately authorized delivery rehearsal; log mailer is not proof of delivery. Document webhook setup/recovery without registering anything live.
 - [ ] Review every customer claim against the projection, event registrations against duplicate delivery, and provider-error logging against secrets; conditionally commit `feat: deliver recoverable booking messages and customer updates`.
 
+## Stage C close-out (11 November 2026)
+
+Stage C is complete as code. It is **not production-ready**: nothing has run against MySQL, a real Telegram chat or a real mail server. Every feature flag is off by default.
+
+**The 12 parts and their commits:**
+
+| Part | Commit |
+|---|---|
+| C1a, C1b, C2a | `de9719e` |
+| C2b | `3452062` |
+| C2c | `d880186` |
+| C3a | `11c5bcd` |
+| C3b | `71a5830` |
+| C3c | `bd226f2` |
+| C4a | dropped (user decision) |
+| C4b | `bf79a7b` |
+| C4c | `4e8e4b3` |
+| C4d | `d186022` |
+| C4e | the commit that adds this close-out |
+
+**The five Review Focus conditions and their tests:**
+
+| # | Condition | Test |
+|---|---|---|
+| 1 | Permission revoked after a button is rendered | `BookingCallbacksTest::test_revoked_staff_cannot_use_rendered_button` |
+| 2 | Two staff use the same Decline prompt | `BookingCallbacksTest::test_decline_confirmation_is_bound_to_initiating_actor` |
+| 3 | A repeated update after a dispatch outage | `UpdateRecoveryTest::test_duplicate_update_recovers_after_dispatch_outage` |
+| 4 | An old approval notice runs after a cancellation | `BookingCustomerNoticeTest::test_delayed_approval_notice_cannot_announce_cancelled_booking` |
+| 5 | Telegram accepts a message but its reply is lost | `BookingCallbacksTest::test_unknown_send_outcome_cannot_duplicate_booking_action` |
+
+**Evidence at close-out:**
+- regular PHP suite: 1139 passed;
+- concurrency suite on SQLite: 16 tests, 1 skipped;
+- Vitest: 299 passed in 30 files, and the type check passes (last run at C4d; C4e has no frontend change);
+- Playwright `admin-bookings.spec.ts`: 2 passed (at C4d). The other specs were not rerun in stage C.
+
+**Where the build differs from this plan's original text:**
+- **No `BookingCommunicationFanout`** (C4a). Each channel subscribes to the booking events under its own key, and the outbox already gives each key its own delivery and retries.
+- **`BookingPaymentSummary` is a concrete class** with no interface or binding. Stage D adds the interface only with a second implementation.
+- **No custom mail view.** The emails use Laravel's default `MailMessage` layout.
+- **Decline is a separate prompt message** that only the initiating staff member can confirm (user decision).
+- **Customer emails have their own switch,** `BOOKING_CUSTOMER_NOTICES_ENABLED`, off by default, and use the language the booking was made in (user decisions).
+- **The admin labels live in `resources/js/data/translations.ts`,** not `lang/{en,id}/admin.php`.
+
+**Not verified, and required before production:**
+- **MySQL.** Set `CONCURRENCY_DB_*` to a disposable `…concurrency_test` database and run `phpunit -c phpunit.concurrency.xml`, then the mutations listed under "What only a MySQL run can prove" in `task-C3c-review.md` and the lock checks named in the C4b notes above. On SQLite those mutations cannot fail.
+- **Live Telegram.** The README's "Before switching actions on" checklist is the rehearsal: the Confirm label on a phone, the answer time, the edit after a decision, the two-step Decline.
+- **Live mail.** The README's "Before switching emails on" checklist: a real transport, one controlled booking.
+
+**Known limits:**
+- Telegram messages and customer emails are delivered at least once. A duplicate staff message has dead buttons and is never edited; a duplicate email is possible after a mail timeout.
+- A mail failure is always retried, even when the server's refusal is final.
+- A finished Telegram delivery reads "Processed" and a sent email reads "Sent" as soon as the mailer accepts it; neither proves arrival.
+- A decision made while Telegram notifications are off never reaches the staff message.
+- The admin Notifications section is read-only; a retry needs `outbox:requeue` on the server.
+- Old `telegram.callback.answer` payloads and used `telegram_action_tokens` rows are never cleared. They hold Telegram's callback ID and token hashes, not names or message text.
+- `TELEGRAM_BOOKING_NOTIFICATIONS_ENABLED` is not parsed like the other two switches: `off` and `no` count as on.
+
+**Inputs for stage D:**
+- subscribe `customer` to `booking.confirmed` with the online-payment email, and add the deadline and checkout copy;
+- extend the concrete `BookingPaymentSummary` from payment and refund records;
+- the customer's booking page shows an expired request as "Cancelled", while its email now says "expired"; align them when that page is next changed;
+- consider a faster dispatch for `telegram.callback.answer` if the live answer time is too slow.
+
 ## Self-review and handoff
 
 Coverage: owner identity/revocation C1/C3; authenticated durable receipt C2; Confirm/Decline/View and shared allocation C3; delivery/customer status C4. All five Review Focus conditions have assigned tests. Stage C has no undefined payment dependency; stage D extends the declared projection and emits the declared events. Automated tests cannot certify live webhook/mail delivery or the production database race behavior.
 
-This plan defines future work; none of its test or implementation checkboxes has been executed. Review alongside the master and dependent plans. Keep online payments disabled until their full implementation and release checks are complete.
+This plan was written before the work. The stage was then built in 12 parts instead of the four tasks above, so the task checkboxes were never ticked; "Stage C close-out" above records what was built and verified. Review alongside the master and dependent plans. Keep online payments disabled until their full implementation and release checks are complete.

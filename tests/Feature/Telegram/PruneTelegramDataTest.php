@@ -6,6 +6,7 @@ use App\Exceptions\Outbox\OutboxPermanentException;
 use App\Jobs\PruneTelegramData;
 use App\Models\OutboxMessage;
 use App\Support\Outbox\OutboxWriter;
+use App\Support\Telegram\TelegramDeclinePromptHandler;
 use App\Support\Telegram\TelegramReplyHandler;
 use Carbon\CarbonImmutable;
 use Illuminate\Console\Scheduling\Schedule;
@@ -121,6 +122,40 @@ class PruneTelegramDataTest extends TestCase
         try {
             app(TelegramReplyHandler::class)->handle($message);
             $this->fail('Expected the cleared reply to fail permanently.');
+        } catch (OutboxPermanentException $exception) {
+            $this->assertSame('payload', $exception->reason());
+        }
+
+        Http::assertNothingSent();
+    }
+
+    public function test_week_old_decline_prompt_payloads_are_cleared(): void
+    {
+        DB::transaction(function (): void {
+            $writer = app(OutboxWriter::class);
+            $prompt = ['chat_id' => '-1001234567890', 'message_thread_id' => null, 'text' => 'Rani Kusuma: decline SJ-1?', 'nonce' => 'sealed'];
+            $writer->record('telegram.decline.prompt', 'telegram.decline.prompt:1', $prompt);
+            $writer->record('telegram.decline.prompt', 'telegram.decline.prompt:2', $prompt);
+            $writer->record('telegram.callback.answer', 'telegram.callback.answer:1', ['callback_query_id' => 'cbq-1', 'text' => 'Old', 'show_alert' => false]);
+        });
+        DB::table('outbox_messages')->whereIn('deduplication_key', ['telegram.decline.prompt:1', 'telegram.callback.answer:1'])
+            ->update(['created_at' => '2026-11-08 00:00:00']);
+
+        app(PruneTelegramData::class)->handle();
+
+        // The prompt names the staff member, the booking and the staff chat.
+        $this->assertSame('{}', $this->messagePayload('telegram.decline.prompt:1'));
+        $this->assertStringContainsString('Rani Kusuma', $this->messagePayload('telegram.decline.prompt:2'));
+        // An answer holds none of those, so it is kept.
+        $this->assertStringContainsString('cbq-1', $this->messagePayload('telegram.callback.answer:1'));
+
+        // A requeued cleared prompt fails permanently instead of posting an empty message.
+        Http::fake();
+        $message = OutboxMessage::query()->where('deduplication_key', 'telegram.decline.prompt:1')->sole();
+
+        try {
+            app(TelegramDeclinePromptHandler::class)->handle($message);
+            $this->fail('Expected the cleared prompt to fail permanently.');
         } catch (OutboxPermanentException $exception) {
             $this->assertSame('payload', $exception->reason());
         }

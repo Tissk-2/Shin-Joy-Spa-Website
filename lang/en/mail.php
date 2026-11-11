@@ -25,6 +25,10 @@ return [
             'intro' => 'Your booking :reference for :service on :date at :time has been cancelled.',
             'again' => 'If you would like another time, you are welcome to make a new booking.',
         ],
+        'expired' => [
+            'subject' => 'Your Shin Joy Spa booking request has expired',
+            'intro' => 'Your booking request :reference for :service on :date at :time was not confirmed in time, so it has expired. We are sorry for the inconvenience.',
+        ],
         'no_show' => [
             'subject' => 'Your Shin Joy Spa appointment was missed',
             'intro' => 'Your appointment :reference for :service on :date at :time was recorded as missed.',

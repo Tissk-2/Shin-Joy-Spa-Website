@@ -82,6 +82,24 @@ class TelegramConfigurationTest extends TestCase
         }
     }
 
+    public function test_the_actions_switch_reads_the_usual_true_and_false_spellings(): void
+    {
+        $environment = Env::getRepository();
+        $originalValues = $this->snapshotTelegramEnvironment();
+
+        try {
+            // The keyboard checks for a strict true, so TELEGRAM_ACTIONS_ENABLED=1 must not leave the buttons off.
+            foreach (['true' => true, '1' => true, 'yes' => true, 'on' => true, 'false' => false, '0' => false, '' => false] as $value => $expected) {
+                $environment->clear('TELEGRAM_ACTIONS_ENABLED');
+                $environment->set('TELEGRAM_ACTIONS_ENABLED', (string) $value);
+
+                $this->assertSame($expected, (require config_path('services.php'))['telegram']['actions_enabled'], "value '{$value}'");
+            }
+        } finally {
+            $this->restoreTelegramEnvironment($originalValues);
+        }
+    }
+
     public function test_telegram_environment_example_contains_exactly_one_safe_placeholder_for_each_setting(): void
     {
         $lines = file(base_path('.env.example'), FILE_IGNORE_NEW_LINES);
