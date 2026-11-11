@@ -163,6 +163,8 @@ class AdminBookingDetailTest extends TestCase
                     'operationalConfirmedAt' => null,
                 ],
             ],
+            'telegramMessage' => null,
+            'notifications' => [],
         ], $props['booking']);
 
         $serialized = json_encode($props['booking'], JSON_THROW_ON_ERROR);

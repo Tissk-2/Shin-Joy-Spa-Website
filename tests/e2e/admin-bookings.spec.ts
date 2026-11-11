@@ -315,10 +315,14 @@ test("administrator finds and confirms a real customer booking", async ({
   await stalePage.close();
 
   await page.reload();
-  await expect(page.locator(".admin-history-item")).toHaveCount(1);
-  await expect(page.locator(".admin-history-item")).toContainText(
+  // Notices share the history item's class, so they are counted apart.
+  const historyItems = page.locator(".admin-history-item:not([data-notice])");
+  await expect(historyItems).toHaveCount(1);
+  await expect(historyItems).toContainText(
     /menunggu.*terkonfirmasi|pending.*confirmed/i,
   );
+  // The approval's two notices: the staff Telegram message and the customer email.
+  await expect(page.locator("[data-notice]")).toHaveCount(2);
 
   // Chromium does not expose a stable browser-chrome Ctrl+ zoom API. A 640 CSS
   // pixel viewport is the reflow equivalent of a 1280 px viewport at 200% zoom.

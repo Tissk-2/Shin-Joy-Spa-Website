@@ -5,7 +5,10 @@ namespace App\Support;
 use App\Enums\BookingStatus;
 use App\Models\Booking;
 use App\Models\BookingStatusChange;
+use App\Models\OutboxDelivery;
+use App\Models\OutboxMessage;
 use App\Models\RoomReservation;
+use App\Models\TelegramBookingMessage;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Schema;
@@ -88,7 +91,58 @@ final class AdminBookingPresenter
                 ])
                 ->values()
                 ->all(),
+            'telegramMessage' => $this->telegramMessage($booking),
+            'notifications' => $this->notifications($booking),
         ];
+    }
+
+    /**
+     * The staff Telegram message, so staff can tell whether the chat shows this booking's current status.
+     *
+     * @return array{state: string, current: bool}|null
+     */
+    private function telegramMessage(Booking $booking): ?array
+    {
+        $row = TelegramBookingMessage::query()->where('booking_id', $booking->getKey())->orderByDesc('id')->first();   // mutation Q5
+
+        return $row === null ? null : [
+            'state' => $row->state,   // sending | sent | deleted
+            'current' => $row->booking_version === $booking->booking_version,   // mutation Q4
+        ];
+    }
+
+    /**
+     * Every notice this booking's events produced, oldest first: the staff Telegram message and the customer email.
+     * `detail` is the delivery's sanitized last_error, such as "skipped: no_email" or "permanent: telegram_http".
+     *
+     * @return list<array{event: string, channel: string, state: string, detail: ?string, attempts: int, updatedAt: string}>
+     */
+    private function notifications(Booking $booking): array
+    {
+        // Outbox keys are booking.created:<id> and <event>:<id>:<version>. Their hashes are unique and indexed, so
+        // this never scans the outbox.
+        $keys = ['booking.created:'.$booking->getKey()];   // mutation Q1
+        foreach (['booking.approved', 'booking.confirmed', 'booking.cancelled', 'booking.completed', 'booking.no_show'] as $event) {
+            for ($version = 2; $version <= $booking->booking_version; $version++) {   // mutation Q2
+                $keys[] = "{$event}:{$booking->getKey()}:{$version}";
+            }
+        }
+
+        return OutboxMessage::query()
+            ->whereIn('deduplication_hash', array_map(fn (string $key): string => hash('sha256', $key), $keys))
+            ->with(['deliveries' => fn ($query) => $query->whereIn('handler_key', ['telegram', 'customer'])->orderBy('id')])   // mutation Q3
+            ->orderBy('id')
+            ->get()
+            ->flatMap(fn (OutboxMessage $message) => $message->deliveries->map(fn (OutboxDelivery $delivery): array => [
+                'event' => $message->type,
+                'channel' => $delivery->handler_key,
+                'state' => $delivery->state->value,
+                'detail' => $delivery->last_error,
+                'attempts' => $delivery->attempts,
+                'updatedAt' => $delivery->updated_at->toISOString(),
+            ]))
+            ->values()
+            ->all();
     }
 
     /**

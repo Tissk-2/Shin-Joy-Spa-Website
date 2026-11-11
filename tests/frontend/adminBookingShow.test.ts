@@ -2,8 +2,13 @@ import { DOMWrapper, flushPromises, mount } from "@vue/test-utils";
 import { nextTick } from "vue";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import translations from "@/data/translations";
 import Show from "@/pages/admin/bookings/Show.vue";
-import type { AdminBookingDetailData, Locale } from "@/types";
+import type {
+  AdminBookingDetailData,
+  AdminBookingNotification,
+  Locale,
+} from "@/types";
 
 const inertia = vi.hoisted(() => ({
   page: {
@@ -578,5 +583,226 @@ describe("booking origin", () => {
     });
 
     expect(unattributed.find("[data-booking-origin]").exists()).toBe(false);
+  });
+});
+
+describe("notifications", () => {
+  function notice(
+    overrides: Partial<AdminBookingNotification> = {},
+  ): AdminBookingNotification {
+    return {
+      event: "booking.approved",
+      channel: "customer",
+      state: "completed",
+      detail: null,
+      attempts: 1,
+      updatedAt: "2026-11-09T03:00:00.000000Z",
+      ...overrides,
+    };
+  }
+
+  it("lists each notice with its event, channel and outcome", () => {
+    const wrapper = mountPage({
+      ...booking,
+      notifications: [
+        notice({ channel: "telegram" }),
+        notice(),
+        notice({
+          event: "booking.cancelled",
+          state: "retry",
+          attempts: 2,
+          detail: "retryable: network",
+        }),
+        notice({
+          event: "booking.no_show",
+          state: "failed",
+          attempts: 5,
+          detail: "permanent: telegram_http",
+          channel: "telegram",
+        }),
+      ],
+    });
+    const items = wrapper.findAll("[data-notice]");
+    expect(items).toHaveLength(4);
+    expect(items[0]!.text()).toContain("Approved · Staff Telegram message");
+    expect(items[0]!.text()).toContain("Processed");
+    expect(items[1]!.text()).toContain("Approved · Customer email");
+    expect(items[1]!.text()).toContain("Sent");
+    expect(items[2]!.text()).toContain("Cancelled · Customer email");
+    expect(items[2]!.text()).toContain("Failed, will retry (attempt 2)");
+    expect(items[2]!.text()).toContain("retryable: network");
+    expect(items[3]!.text()).toContain("No-show · Staff Telegram message");
+    expect(items[3]!.text()).toContain("Failed (attempts: 5)");
+    expect(items[3]!.text()).toContain("permanent: telegram_http");
+    expect(items[0]!.find(".admin-record-secondary").exists()).toBe(false);
+    expect(items[1]!.find(".admin-record-secondary").exists()).toBe(false);
+    expect(items[0]!.get("time").attributes("datetime")).toBe(
+      "2026-11-09T03:00:00.000000Z",
+    );
+  });
+
+  it("reads a requeued delivery as waiting, not as failed", () => {
+    // outbox:requeue leaves state "retry" with no attempts and no error.
+    const wrapper = mountPage({
+      ...booking,
+      notifications: [notice({ state: "retry", attempts: 0 })],
+    });
+    const text = wrapper.get("[data-notice]").text();
+    expect(text).toContain("Waiting to send");
+    expect(text).not.toContain("Failed");
+  });
+
+  it.each(["en", "id"] as const)(
+    "never shows a raw translation key (%s)",
+    async (locale) => {
+      // Everything the backend can send: 6 events × 6 states × 2 channels.
+      const events = [
+        "created",
+        "approved",
+        "confirmed",
+        "cancelled",
+        "completed",
+        "no_show",
+      ];
+      const states = [
+        "pending",
+        "leased",
+        "retry",
+        "failed",
+        "completed",
+        "skipped",
+      ] as const;
+      const wrapper = mountPage({
+        ...booking,
+        notifications: events.flatMap((event) =>
+          states.flatMap((state) =>
+            (["telegram", "customer"] as const).map((channel) =>
+              notice({
+                event: `booking.${event}`,
+                channel,
+                state,
+                detail: state === "skipped" ? "skipped: disabled" : null,
+              }),
+            ),
+          ),
+        ),
+      });
+      await wrapper.get(`[data-admin-locale='${locale}']`).trigger("click");
+      await settle();
+      expect(wrapper.findAll("[data-notice]")).toHaveLength(72);
+      expect(wrapper.get("[data-notifications]").text()).not.toContain(
+        "ad.notify",
+      );
+    },
+  );
+
+  it.each([
+    ["skipped: disabled", "Not sent: customer emails are switched off"],
+    ["skipped: superseded", "Not sent: a newer decision replaced it"],
+    ["skipped: awaiting_payment", "Not sent: waiting for online payment"],
+    ["skipped: no_email", "Not sent: this booking has no email address"],
+    ["skipped: something_new", "Not sent: something_new"],
+  ])("explains why a notice was not sent: %j", (detail, expected) => {
+    const wrapper = mountPage({
+      ...booking,
+      notifications: [notice({ state: "skipped", detail })],
+    });
+    const text = wrapper.get("[data-notice]").text();
+    expect(text).toContain(expected);
+    expect(text).not.toContain("ad.notify");
+    // The label explains the skip, so its code isn't repeated underneath.
+    expect(wrapper.find("[data-notice] .admin-record-secondary").exists()).toBe(
+      false,
+    );
+  });
+
+  it("shows the contact task only when a guest has no email", () => {
+    const noEmail = mountPage({
+      ...booking,
+      notifications: [
+        notice({ state: "skipped", detail: "skipped: no_email" }),
+      ],
+    });
+    expect(noEmail.get("[data-contact-task]").text()).toContain(
+      "Tell them by phone or WhatsApp.",
+    );
+
+    const disabled = mountPage({
+      ...booking,
+      notifications: [
+        notice({ state: "skipped", detail: "skipped: disabled" }),
+      ],
+    });
+    expect(disabled.find("[data-contact-task]").exists()).toBe(false);
+  });
+
+  it.each([
+    [
+      { state: "sending", current: true } as const,
+      "Not confirmed as delivered.",
+    ],
+    [
+      { state: "sent", current: true } as const,
+      "Posted, and it shows the current status.",
+    ],
+    [
+      { state: "sent", current: false } as const,
+      "Posted, but it may show an older status.",
+    ],
+    [
+      { state: "deleted", current: false } as const,
+      "Deleted from the staff chat.",
+    ],
+    // A finished Telegram notice reads "Processed" even when nothing was posted (Telegram off, or a staff-entered
+    // booking), so the line must say so.
+    [null, "No staff Telegram message is recorded for this booking."],
+  ])("says what the staff chat shows: %j", (telegramMessage, expected) => {
+    const wrapper = mountPage({ ...booking, telegramMessage });
+    const text = wrapper.get("[data-telegram-message]").text();
+    expect(text).toContain(expected);
+    expect(text).not.toContain("ad.notify");
+  });
+
+  it("shows an empty state without notices", () => {
+    const wrapper = mountPage();
+    expect(wrapper.get("[data-notifications]").text()).toContain(
+      "No notifications were recorded for this booking.",
+    );
+    expect(wrapper.find("[data-notice]").exists()).toBe(false);
+    expect(wrapper.find("[data-contact-task]").exists()).toBe(false);
+    expect(wrapper.get("[data-telegram-message]").text()).toContain(
+      "No staff Telegram message is recorded for this booking.",
+    );
+  });
+
+  it("translates the section into Indonesian", async () => {
+    const wrapper = mountPage({
+      ...booking,
+      notifications: [
+        notice({ state: "skipped", detail: "skipped: no_email" }),
+      ],
+      telegramMessage: { state: "sent", current: false },
+    });
+    await wrapper.get("[data-admin-locale='id']").trigger("click");
+    await settle();
+    for (const text of [
+      "Pemberitahuan",
+      "Disetujui · Email tamu",
+      "Tidak dikirim: reservasi ini tidak memiliki alamat email",
+      "Hubungi melalui telepon atau WhatsApp.",
+      "Sudah terkirim, tetapi mungkin menampilkan status lama.",
+    ])
+      expect(wrapper.text()).toContain(text);
+  });
+
+  it("keeps every notification label in both languages", () => {
+    const idKeys = Object.keys(translations.id)
+      .filter((key) => key.startsWith("ad.notify."))
+      .sort();
+    const enKeys = Object.keys(translations.en)
+      .filter((key) => key.startsWith("ad.notify."))
+      .sort();
+    expect(idKeys).toEqual(enKeys);
+    expect(idKeys).toHaveLength(27);
   });
 });

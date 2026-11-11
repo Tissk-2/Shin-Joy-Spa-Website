@@ -8,6 +8,7 @@ import { useLanguage } from "@/composables/useLanguage";
 import AdminLayout from "@/layouts/admin/AdminLayout.vue";
 import type {
   AdminBookingDetailData,
+  AdminBookingNotification,
   AppPageProps,
   BookingStatus,
 } from "@/types";
@@ -51,6 +52,50 @@ const reason = computed({
     form.reason = value.slice(0, 500);
   },
 });
+
+const notifications = computed(() => props.booking.notifications ?? []);
+// A guest without an email can't get status emails, so staff must tell them another way.
+const needsContact = computed(() =>
+  notifications.value.some(
+    (notice) =>
+      notice.channel === "customer" && notice.detail === "skipped: no_email",
+  ),
+);
+const telegramMessageKey = computed(() => {
+  const message = props.booking.telegramMessage;
+  // A Telegram notice finishes as "Processed" even when nothing was posted, so say when no message is recorded.
+  if (!message) return "ad.notify.telegram.none";
+  return message.state === "sent"
+    ? `ad.notify.telegram.sent.${message.current ? "current" : "stale"}`
+    : `ad.notify.telegram.${message.state}`;
+});
+
+function noticeStatus(notice: AdminBookingNotification): string {
+  if (notice.state === "skipped") {
+    const reason = (notice.detail ?? "").replace(/^skipped: /, "");
+    const key = `ad.notify.skip.${reason}`;
+    const label = tr(key);
+    // An unknown reason shows its code instead of an untranslated key.
+    return tr("ad.notify.state.skipped", {
+      reason: label === key ? reason : label,
+    });
+  }
+  if (notice.state === "completed")
+    return tr(`ad.notify.state.completed.${notice.channel}`);
+  // A requeued delivery is "retry" with no attempts: nothing has failed since, so it is waiting.
+  const state =
+    notice.state === "retry" && notice.attempts === 0
+      ? "pending"
+      : notice.state;
+  return tr(`ad.notify.state.${state}`, { attempts: notice.attempts });
+}
+
+// A failure's sanitized code, so an owner can quote it. A skip already explains itself.
+function noticeDetail(notice: AdminBookingNotification): string | null {
+  return notice.state === "failed" || notice.state === "retry"
+    ? notice.detail
+    : null;
+}
 
 function formatPrice(amount: number): string {
   return `Rp ${new Intl.NumberFormat("id-ID").format(amount)}`;
@@ -340,6 +385,46 @@ function confirmTransition(): void {
           >
             {{ tr("ad.room.retained") }}
           </p>
+        </section>
+        <section
+          class="admin-history"
+          aria-labelledby="admin-notify-title"
+          data-notifications
+        >
+          <h2 id="admin-notify-title">{{ tr("ad.notify.title") }}</h2>
+          <p data-telegram-message>
+            <strong>{{ tr("ad.notify.channel.telegram") }}:</strong>
+            {{ tr(telegramMessageKey) }}
+          </p>
+          <p v-if="needsContact" data-contact-task>
+            {{ tr("ad.notify.contact") }}
+          </p>
+          <p v-if="!notifications.length">{{ tr("ad.notify.empty") }}</p>
+          <ol v-else>
+            <li
+              v-for="(notice, index) in notifications"
+              :key="index"
+              class="admin-history-item"
+              data-notice
+              :data-notice-state="notice.state"
+            >
+              <time :datetime="notice.updatedAt">{{
+                formatDate(notice.updatedAt, true)
+              }}</time>
+              <div>
+                <p>
+                  <strong
+                    >{{ tr(`ad.notify.event.${notice.event}`) }} ·
+                    {{ tr(`ad.notify.channel.${notice.channel}`) }}</strong
+                  >
+                </p>
+                <p>{{ noticeStatus(notice) }}</p>
+                <p v-if="noticeDetail(notice)" class="admin-record-secondary">
+                  {{ noticeDetail(notice) }}
+                </p>
+              </div>
+            </li>
+          </ol>
         </section>
         <section class="admin-history" aria-labelledby="admin-history-title">
           <h2 id="admin-history-title">{{ tr("ad.history.title") }}</h2>

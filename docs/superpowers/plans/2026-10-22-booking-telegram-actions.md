@@ -289,6 +289,27 @@ Independently reviewed ("With fixes"). The important finding, a decision lost wh
 
 Independently reviewed ("With fixes"). The important finding, an untested lease check in the new skipped path, is fixed. The review also proved and closed five more gaps and fixed the `=1` switch spelling, and every new guard is proven by a mutation. Regular suite: 1126 passed; concurrency suite: 16 tests, 1 skipped. Evidence: `.superpowers/sdd/2026-10-22-booking-scheduling-pricing/task-C4c-review.md`.
 
+**C4d complete (11 November 2026, uncommitted).**
+- **A read-only "Notifications" section on the admin booking page,** between the assigned room and the status history. It adds no button, route or migration.
+- **`AdminBookingPresenter::detail()`** returns two more keys:
+  - `telegramMessage`: the booking's newest `telegram_booking_messages` row as `{state, current}`, or null;
+  - `notifications`: every `telegram` and `customer` delivery of the booking's outbox messages, oldest first, as `{event, channel, state, detail, attempts, updatedAt}`.
+- **The lookup** rebuilds the outbox keys (`booking.created:<id>`, and `<event>:<id>:<version>` for versions 2 up to the booking's) and finds the messages by their unique, indexed hash. A test fails if `config/outbox.php` gains a `booking.*` event the page doesn't list.
+- **What staff read:**
+  - one line about the staff Telegram message: posted and current, posted but possibly older, not confirmed as delivered, deleted, or none recorded;
+  - each notice's state. A finished Telegram notice reads "Processed", not "Sent"; a requeued delivery reads "Waiting to send"; a skip gives its reason;
+  - a contact task ("Tell them by phone or WhatsApp") when a customer email was skipped because the booking has no email address.
+- **27 `ad.notify.*` labels** in each language. The customer's own booking page gets none of this, and a test pins that.
+
+**Inputs for later parts:**
+- **C4e:**
+  - the README's enable checklist should say what "Sent" and "Processed" mean on this page, and that `MAIL_MAILER=log` sends nothing;
+  - if expired requests get their own event type, add it to the presenter's list and to `ad.notify.event.*`;
+  - retrying a failed notice still needs `outbox:requeue` on the server.
+- **Stage D:** when `booking.confirmed` gets a `customer` email, the page lists it with no change.
+
+Independently reviewed ("With fixes"). The important finding was a flaw in Claude's plan: the notices reused the history item's CSS class and broke `tests/e2e/admin-bookings.spec.ts`, which was proven in a browser and fixed in the spec. The review also closed two important test gaps and fixed two wording gaps, and every new guard is proven by a mutation. Regular suite: 1132 passed; Vitest: 299 in 30 files; Playwright `admin-bookings.spec.ts`: 2 passed. Evidence: `.superpowers/sdd/2026-10-22-booking-scheduling-pricing/task-C4d-review.md`.
+
 Independently reviewed; full PHP suite 1027 passed. Next: **C1b**. Evidence: `.superpowers/sdd/2026-10-22-booking-scheduling-pricing/task-C1a-review.md`.
 
 ## Task C1: Owner-controlled Telegram identity enrollment

@@ -251,6 +251,16 @@ export interface AdminBookingOrigin {
   readonly staffName: string | null;
 }
 
+export interface AdminBookingNotification {
+  readonly event: string;
+  readonly channel: "telegram" | "customer";
+  readonly state:
+    "pending" | "leased" | "retry" | "completed" | "skipped" | "failed";
+  readonly detail: string | null;
+  readonly attempts: number;
+  readonly updatedAt: string;
+}
+
 export interface AdminBookingDetailData extends AdminBookingSummaryData {
   readonly roomSchedulingEnabled: boolean;
   readonly assignedRoom: Readonly<{
@@ -267,6 +277,11 @@ export interface AdminBookingDetailData extends AdminBookingSummaryData {
   readonly notes: string | null;
   readonly origin?: AdminBookingOrigin;
   readonly history: readonly AdminBookingStatusHistoryData[];
+  readonly telegramMessage?: Readonly<{
+    state: "sending" | "sent" | "deleted";
+    current: boolean;
+  }> | null;
+  readonly notifications?: readonly AdminBookingNotification[];
 }
 
 export interface AdminBookingFilters {
