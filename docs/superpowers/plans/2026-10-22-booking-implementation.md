@@ -93,6 +93,19 @@ Subscription configuration is a stable type-to-handler-list registry. A message 
 
 No credentials should be pasted into the plan or Telegram. No paid account creation, live notification, payout, deployment, push, or third-party configuration change is performed by preparing these documents.
 
+## Stage D deferral and stage E split (11 November 2026)
+
+**Stage D (payments and refunds) is deferred** (user decision). Online payments stay off: `config/booking.php` fixes `online_payments_enabled` to `false`, and both booking creation paths store `payment_preference = 'at_spa'`. Stage E therefore covers the pay-at-spa release only. Its payment cases (Review Focus 1, the payment half of Review Focus 3, and the online, late-payment and refund browser journeys) wait for stage D.
+
+**Stage E is split into four parts** (user decision). Each is prepared against the code as it is when that part starts:
+
+| Part | Scope |
+|---|---|
+| E1a | `tests/Feature/BookingReleaseAcceptanceTest.php`, five tests through the real outbox: a cancellation while notices wait (Review Focus 3, pay-at-spa half); revocation and account deletion while a press waits, including the two-step Decline (Review Focus 4); deliveries recorded during a deploy reaching an older worker; the whole pay-at-spa chain through a Telegram outage and a dead worker; and an unanswered request expiring. Review Focus 2's other direction (older deliveries reaching new code) is covered by `BookingOutboxEndToEndTest`, `BookingMessageSyncTest` and `OutboxWriterTest`; Review Focus 5 by `BookingMigrationReadinessTest`, `RoomAssignmentAuditTest` and `RoomReconciliationApplyTest`. The test names differ from the ones listed under "Review Focus" above. |
+| E1b | Customer-facing text: the FAQ's rescheduling promise, and `PRODUCT.md`'s scope line. |
+| E1c | The staff operations guide (`docs/superpowers/plans/2026-10-22-booking-operations.md`), and one browser test for the whole pay-at-spa journey (`tests/e2e/booking-release.spec.ts`), which Qoder writes and Claude runs in the review. `bookings:readiness` only reports, so the guide must make "ready" an explicit step before room scheduling is switched on. |
+| E1d | The full regression run (every command below, with measured results) and the stage E close-out. |
+
 ## Task E1: Integrated acceptance, recovery and handover
 
 **Files:** Create `tests/Feature/BookingReleaseAcceptanceTest.php`, `tests/e2e/booking-release.spec.ts`, `docs/superpowers/plans/2026-10-22-booking-operations.md` during implementation. Extend the isolated fixture helpers in `tests/e2e/helpers/`, the scheduling `tests/Concurrency/` harness, `README.md`, `PRODUCT.md`, and `resources/js/data/faq.ts` as needed. The operations document is an execution deliverable, not a claimed existing runbook.
