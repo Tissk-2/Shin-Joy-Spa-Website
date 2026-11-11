@@ -15,4 +15,22 @@ return [
         'action' => 'Atur ulang kata sandi',
         'expiry' => 'Tautan pengaturan ulang ini kedaluwarsa dalam :minutes menit.',
     ],
+    'booking' => [
+        'approved' => [
+            'subject' => 'Reservasi Shin Joy Spa Anda telah dikonfirmasi',
+            'intro' => 'Reservasi :reference untuk :service pada :date pukul :time telah dikonfirmasi.',
+        ],
+        'cancelled' => [
+            'subject' => 'Reservasi Shin Joy Spa Anda dibatalkan',
+            'intro' => 'Reservasi :reference untuk :service pada :date pukul :time telah dibatalkan.',
+            'again' => 'Jika Anda ingin memilih waktu lain, silakan buat reservasi baru.',
+        ],
+        'no_show' => [
+            'subject' => 'Janji temu Shin Joy Spa Anda terlewat',
+            'intro' => 'Janji temu :reference untuk :service pada :date pukul :time tercatat tidak dihadiri.',
+            'contact' => 'Jika menurut Anda ini keliru, silakan hubungi spa.',
+        ],
+        'pay_at_spa' => 'Pembayaran dilakukan di spa pada hari janji temu Anda.',
+        'action' => 'Lihat reservasi Anda',
+    ],
 ];

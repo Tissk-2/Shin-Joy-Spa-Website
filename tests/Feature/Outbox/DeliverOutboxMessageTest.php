@@ -3,6 +3,7 @@
 namespace Tests\Feature\Outbox;
 
 use App\Enums\OutboxDeliveryState;
+use App\Exceptions\Outbox\OutboxSkippedException;
 use App\Jobs\DeliverOutboxMessage;
 use App\Models\OutboxDelivery;
 use App\Models\OutboxMessage;
@@ -134,6 +135,52 @@ class DeliverOutboxMessageTest extends TestCase
         $this->assertSame('permanent: invalid booking', $delivery->last_error);
         $this->assertNull($delivery->lease_token);
         $this->assertNull($delivery->lease_expires_at);
+    }
+
+    public function test_a_skipped_handler_records_a_final_skipped_delivery(): void
+    {
+        CallbackOutboxHandler::$callback = fn () => throw new OutboxSkippedException('superseded');
+        $delivery = $this->createDelivery('skipped', CallbackOutboxHandler::class);
+        $token = $this->token();
+        $this->lease($delivery, $token);
+
+        $this->deliver($delivery->id, $token);
+
+        $delivery->refresh();
+        $this->assertSame(OutboxDeliveryState::Skipped, $delivery->state);
+        $this->assertSame(1, $delivery->attempts);
+        $this->assertSame('2026-11-03 10:00:00', $delivery->skipped_at->format('Y-m-d H:i:s'));
+        $this->assertSame('skipped: superseded', $delivery->last_error);
+        $this->assertNull($delivery->completed_at);
+        $this->assertNull($delivery->failed_at);
+        $this->assertNull($delivery->lease_token);
+        $this->assertNull($delivery->lease_expires_at);
+    }
+
+    public function test_a_lease_lost_before_a_skip_is_not_overwritten(): void
+    {
+        $delivery = $this->createDelivery('lost-lease-skipped', CallbackOutboxHandler::class);
+        $token = $this->token();
+        $this->lease($delivery, $token);
+        $newToken = $this->token();
+
+        CallbackOutboxHandler::$callback = function () use ($delivery, $newToken): void {
+            // Another worker re-leased the delivery while this attempt was still running.
+            DB::table('outbox_deliveries')->where('id', $delivery->id)->update([
+                'lease_token' => $newToken,
+                'lease_expires_at' => now()->addMinutes(10),
+            ]);
+
+            throw new OutboxSkippedException('superseded');
+        };
+
+        $this->deliver($delivery->id, $token);
+
+        $delivery->refresh();
+        $this->assertSame(OutboxDeliveryState::Leased, $delivery->state);
+        $this->assertSame($newToken, $delivery->lease_token);
+        $this->assertNull($delivery->skipped_at);
+        $this->assertNull($delivery->last_error);
     }
 
     public function test_an_untyped_exception_retries_and_stores_only_its_class_name(): void

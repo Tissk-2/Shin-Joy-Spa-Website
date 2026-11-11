@@ -82,7 +82,7 @@ class BookingLifecycleTest extends TestCase
                 ->firstOrFail();
             $this->assertSame(['booking_id' => $booking->id, 'booking_version' => 2], $message->payload);
             $this->assertSame('{"booking_id":'.$booking->id.',"booking_version":2}', $message->getRawOriginal('payload'));
-            $this->assertSame(['telegram'], $message->deliveries()->pluck('handler_key')->all());
+            $this->assertSame(['telegram', 'customer'], $message->deliveries()->orderBy('id')->pluck('handler_key')->all());
         }
 
         $this->assertSame(2, OutboxMessage::query()->where('type', 'booking.approved')->count());

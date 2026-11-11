@@ -59,7 +59,7 @@ class ExpirePendingBookingsTest extends TestCase
             ->where('deduplication_key', "booking.cancelled:{$booking->id}:2")
             ->sole();
         $this->assertSame(['booking_id' => $booking->id, 'booking_version' => 2], $message->payload);
-        $this->assertSame(['telegram'], $message->deliveries()->pluck('handler_key')->all());
+        $this->assertSame(['telegram', 'customer'], $message->deliveries()->orderBy('id')->pluck('handler_key')->all());
     }
 
     public function test_bookings_that_are_not_due_or_not_pending_stay_unchanged(): void

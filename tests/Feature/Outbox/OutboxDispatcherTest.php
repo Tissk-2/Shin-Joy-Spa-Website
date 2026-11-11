@@ -102,6 +102,23 @@ class OutboxDispatcherTest extends TestCase
         $this->assertCount(3, Queue::pushed(DeliverOutboxMessage::class));
     }
 
+    public function test_a_skipped_delivery_is_never_claimed_again(): void
+    {
+        Queue::fake();
+        $skipped = $this->createDelivery('skipped', now()->toImmutable()->subMinute());
+        $this->updateDelivery($skipped, [
+            'state' => 'skipped',
+            'attempts' => 1,
+            'skipped_at' => now(),
+            'last_error' => 'skipped: disabled',
+        ]);
+
+        $this->assertSame(0, $this->dispatcher()->dispatchBatch(10));
+
+        $this->assertSame(OutboxDeliveryState::Skipped, $skipped->refresh()->state);
+        Queue::assertNothingPushed();
+    }
+
     public function test_claims_follow_available_at_then_id_and_respect_the_limit(): void
     {
         Queue::fake();

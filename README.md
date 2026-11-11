@@ -118,8 +118,11 @@ Do not disable certificate verification.
 ### Retries and failures
 
 Each delivery has its own state in the `outbox_deliveries` table: `pending`,
-`leased`, `retry`, `completed` or `failed` (`skipped` is reserved and not used
-yet). A retryable failure (network error, HTTP 408, 429, 5xx, any other
+`leased`, `retry`, `completed`, `failed` or `skipped`. `skipped` means the
+handler deliberately sent nothing, and `last_error` gives the reason: customer
+status emails use `skipped: disabled`, `skipped: superseded`,
+`skipped: awaiting_payment` or `skipped: no_email`. A skipped delivery is final:
+it is never retried and `outbox:requeue` refuses it. A retryable failure (network error, HTTP 408, 429, 5xx, any other
 unexpected response, or an unexpected exception) is retried after 60 s, 5 min,
 15 min and then 1 hour, up to 5 attempts. An attempt is counted only when a
 worker starts the delivery. A permanent failure (missing Telegram
@@ -142,6 +145,11 @@ sent message ID. No log contains the message text or customer details.
 `TELEGRAM_BOOKING_NOTIFICATIONS_ENABLED=false`, any delivery that runs is
 marked `completed` without sending. Check that no deliveries are `pending`,
 `leased` or `retry` before switching the flag off if those messages matter.
+
+**Customer status emails are dropped, not paused, while they are off.** While
+`BOOKING_CUSTOMER_NOTICES_ENABLED` is off, every approval, cancellation and
+no-show notice that runs is marked `skipped: disabled` and is never sent later.
+The switch is read when the delivery runs, not when the decision is made.
 
 To check delivery health, query the table read-only, for example:
 

@@ -59,6 +59,7 @@ class CreateBooking
                     ...$bookingAttributes,
                     'payment_preference' => 'at_spa',
                     'source_channel' => 'website',
+                    'locale' => app()->getLocale(),   // SetLocale has set the visitor's site language (id|en)
                 ]);
                 $schedule = new BookingSchedule;
                 $booking->forceFill([

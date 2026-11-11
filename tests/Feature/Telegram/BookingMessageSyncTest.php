@@ -80,8 +80,8 @@ class BookingMessageSyncTest extends TestCase
         Http::assertSentCount(2);
 
         $this->assertSame(
-            ['telegram'],
-            $this->event('booking.approved', $booking)->deliveries()->pluck('handler_key')->all(),
+            ['telegram', 'customer'],
+            $this->event('booking.approved', $booking)->deliveries()->orderBy('id')->pluck('handler_key')->all(),
         );
     }
 
@@ -399,8 +399,8 @@ class BookingMessageSyncTest extends TestCase
             'booking.no_show',
         ] as $type) {
             $this->assertSame(
-                ['telegram' => TelegramBookingNotificationHandler::class],
-                config('outbox.events')[$type],
+                TelegramBookingNotificationHandler::class,
+                config('outbox.events')[$type]['telegram'] ?? null,
             );
         }
     }

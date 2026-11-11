@@ -16,6 +16,7 @@ abstract class TestCase extends BaseTestCase
         'APP_PREVIOUS_KEYS' => '',
         'APP_DEBUG' => 'false',
         'BOOKING_SCHEDULING_ENABLED' => 'false',
+        'BOOKING_CUSTOMER_NOTICES_ENABLED' => 'false',
         'APP_URL' => 'http://localhost',
         'APP_MAINTENANCE_DRIVER' => 'file',
         'BCRYPT_ROUNDS' => '4',
@@ -53,6 +54,7 @@ abstract class TestCase extends BaseTestCase
     private const EXPECTED_TEST_CONFIGURATION = [
         'app.env' => 'testing',
         'booking.scheduling_enabled' => false,
+        'booking.customer_notices_enabled' => false,
         'database.default' => 'sqlite',
         'database.connections.sqlite.database' => ':memory:',
         'cache.default' => 'array',

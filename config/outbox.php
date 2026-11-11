@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\Bookings\SendCustomerBookingNotice;
 use App\Support\Outbox\Handlers\TelegramBookingNotificationHandler;
 use App\Support\Telegram\TelegramCallbackAnswerHandler;
 use App\Support\Telegram\TelegramDeclinePromptHandler;
@@ -16,20 +17,24 @@ return [
         ],
         // Lifecycle events share booking.created's telegram key, so one handler owns the staff message: it edits
         // that message to the booking's current status.
+        // customer: the customer's status email (C4c); booking.confirmed gets one in stage D, with online payment.
         'booking.approved' => [
             'telegram' => TelegramBookingNotificationHandler::class,
+            'customer' => SendCustomerBookingNotice::class,
         ],
         'booking.confirmed' => [
             'telegram' => TelegramBookingNotificationHandler::class,
         ],
         'booking.cancelled' => [
             'telegram' => TelegramBookingNotificationHandler::class,
+            'customer' => SendCustomerBookingNotice::class,
         ],
         'booking.completed' => [
             'telegram' => TelegramBookingNotificationHandler::class,
         ],
         'booking.no_show' => [
             'telegram' => TelegramBookingNotificationHandler::class,
+            'customer' => SendCustomerBookingNotice::class,
         ],
         'telegram.update.received' => [
             'telegram' => TelegramUpdateHandler::class,

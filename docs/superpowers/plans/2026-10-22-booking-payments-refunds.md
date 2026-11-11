@@ -49,6 +49,8 @@ Consumed contracts, implemented by prerequisites:
 Extend the communication plan's existing `App\Support\Payments\BookingPaymentSummary`, implementing `App\Contracts\BookingPaymentSummary::forBooking(Booking $booking): array{state:string,deadline:?string,checkout_url:?string,refunds:array}`.
 Consumers inject the contract.
 Replace its conservative pre-ledger projection without introducing another binding.
+
+> **C4c note (10 November 2026):** C4c built only the concrete `App\Support\Payments\BookingPaymentSummary`, with this exact array shape. It created no interface and no container binding: with one implementation the container resolves the concrete class itself, and its one consumer, `BookingStatusNotification`, calls `app(BookingPaymentSummary::class)`. Introduce `App\Contracts\BookingPaymentSummary` here only if a second implementation appears; otherwise extend the concrete class.
 Its URL is allowlisted, HTTPS, and present only while checkout is eligible.
 Its customer refund entries expose amount/state/update time, never payout destination or internal evidence.
 
@@ -218,7 +220,7 @@ The record action confirms a previously reserved manual attempt; it does not ini
 - Create `app/Http/Controllers/Admin/AdminPaymentController.php` and `app/Http/Requests/Admin/RecordOnSitePaymentRequest.php`.
 - Create `resources/js/components/booking/PaymentSummary.vue` and `resources/js/components/admin/BookingFinancialActions.vue`.
 - Create `app/Console/Commands/CheckPaymentReadiness.php`.
-- Modify the C-plan `app/Support/Payments/BookingPaymentSummary.php`; retain its `App\Contracts\BookingPaymentSummary` binding.
+- Modify the C-plan `app/Support/Payments/BookingPaymentSummary.php`; retain its array shape (C4c added no interface or binding; see the C4c note above).
 - Modify `app/Support/{BookingPresenter,AdminBookingPresenter}.php` and `app/Http/Controllers/Admin/AdminDashboardController.php`.
 - Modify `resources/js/pages/{bookings/Show,admin/bookings/Show,admin/Dashboard}.vue`.
 - Modify `resources/js/types/index.ts`, `resources/js/lib/booking.ts`, `resources/js/data/translations.ts`, and `lang/{id,en}/admin.php`.

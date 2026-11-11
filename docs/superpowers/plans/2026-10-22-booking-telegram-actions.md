@@ -66,7 +66,8 @@ New migrations use today's date with this plan's number range (for example `2026
 | ~~C4a~~ | **Dropped on 10 November 2026 (user decision).** The outbox already gives every handler subscribed to an event its own delivery row and retries (unique per message and handler key), so a `BookingCommunicationFanout` writing child rows per channel would add a layer without adding behaviour. Channels subscribe directly to the booking events instead. The `BookingPaymentSummary` contract moves into C4c, its first consumer. |
 | C4b | Telegram message sync and edit on lifecycle events (latest state, per-message ordering, "not modified" counts as success, replacement after a deletion). It swaps the class behind `booking.created`'s existing `telegram` key, so in-flight deliveries carry over and no booking gets two initial messages, and subscribes the same key to the lifecycle events. |
 | C4c | Customer email notices (`BookingStatusNotification`, mail view), subscribed directly under a `customer` key, plus the `BookingPaymentSummary` contract and its stage C projection. It also covers the decision on staff-entered bookings: those without an email record a skipped outcome. |
-| C4d | Delivery status on the admin booking page, README webhook setup and recovery, and the stage C close-out. |
+| C4d | Delivery status on the admin booking page: each booking's staff Telegram message and customer emails, with their state and reason. Narrowed on 11 November 2026 (user decision); the rest moved to C4e. |
+| C4e | Added 11 November 2026, split out of C4d (user decision). The operational fixes that earlier reviews handed over (mail failure logging and an SMTP timeout, pruning Decline prompt payloads, the lost-send-reply test for stage Review Focus 5), separate wording for an expired request's email (user decision), the README (webhook setup, enabling actions and emails, recovery), and the stage C close-out. |
 
 **C1a complete (8 November 2026, uncommitted).**
 - Migration `2026_11_08_020000` adds `telegram_enrollments`, `telegram_staff_links` (unique `user_id` and unique `telegram_user_id`) and the `telegram_staff_link_changes` audit table.
@@ -258,6 +259,35 @@ Independently reviewed ("Ready to merge: Yes"). The review fixed the MySQL marke
   - `refresh()`'s row lock.
 
 Independently reviewed ("With fixes"). The important finding, a decision lost while the first message was in flight, was a flaw in Claude's plan and is fixed with the catch-up. Every new guard is proven by a mutation. Regular suite: 1108 passed; concurrency suite: 16 tests, 1 skipped. Evidence: `.superpowers/sdd/2026-10-22-booking-scheduling-pricing/task-C4b-review.md`.
+
+**C4c complete (10 November 2026, uncommitted).**
+- **User decisions:**
+  - emails use the **customer's booking language**, through the new nullable `bookings.locale` that `CreateBooking` sets from the site language; staff-entered and older bookings fall back to Indonesian;
+  - an **off switch, off by default:** `BOOKING_CUSTOMER_NOTICES_ENABLED`, parsed with `FILTER_VALIDATE_BOOL`.
+- **`SendCustomerBookingNotice`** (`App\Support\Bookings`) sits under the `customer` key on `booking.approved`, `booking.cancelled` and `booking.no_show`.
+  - It sends `BookingStatusNotification` synchronously to `customer_email`, which keeps its version check truthful.
+  - It sends only when the booking still has the event's version and the status that event announces.
+  - Otherwise it records a skip: `disabled`, `superseded`, `awaiting_payment` or `no_email`.
+- **No customer email for** `booking.created`, `booking.completed` or `booking.confirmed`. Confirmation is the online-payment email, which is stage D's.
+- **Skipped is a real, final outbox state.** `OutboxSkippedException` is caught by `DeliverOutboxMessage::markSkipped()`, which writes `skipped`, `skipped_at` and `last_error = 'skipped: <reason>'`. The dispatcher never claims a skipped delivery and `outbox:requeue` refuses one, and tests now pin both.
+- **The email content:**
+  - the approval email adds "pay at the spa" only when `BookingPaymentSummary` says `at_spa_unrecorded`;
+  - cancellation and no-show emails never mention payment;
+  - the only link is the customer's own booking page, built from `APP_URL`, and only for a booking with a `user_id`.
+- **`App\Support\Payments\BookingPaymentSummary`** returns `at_spa_unrecorded|unknown`, the ISO deadline, `checkout_url` null and `refunds` `[]`. There is no interface or binding, by deliberate deviation; stage D's plan is annotated.
+
+**Inputs for later parts:**
+- **C4d:**
+  - show skipped notices with their reasons;
+  - set a short SMTP timeout before enabling, and log mail failures in the handler (a failure today is only `unexpected: …TransportException`);
+  - consider `Markdown::withSecuredEncoding()` and separate expiry copy;
+  - rehearse real delivery before turning the switch on.
+- **Stage D:**
+  - extend the concrete summary, adding the interface only with a second implementation;
+  - subscribe `customer` to `booking.confirmed` with the online-payment email;
+  - add the deadline and checkout copy.
+
+Independently reviewed ("With fixes"). The important finding, an untested lease check in the new skipped path, is fixed. The review also proved and closed five more gaps and fixed the `=1` switch spelling, and every new guard is proven by a mutation. Regular suite: 1126 passed; concurrency suite: 16 tests, 1 skipped. Evidence: `.superpowers/sdd/2026-10-22-booking-scheduling-pricing/task-C4c-review.md`.
 
 Independently reviewed; full PHP suite 1027 passed. Next: **C1b**. Evidence: `.superpowers/sdd/2026-10-22-booking-scheduling-pricing/task-C1a-review.md`.
 

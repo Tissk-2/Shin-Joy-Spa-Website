@@ -6,6 +6,7 @@ use App\Contracts\OutboxHandler;
 use App\Enums\OutboxDeliveryState;
 use App\Exceptions\Outbox\OutboxPermanentException;
 use App\Exceptions\Outbox\OutboxRetryableException;
+use App\Exceptions\Outbox\OutboxSkippedException;
 use App\Models\OutboxDelivery;
 use App\Models\OutboxMessage;
 use Illuminate\Contracts\Container\BindingResolutionException;
@@ -60,6 +61,10 @@ final class DeliverOutboxMessage implements ShouldQueue
             $handler->handle($delivery->message);
         } catch (OutboxRetryableException $exception) {
             $this->handleFailure('retryable: '.$exception->reason(), $attempts);
+
+            return;
+        } catch (OutboxSkippedException $exception) {   // mutation K
+            $this->markSkipped($exception->reason());
 
             return;
         } catch (OutboxPermanentException $exception) {
@@ -182,6 +187,25 @@ final class DeliverOutboxMessage implements ShouldQueue
                 'lease_token' => null,
                 'lease_expires_at' => null,
                 'last_error' => $this->sanitize($reason),
+                'updated_at' => $now,
+            ]);
+    }
+
+    // A deliberate, final outcome: nothing to send. last_error is the delivery's only reason column.
+    private function markSkipped(string $reason): void
+    {
+        $now = now();
+
+        DB::table('outbox_deliveries')
+            ->where('id', $this->deliveryId)
+            ->where('state', OutboxDeliveryState::Leased->value)
+            ->where('lease_token', $this->leaseToken)
+            ->update([
+                'state' => OutboxDeliveryState::Skipped->value,
+                'skipped_at' => $now,
+                'lease_token' => null,
+                'lease_expires_at' => null,
+                'last_error' => $this->sanitize('skipped: '.$reason),
                 'updated_at' => $now,
             ]);
     }

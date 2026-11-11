@@ -77,6 +77,20 @@ class RequeueOutboxDeliveriesCommandTest extends TestCase
         }
     }
 
+    public function test_a_skipped_delivery_is_final_and_cannot_be_requeued(): void
+    {
+        $delivery = $this->createDelivery('skipped-final');
+        $this->updateDelivery($delivery, ['state' => 'skipped', 'skipped_at' => now(), 'last_error' => 'skipped: disabled']);
+        $before = DB::table('outbox_deliveries')->where('id', $delivery->id)->first();
+
+        $this->artisan('outbox:requeue', ['ids' => [(string) $delivery->id], '--yes' => true])
+            ->expectsOutputToContain('skipped, not failed')
+            ->expectsOutputToContain('No failed deliveries to requeue.')
+            ->assertExitCode(1);
+
+        $this->assertEquals($before, DB::table('outbox_deliveries')->where('id', $delivery->id)->first());
+    }
+
     public function test_a_mixed_request_requeues_only_the_failed_delivery(): void
     {
         $failed = $this->createFailedDelivery('mixed-failed', 'permanent: mixed');
