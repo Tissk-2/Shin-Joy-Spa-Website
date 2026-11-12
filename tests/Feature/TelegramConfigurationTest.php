@@ -100,6 +100,24 @@ class TelegramConfigurationTest extends TestCase
         }
     }
 
+    public function test_the_notifications_switch_reads_the_usual_true_and_false_spellings(): void
+    {
+        $environment = Env::getRepository();
+        $originalValues = $this->snapshotTelegramEnvironment();
+
+        try {
+            // Laravel turns only true/false-style words into booleans, so "off" or "no" would stay a string and count as on.
+            foreach (['true' => true, '1' => true, 'yes' => true, 'on' => true, 'false' => false, '0' => false, 'no' => false, 'off' => false, '' => false] as $value => $expected) {
+                $environment->clear('TELEGRAM_BOOKING_NOTIFICATIONS_ENABLED');
+                $environment->set('TELEGRAM_BOOKING_NOTIFICATIONS_ENABLED', (string) $value);
+
+                $this->assertSame($expected, (require config_path('services.php'))['telegram']['booking_notifications_enabled'], "value '{$value}'");
+            }
+        } finally {
+            $this->restoreTelegramEnvironment($originalValues);
+        }
+    }
+
     public function test_telegram_environment_example_contains_exactly_one_safe_placeholder_for_each_setting(): void
     {
         $lines = file(base_path('.env.example'), FILE_IGNORE_NEW_LINES);

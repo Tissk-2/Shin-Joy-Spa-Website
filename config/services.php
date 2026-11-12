@@ -36,7 +36,8 @@ return [
     ],
 
     'telegram' => [
-        'booking_notifications_enabled' => env('TELEGRAM_BOOKING_NOTIFICATIONS_ENABLED', false),
+        // Parsed, so "off" and "no" are off: left as a string, any non-empty value counted as on.
+        'booking_notifications_enabled' => filter_var(env('TELEGRAM_BOOKING_NOTIFICATIONS_ENABLED', false), FILTER_VALIDATE_BOOL),
         // Parsed, so "1", "on" and "yes" also turn the buttons on: the keyboard checks for a strict true.
         'actions_enabled' => filter_var(env('TELEGRAM_ACTIONS_ENABLED', false), FILTER_VALIDATE_BOOL),
         'bot_token' => env('TELEGRAM_BOT_TOKEN'),
