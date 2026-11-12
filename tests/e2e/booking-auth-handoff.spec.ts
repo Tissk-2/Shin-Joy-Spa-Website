@@ -7,6 +7,9 @@ import {
 } from "./helpers/auth";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
+import { resetTestingDatabase } from "./testing-environment";
+
+test.beforeAll(resetTestingDatabase);
 
 const contextSelector = "[data-booking-auth-context]";
 

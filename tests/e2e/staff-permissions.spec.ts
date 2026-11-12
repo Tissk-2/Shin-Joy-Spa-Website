@@ -5,9 +5,11 @@ import { expect, test, type Page } from "@playwright/test";
 import { login } from "./helpers/auth";
 import {
   projectRoot,
+  resetTestingDatabase,
   testingEnvironment,
-  viteHotFile,
 } from "./testing-environment";
+
+test.beforeAll(resetTestingDatabase);
 
 const fixture = (args: string[] = []) =>
   JSON.parse(
@@ -42,7 +44,6 @@ test("owner grant and revoke immediately govern a separate retained staff sessio
     else await route.abort();
   };
   await context.route("**/*", localOnly);
-  writeFileSync(viteHotFile, "http://127.0.0.1:5174");
   const data = fixture();
   const staffContext = await browser.newContext();
   await staffContext.route("**/*", localOnly);

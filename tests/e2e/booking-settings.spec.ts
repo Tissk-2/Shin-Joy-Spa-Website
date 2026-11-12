@@ -1,13 +1,14 @@
 import { execFileSync } from "node:child_process";
-import { writeFileSync } from "node:fs";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import { login } from "./helpers/auth";
 import {
   projectRoot,
+  resetTestingDatabase,
   testingEnvironment,
-  viteHotFile,
 } from "./testing-environment";
+
+test.beforeAll(resetTestingDatabase);
 
 const fixture = (args: string[] = []) =>
   JSON.parse(
@@ -51,7 +52,6 @@ test("owner persists required settings, keeps stale drafts, and capable staff ca
   context,
   browser,
 }) => {
-  writeFileSync(viteHotFile, "http://127.0.0.1:5174");
   const data = fixture();
   await login(page, data.ownerEmail, "calmspa9");
   await expect(page).toHaveURL(/\/profile$|\/admin(?:\/|$)/);

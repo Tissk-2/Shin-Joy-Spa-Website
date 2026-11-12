@@ -3,7 +3,13 @@ import { execFileSync } from "node:child_process";
 import { expect, test, type Page } from "@playwright/test";
 
 import { registerCustomer, verifyCustomer } from "./helpers/auth";
-import { projectRoot, testingEnvironment } from "./testing-environment";
+import {
+  projectRoot,
+  resetTestingDatabase,
+  testingEnvironment,
+} from "./testing-environment";
+
+test.beforeAll(resetTestingDatabase);
 
 // The pay-at-spa release, end to end in the browser: what the customer is told, what staff decide, and what
 // reaches the customer afterwards. Room scheduling stays off, as it does until the spa switches it on.

@@ -1,14 +1,15 @@
 import { execFileSync } from "node:child_process";
-import { writeFileSync } from "node:fs";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
 import { login } from "./helpers/auth";
 import {
   projectRoot,
+  resetTestingDatabase,
   testingDatabase,
   testingEnvironment,
-  viteHotFile,
 } from "./testing-environment";
+
+test.beforeAll(resetTestingDatabase);
 
 test.skip(
   process.env.E2E_BOOKING_SCHEDULING_ENABLED !== "true",
@@ -29,7 +30,6 @@ function fixture(file: string, args: string[] = []) {
 test("stale availability rejects real confirmation, preserves focused draft, then refresh recovers to pending without a hold", async ({
   page,
 }) => {
-  writeFileSync(viteHotFile, "http://127.0.0.1:5174");
   const seed = fixture("room-booking");
   expect(path.normalize(seed.database)).toBe(path.normalize(testingDatabase));
   expect(seed.schedulingEnabled).toBe(true);

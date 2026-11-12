@@ -3,7 +3,9 @@ import { mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
 
 import { registerCustomer, verifyCustomer } from "./helpers/auth";
-import { projectRoot } from "./testing-environment";
+import { projectRoot, resetTestingDatabase } from "./testing-environment";
+
+test.beforeAll(resetTestingDatabase);
 
 const bookingPageUrl = /\/booking\?(?=.*service=nezuko)/;
 const bookingReferencePattern = /^SJ-[0-9A-HJKMNP-TV-Z]{26}$/;
@@ -43,7 +45,10 @@ async function fillBookingDetails(page: Page): Promise<void> {
     .fill("+62 812-2222-3333");
   // Keep this flow's date separate from the admin booking fixture.
   await page.getByLabel(/^tanggal$|^date$/i).fill("2099-09-11");
-  await page.getByLabel(/^waktu$|^time$/i).selectOption("10:30");
+  await page
+    .getByRole("radiogroup", { name: /^waktu$|^time$/i })
+    .getByRole("radio", { name: "10:30" })
+    .check();
   await page.getByLabel(/jumlah tamu|number of guests/i).selectOption("2");
   await page
     .getByLabel(/catatan|notes/i)

@@ -7,6 +7,9 @@ import {
   testingLink,
   verifyCustomer,
 } from "./helpers/auth";
+import { resetTestingDatabase } from "./testing-environment";
+
+test.beforeAll(resetTestingDatabase);
 
 async function logoutFromProfile(page: Page): Promise<void> {
   await page.locator('button[aria-controls="account-menu"]').click();

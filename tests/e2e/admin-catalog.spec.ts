@@ -3,7 +3,9 @@ import path from "node:path";
 
 import { registerVerifiedAdmin } from "./helpers/admin";
 import { registerCustomer, verifyCustomer } from "./helpers/auth";
-import { projectRoot } from "./testing-environment";
+import { projectRoot, resetTestingDatabase } from "./testing-environment";
+
+test.beforeAll(resetTestingDatabase);
 
 const catalogFixture = (name: string): string =>
   path.join(projectRoot, "tests/e2e/fixtures/catalog", name);
@@ -248,7 +250,10 @@ async function createBookingWithPublishedPrice(page: Page): Promise<void> {
   );
   await expect(page.getByText(bookingTotal, { exact: true })).toBeVisible();
   await page.getByLabel(/^tanggal$|^date$/i).fill("2099-10-10");
-  await page.getByLabel(/^waktu$|^time$/i).selectOption("10:30");
+  await page
+    .getByRole("radiogroup", { name: /^waktu$|^time$/i })
+    .getByRole("radio", { name: "10:30" })
+    .check();
   await page
     .getByRole("button", { name: /tinjau reservasi|review booking/i })
     .click();

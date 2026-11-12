@@ -5,9 +5,11 @@ import { expect, test } from "@playwright/test";
 import { login } from "./helpers/auth";
 import {
   projectRoot,
+  resetTestingDatabase,
   testingEnvironment,
-  viteHotFile,
 } from "./testing-environment";
+
+test.beforeAll(resetTestingDatabase);
 
 const fixture = (args: string[] = []) =>
   JSON.parse(
@@ -34,7 +36,6 @@ test("owner saves visible prices before attestation and customer reviews the tot
     else await route.abort();
   };
   await context.route("**/*", localOnly);
-  writeFileSync(viteHotFile, "http://127.0.0.1:5174");
   const data = fixture();
   await login(page, data.owner, "calmspa9");
   await expect(page).toHaveURL(/\/profile$|\/admin(?:\/|$)/);

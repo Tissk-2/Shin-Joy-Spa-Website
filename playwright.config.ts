@@ -24,12 +24,5 @@ export default defineConfig({
       reuseExistingServer: false,
       timeout: 120_000,
     },
-    {
-      command: "node tests/e2e/server-process.mjs vite",
-      env: testingEnvironment,
-      url: "http://127.0.0.1:5174/@vite/client",
-      reuseExistingServer: false,
-      timeout: 120_000,
-    },
   ],
 });

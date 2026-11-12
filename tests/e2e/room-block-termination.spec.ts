@@ -1,13 +1,14 @@
 import { execFileSync } from "node:child_process";
-import { writeFileSync } from "node:fs";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import { login } from "./helpers/auth";
 import {
   projectRoot,
+  resetTestingDatabase,
   testingEnvironment,
-  viteHotFile,
 } from "./testing-environment";
+
+test.beforeAll(resetTestingDatabase);
 
 test.skip(
   process.env.E2E_BOOKING_SCHEDULING_ENABLED !== "true",
@@ -51,7 +52,6 @@ test("cancellation, immutable history, end now, failed drafts and read-only reje
   browser,
 }) => {
   test.setTimeout(240_000);
-  writeFileSync(viteHotFile, "http://127.0.0.1:5174");
   const data = JSON.parse(fixture());
   await login(page, data.staffEmail, "calmspa9");
   await expect(page).toHaveURL(/\/profile$|\/admin(?:\/|$)/);

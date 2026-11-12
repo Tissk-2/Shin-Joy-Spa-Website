@@ -1,20 +1,20 @@
 import { execFileSync } from "node:child_process";
-import { writeFileSync } from "node:fs";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
 import { login } from "./helpers/auth";
 import {
   projectRoot,
+  resetTestingDatabase,
   testingEnvironment,
-  viteHotFile,
 } from "./testing-environment";
+
+test.beforeAll(resetTestingDatabase);
 
 test("owner creates and edits persisted rooms, retains conflicts and staff stays read-only", async ({
   page,
   context,
   browser,
 }) => {
-  writeFileSync(viteHotFile, "http://127.0.0.1:5174");
   const fixture = JSON.parse(
     execFileSync("php", ["tests/e2e/fixtures/room-management.php"], {
       cwd: projectRoot,

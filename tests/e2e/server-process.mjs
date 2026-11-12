@@ -22,25 +22,13 @@ const serverConfigurations = Object.freeze({
     ]),
     cwd: path.join(projectRoot, "public"),
   }),
-  vite: Object.freeze({
-    command: process.execPath,
-    args: Object.freeze([
-      path.join(projectRoot, "node_modules/vite/bin/vite.js"),
-      "--host",
-      "127.0.0.1",
-      "--port",
-      "5174",
-      "--strictPort",
-    ]),
-    cwd: projectRoot,
-  }),
 });
 
 const serverName = process.argv[2];
 const configuration = serverConfigurations[serverName];
 
 if (!configuration) {
-  console.error('Expected a server name of "laravel" or "vite".');
+  console.error('Expected the server name "laravel".');
   process.exitCode = 1;
 } else {
   mkdirSync(runtimeDirectory, { recursive: true });

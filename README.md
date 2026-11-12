@@ -559,15 +559,26 @@ with empty credentials (Telegram tests fake HTTP); it refuses to start if
 credentials or delivery settings leak in from `.env`. The multi-process race
 suite is separate: see Concurrency checks (MySQL).
 
-Playwright boots its own Laravel and Vite servers against an isolated SQLite
+Playwright boots its own Laravel server against an isolated SQLite
 database (`storage/framework/testing.sqlite`), so E2E runs never touch your
-local development data. They use a dedicated Vite hot file under
-`storage/framework/testing/`, so a running `npm run dev` keeps its `public/hot`.
-Most pages are served from the built assets in `public/build` (specs that write
-the test hot file use the Vite dev server on port 5174): run `npm run build`
-after frontend changes and before `npm run test:e2e`. E2E setup refuses to
-start when `public/build` is missing or older than its sources.
+local development data. In tests Laravel looks for its Vite hot file under
+`storage/framework/testing/` instead of `public/hot`, so a running `npm run dev`
+doesn't change what the tests load. Pages are served from the built assets in
+`public/build`: run `npm run build` after frontend changes and before
+`npm run test:e2e`. E2E setup refuses to start when `public/build` is missing
+or older than its sources. Each spec file starts from the freshly seeded
+database (`test.beforeAll(resetTestingDatabase)`), so no spec sees rows another
+spec left behind; files outside the database, such as screenshots and uploaded
+catalogue images, are not reset.
 Catalogue E2E fixtures live in `tests/e2e/fixtures`.
+
+The five room specs that need room scheduling skip themselves unless
+`E2E_BOOKING_SCHEDULING_ENABLED=true`. The other specs assume scheduling is
+off, so run those five on their own (in Git Bash):
+
+```bash
+E2E_BOOKING_SCHEDULING_ENABLED=true npx playwright test tests/e2e/room-approval.spec.ts tests/e2e/room-block-termination.spec.ts tests/e2e/room-blocks.spec.ts tests/e2e/room-booking-submission.spec.ts tests/e2e/room-booking.spec.ts
+```
 
 `composer test:coverage` needs the Xdebug or PCOV PHP extension and fails if
 line coverage is below 80%.

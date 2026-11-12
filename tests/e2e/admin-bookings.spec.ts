@@ -16,7 +16,13 @@ import {
   registerCustomer,
   verifyCustomer,
 } from "./helpers/auth";
-import { projectRoot, testingEnvironment } from "./testing-environment";
+import {
+  projectRoot,
+  resetTestingDatabase,
+  testingEnvironment,
+} from "./testing-environment";
+
+test.beforeAll(resetTestingDatabase);
 
 const screenshotsDirectory = path.join(
   projectRoot,
@@ -34,7 +40,10 @@ async function createNezukoBooking(
   await page.getByLabel(/nama lengkap|full name/i).fill(details.name);
   await page.getByLabel(/nomor whatsapp|whatsapp number/i).fill(details.phone);
   await page.getByLabel(/^tanggal$|^date$/i).fill(details.date);
-  await page.getByLabel(/^waktu$|^time$/i).selectOption(details.time);
+  await page
+    .getByRole("radiogroup", { name: /^waktu$|^time$/i })
+    .getByRole("radio", { name: details.time })
+    .check();
   await page
     .getByRole("button", { name: /tinjau reservasi|review booking/i })
     .click();

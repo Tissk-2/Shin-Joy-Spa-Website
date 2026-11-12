@@ -1,29 +1,21 @@
-import { existsSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { test, expect } from "@playwright/test";
 import { login } from "./helpers/auth";
 import {
   projectRoot,
+  resetTestingDatabase,
   testingEnvironment,
-  viteHotFile,
 } from "./testing-environment";
+
+test.beforeAll(resetTestingDatabase);
 test.skip(
   process.env.E2E_BOOKING_SCHEDULING_ENABLED !== "true",
   "Room approval requires the explicit isolated scheduling opt-in.",
 );
-let previousHot: Buffer | undefined;
-test.beforeAll(() => {
-  previousHot = existsSync(viteHotFile) ? readFileSync(viteHotFile) : undefined;
-});
-test.afterAll(() => {
-  if (previousHot) writeFileSync(viteHotFile, previousHot);
-  else rmSync(viteHotFile, { force: true });
-});
 
 test("staff attests and reserves the last room; conflicting approval remains pending", async ({
   page,
 }) => {
-  writeFileSync(viteHotFile, "http://127.0.0.1:5174");
   const fixture = JSON.parse(
     execFileSync("php", ["tests/e2e/fixtures/room-approval.php"], {
       cwd: projectRoot,

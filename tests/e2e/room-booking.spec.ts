@@ -1,14 +1,15 @@
 import { execFileSync } from "node:child_process";
-import { writeFileSync } from "node:fs";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import { login } from "./helpers/auth";
 import {
   projectRoot,
+  resetTestingDatabase,
   testingDatabase,
   testingEnvironment,
-  viteHotFile,
 } from "./testing-environment";
+
+test.beforeAll(resetTestingDatabase);
 
 test.skip(
   process.env.E2E_BOOKING_SCHEDULING_ENABLED !== "true",
@@ -45,7 +46,6 @@ async function screenshot(page: Page, name: string): Promise<void> {
 test("customer observes real availability, keyboard time selection, safe review, refresh recovery and occupied mobile ID", async ({
   page,
 }) => {
-  writeFileSync(viteHotFile, "http://127.0.0.1:5174");
   const fixture = JSON.parse(
     execFileSync("php", ["tests/e2e/fixtures/room-booking.php"], {
       cwd: projectRoot,

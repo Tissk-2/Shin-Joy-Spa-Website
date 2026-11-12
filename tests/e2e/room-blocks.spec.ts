@@ -1,13 +1,14 @@
 import { execFileSync } from "node:child_process";
-import { writeFileSync } from "node:fs";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
 import { login } from "./helpers/auth";
 import {
   projectRoot,
+  resetTestingDatabase,
   testingEnvironment,
-  viteHotFile,
 } from "./testing-environment";
+
+test.beforeAll(resetTestingDatabase);
 
 test.skip(
   process.env.E2E_BOOKING_SCHEDULING_ENABLED !== "true",
@@ -18,7 +19,6 @@ test("capable staff saves blocks, retains stale/conflict drafts and atomically c
   context,
   browser,
 }) => {
-  writeFileSync(viteHotFile, "http://127.0.0.1:5174");
   const fixture = JSON.parse(
     execFileSync("php", ["tests/e2e/fixtures/room-blocks.php"], {
       cwd: projectRoot,

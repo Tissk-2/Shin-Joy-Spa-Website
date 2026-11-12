@@ -9,7 +9,13 @@ import {
   registerCustomer,
   verifyCustomer,
 } from "./helpers/auth";
-import { projectRoot, testingEnvironment } from "./testing-environment";
+import {
+  projectRoot,
+  resetTestingDatabase,
+  testingEnvironment,
+} from "./testing-environment";
+
+test.beforeAll(resetTestingDatabase);
 
 const screenshotDirectory = path.join(projectRoot, "tests/e2e/screenshots");
 
@@ -33,7 +39,10 @@ async function createBooking(
   await page.getByLabel(/nama lengkap|full name/i).fill(details.name);
   await page.getByLabel(/nomor whatsapp|whatsapp number/i).fill("+628122223333");
   await page.getByLabel(/^tanggal$|^date$/i).fill(details.date);
-  await page.getByLabel(/^waktu$|^time$/i).selectOption("10:30");
+  await page
+    .getByRole("radiogroup", { name: /^waktu$|^time$/i })
+    .getByRole("radio", { name: "10:30" })
+    .check();
   await page
     .getByRole("button", { name: /tinjau reservasi|review booking/i })
     .click();

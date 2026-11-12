@@ -1,6 +1,9 @@
 import { expect, test } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
+import { resetTestingDatabase } from "./testing-environment";
+
+test.beforeAll(resetTestingDatabase);
 
 const viewports = [
   { width: 320, height: 860 },

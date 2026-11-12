@@ -2,6 +2,8 @@ import { connect } from "node:net";
 import { mkdirSync, writeFileSync } from "node:fs";
 import {
   removeTestOwnedPath,
+  resetStagingDatabase,
+  seededTestingDatabase,
   serverRuntimeDirectory,
   serverShutdownMarkers,
   testingConfigCache,
@@ -44,7 +46,7 @@ export default async function globalTeardown(): Promise<void> {
     writeFileSync(marker, "stop");
   }
 
-  await Promise.all([waitForPortToClose(8000), waitForPortToClose(5174)]);
+  await waitForPortToClose(8000);
 
   for (const marker of Object.values(serverShutdownMarkers)) {
     removeTestOwnedPath(marker);
@@ -53,5 +55,7 @@ export default async function globalTeardown(): Promise<void> {
   removeTestOwnedPath(viteHotFile);
   removeTestOwnedPath(testingConfigCache);
   removeTestOwnedPath(testingDatabase);
+  removeTestOwnedPath(seededTestingDatabase);
+  removeTestOwnedPath(resetStagingDatabase);
   removeTestOwnedPath(serverRuntimeDirectory, { recursive: true });
 }

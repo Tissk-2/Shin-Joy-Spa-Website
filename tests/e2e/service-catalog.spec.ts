@@ -1,6 +1,9 @@
 import { expect, test } from "@playwright/test";
 
 import { registerCustomer, verifyCustomer } from "./helpers/auth";
+import { resetTestingDatabase } from "./testing-environment";
+
+test.beforeAll(resetTestingDatabase);
 
 test("Nezuko card goes straight to booking and regular 90 plus extension survives verified login", async ({
   page,

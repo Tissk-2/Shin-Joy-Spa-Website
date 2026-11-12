@@ -1,19 +1,18 @@
 import { execFileSync } from "node:child_process";
-import { writeFileSync } from "node:fs";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
 import { login } from "./helpers/auth";
 import {
   projectRoot,
+  resetTestingDatabase,
   testingEnvironment,
-  viteHotFile,
 } from "./testing-environment";
+
+test.beforeAll(resetTestingDatabase);
 
 test("staff reads persisted room inventory, filters it, and sees the same details on mobile", async ({
   page,
 }) => {
-  // The runner must preserve the user's hot file outside this harness before startup.
-  writeFileSync(viteHotFile, "http://127.0.0.1:5174");
   const fixture = JSON.parse(
     execFileSync("php", ["tests/e2e/fixtures/room-inventory.php"], {
       cwd: projectRoot,

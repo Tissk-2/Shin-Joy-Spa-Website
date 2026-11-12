@@ -3,6 +3,9 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 import { registerCustomer, verifyCustomer } from "./helpers/auth";
+import { resetTestingDatabase } from "./testing-environment";
+
+test.beforeAll(resetTestingDatabase);
 
 const screenshotDirectory = path.resolve(
   "outputs/first-corrective-pass-2026-10-11",

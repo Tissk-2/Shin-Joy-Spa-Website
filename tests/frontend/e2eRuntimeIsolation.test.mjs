@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 import {
@@ -73,4 +73,33 @@ test("e2e setup and teardown never delete public/hot or call rmSync directly", a
   }
 
   assert.match(viteSource, /hotFile:\s*process\.env\.LARAVEL_VITE_HOT_FILE/);
+});
+
+test("every e2e spec starts from the seeded database and uses the built assets", async () => {
+  const specs = (await readdir("tests/e2e")).filter((name) =>
+    name.endsWith(".spec.ts"),
+  );
+  assert.ok(specs.length > 0);
+
+  for (const name of specs) {
+    const source = await readFile(path.join("tests/e2e", name), "utf8");
+    // A whole unindented line, so a commented-out or describe-level reset doesn't count.
+    const reset = source.search(
+      /^test\.beforeAll\(resetTestingDatabase\);\r?$/m,
+    );
+
+    // First, so a spec's own beforeAll fixtures are created after the reset.
+    assert.notEqual(reset, -1, `${name} must reset the testing database`);
+    assert.equal(
+      source.search(/^test\.beforeAll\(/m),
+      reset,
+      `${name} must reset the testing database in its first beforeAll`,
+    );
+    // A hot file would switch every later page to a Vite dev server the run no longer starts.
+    assert.doesNotMatch(
+      source,
+      /viteHotFile/,
+      `${name} must not use the Vite hot file`,
+    );
+  }
 });

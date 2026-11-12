@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
 import {
+  copyFileSync,
   existsSync,
   mkdirSync,
   readFileSync,
@@ -11,6 +12,7 @@ import { assertBuildIsFresh } from "./build-freshness";
 import {
   projectRoot,
   removeTestOwnedPath,
+  seededTestingDatabase,
   serverShutdownMarkers,
   testingConfigCache,
   testingDatabase,
@@ -95,6 +97,7 @@ export default function globalSetup(): void {
   removeTestOwnedPath(viteHotFile);
   removeTestOwnedPath(testingConfigCache);
   removeTestOwnedPath(testingDatabase);
+  removeTestOwnedPath(seededTestingDatabase);
 
   for (const marker of Object.values(serverShutdownMarkers)) {
     removeTestOwnedPath(marker);
@@ -112,4 +115,5 @@ export default function globalSetup(): void {
       stdio: "inherit",
     },
   );
+  copyFileSync(testingDatabase, seededTestingDatabase);
 }

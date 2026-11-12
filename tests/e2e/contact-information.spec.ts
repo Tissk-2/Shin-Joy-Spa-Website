@@ -3,7 +3,9 @@ import { mkdir } from "node:fs/promises";
 import path from "node:path";
 
 import { registerVerifiedAdmin } from "./helpers/admin";
-import { projectRoot } from "./testing-environment";
+import { projectRoot, resetTestingDatabase } from "./testing-environment";
+
+test.beforeAll(resetTestingDatabase);
 
 const addressId = "Jl. Mawar & Melati No. 8, Malang";
 const addressEn = "8 Rose & Jasmine Street, Malang";
@@ -123,7 +125,10 @@ test("CMS contact edits reach public links, booking action, and the downloaded b
     .getByLabel(/nomor whatsapp|whatsapp number/i)
     .fill("+62 821-0000-1111");
   await page.getByLabel(/^tanggal$|^date$/i).fill("2099-09-11");
-  await page.getByLabel(/^waktu$|^time$/i).selectOption("10:30");
+  await page
+    .getByRole("radiogroup", { name: /^waktu$|^time$/i })
+    .getByRole("radio", { name: "10:30" })
+    .check();
   await page.getByLabel(/jumlah tamu|number of guests/i).selectOption("1");
   await page
     .getByRole("button", { name: /tinjau reservasi|review booking/i })
