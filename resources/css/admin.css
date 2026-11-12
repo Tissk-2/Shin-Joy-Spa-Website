@@ -17,6 +17,10 @@
   --admin-danger: #8b2828;
   --admin-danger-bg: #f3e2dd;
   --admin-selected: #efe0df;
+  --admin-success-bg: #e3ead9;
+  --admin-info: #2f5566;
+  --admin-info-bg: #dde8ec;
+  --admin-lamp: rgb(255 244 220 / 0.9);
   font-family: var(--font-body);
   color: var(--admin-ink);
   background: var(--admin-canvas);
@@ -39,6 +43,10 @@
   --admin-danger: #f0b0a5;
   --admin-danger-bg: #492a26;
   --admin-selected: #493035;
+  --admin-success-bg: #2f3a28;
+  --admin-info: #a9cbd6;
+  --admin-info-bg: #22343a;
+  --admin-lamp: rgb(215 183 126 / 0.22);
 }
 .admin-shell :is(h1, h2, h3, h4) {
   color: var(--admin-ink);

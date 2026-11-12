@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
+import { usePoll } from "@inertiajs/vue3";
 import { DoorClosed, Search } from "lucide-vue-next";
 import { useLanguage } from "@/composables/useLanguage";
 import AdminLayout from "@/layouts/admin/AdminLayout.vue";
 import RoomDetails from "@/components/admin/rooms/RoomDetails.vue";
+import RoomMap from "@/components/admin/rooms/RoomMap.vue";
 import RoomStatusBadges from "@/components/admin/rooms/RoomStatusBadges.vue";
 import type {
   AdminRoomInventory,
@@ -18,6 +20,8 @@ const props = defineProps<{
   blockManagement?: RoomBlockAccess;
 }>();
 const { language, tr } = useLanguage();
+// Keeps the room map current: guests arrive and leave without anyone reloading.
+usePoll(60_000, { only: ["inventory"] });
 const searchQuery = ref("");
 const statusFilter = ref<RoomStatus>("all");
 const typeFilter = ref("all");
@@ -158,6 +162,12 @@ const observation = computed(
             {{ tr("ad.rooms.emptyInventory") }}
           </p>
           <template v-else>
+            <RoomMap
+              :rooms="inventory.rooms"
+              :generated-at="inventory.generatedAt"
+              :scheduling-enabled="inventory.schedulingEnabled"
+              :can-edit="!!(management?.isOwner && management.ready)"
+            />
             <div class="admin-filter-panel">
               <div class="flex flex-1 flex-wrap items-end gap-3">
                 <div class="min-w-0 flex-1 basis-60">

@@ -2,8 +2,11 @@
 
 namespace Tests\Feature\Admin;
 
+use App\Enums\BookingStatus;
+use App\Models\Booking;
 use App\Models\Room;
 use App\Models\RoomBlock;
+use App\Models\RoomReservation;
 use App\Models\Service;
 use App\Models\ServiceCategory;
 use App\Models\ServiceVariant;
@@ -74,7 +77,7 @@ class AdminRoomIndexTest extends TestCase
         $this->assertSame([], $writes);
         $this->assertSame(['A', 'Z'], array_column($inventory['rooms'], 'code'));
         $data = $inventory['rooms'][1];
-        $this->assertSame(['id', 'version', 'code', 'name', 'type', 'capacity', 'cleaningMinutes', 'isActive', 'compatibleVariants', 'currentBlockCount', 'upcomingBlockCount', 'blocks'], array_keys($data));
+        $this->assertSame(['id', 'version', 'code', 'name', 'type', 'capacity', 'cleaningMinutes', 'isActive', 'compatibleVariants', 'currentBlockCount', 'upcomingBlockCount', 'blocks', 'occupancy'], array_keys($data));
         $this->assertSame(1, $data['version']);
         $this->assertFalse($data['isActive']);
         $this->assertSame([
@@ -206,6 +209,46 @@ class AdminRoomIndexTest extends TestCase
         $inventory = (new AdminRoomIndexQuery)->get();
         $this->assertTrue($deleted);
         $this->assertSame([], $inventory['rooms'][0]['compatibleVariants']);
+    }
+
+    public function test_room_use_now_comes_from_held_reservations_of_bookings_that_took_place(): void
+    {
+        // Now is 03:00:00.987; a reservation holds its room on the half-open interval [start, end).
+        $this->reserve('A', BookingStatus::Confirmed, '02:00:00', '03:30:00', '03:45:00', ['customer_name' => 'Sari <b>W</b>', 'guests' => 2, 'package_name_id' => 'Pijat', 'package_name_en' => 'Massage']);
+        $this->reserve('B', BookingStatus::Confirmed, '01:30:00', '03:00:00', '03:15:00');
+        $this->reserve('C', BookingStatus::Completed, '02:00:00', '04:00:00', '04:15:00');
+        $this->reserve('D', BookingStatus::Confirmed, '03:00:00', '04:00:00', '04:15:00');
+        $this->reserve('E', BookingStatus::NoShow, '02:00:00', '04:00:00', '04:15:00');
+        $this->reserve('F', BookingStatus::Cancelled, '02:00:00', '04:00:00', '04:15:00');
+        $this->reserve('G', BookingStatus::Confirmed, '02:00:00', '04:00:00', '04:15:00', [], '2026-10-24 01:00:00');
+        $this->reserve('H', BookingStatus::Confirmed, '01:30:00', '02:45:00', '03:00:00');
+        $this->reserve('I', BookingStatus::Confirmed, '03:00:01', '04:00:00', '04:15:00');
+        $this->room('J');
+        config(['app.timezone' => 'Asia/Jakarta']);
+
+        $use = array_column((new AdminRoomIndexQuery)->get()['rooms'], 'occupancy', 'code');
+
+        $this->assertSame(['state' => 'guest', 'customerName' => 'Sari <b>W</b>', 'guests' => 2, 'packageNameId' => 'Pijat',
+            'packageNameEn' => 'Massage', 'treatmentEndsAt' => '2026-10-24T03:30:00Z', 'endsAt' => '2026-10-24T03:45:00Z'], $use['A']);
+        $this->assertSame(['A' => 'guest', 'B' => 'cleaning', 'C' => 'cleaning', 'D' => 'guest'], array_map(fn ($o) => $o['state'], array_filter($use)));
+        $this->assertSame('2026-10-24T03:15:00Z', $use['B']['endsAt']);
+        foreach (['E', 'F', 'G', 'H', 'I', 'J'] as $code) {
+            $this->assertNull($use[$code], $code);
+        }
+    }
+
+    private function reserve(string $code, BookingStatus $status, string $start, string $treatmentEnd, string $end, array $booking = [], ?string $releasedAt = null): void
+    {
+        RoomReservation::create([
+            'booking_id' => Booking::factory()->create(['status' => $status, ...$booking])->id,
+            'room_id' => $this->room($code)->id,
+            'starts_at' => '2026-10-24 '.$start,
+            'treatment_ends_at' => '2026-10-24 '.$treatmentEnd,
+            'ends_at' => '2026-10-24 '.$end,
+            'cleaning_minutes' => 15,
+            'released_at' => $releasedAt,
+            'release_reason' => $releasedAt ? 'booking_cancelled' : null,
+        ]);
     }
 
     private function room(string $code, bool $enabled = true): Room

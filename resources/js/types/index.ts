@@ -445,6 +445,17 @@ export interface AdminRoom {
   readonly currentBlockCount: number;
   readonly upcomingBlockCount: number;
   readonly blocks: readonly AdminRoomBlock[];
+  readonly occupancy: AdminRoomOccupancy | null;
+}
+
+export interface AdminRoomOccupancy {
+  readonly state: "guest" | "cleaning";
+  readonly customerName: string;
+  readonly guests: number;
+  readonly packageNameId: string;
+  readonly packageNameEn: string;
+  readonly treatmentEndsAt: string;
+  readonly endsAt: string;
 }
 
 export interface RoomManagementAccess {
