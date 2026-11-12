@@ -7,6 +7,10 @@ import { projectRoot, testingEnvironment } from "./testing-environment";
 
 // The pay-at-spa release, end to end in the browser: what the customer is told, what staff decide, and what
 // reaches the customer afterwards. Room scheduling stays off, as it does until the spa switches it on.
+test.skip(
+  process.env.E2E_BOOKING_SCHEDULING_ENABLED === "true",
+  "This journey runs with room scheduling off; room-approval.spec.ts covers it on.",
+);
 
 function artisan(...args: string[]): void {
   execFileSync("php", ["artisan", ...args], {
@@ -152,6 +156,15 @@ test("a pay-at-spa request reaches staff, and every decision reaches the custome
   await expect(staff).toHaveURL(/\/admin\/bookings\/SJ-/);
   await expect(staff.locator(".admin-status--confirmed")).toBeVisible();
   await expect(staff.getByText(/^Walk-in\s+· entered by /)).toBeVisible();
+
+  // The walk-in has no email. With customer emails off its notice is skipped as switched off, so the page
+  // asks no one to phone the guest: the operations guide says the reminder appears only when emails are on.
+  artisan("outbox:dispatch");
+  await staff.reload();
+  await expect(
+    staff.locator('[data-notice][data-notice-state="skipped"]'),
+  ).toContainText("Not sent: customer emails are switched off");
+  await expect(staff.locator("[data-contact-task]")).toHaveCount(0);
 
   await staffContext.close();
 });

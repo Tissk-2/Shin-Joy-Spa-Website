@@ -31,6 +31,8 @@ export const testingEnvironment = {
   APP_URL: "http://127.0.0.1:8000",
   BCRYPT_ROUNDS: "4",
   CACHE_STORE: "array",
+  // Pinned so a developer's .env can't switch them on: Laravel fills unset variables from .env.
+  BOOKING_CUSTOMER_NOTICES_ENABLED: "false",
   BOOKING_SCHEDULING_ENABLED:
     process.env.E2E_BOOKING_SCHEDULING_ENABLED === "true" ? "true" : "false",
   DB_CONNECTION: "sqlite",
@@ -47,6 +49,7 @@ export const testingEnvironment = {
   QUEUE_CONNECTION: "sync",
   SESSION_DRIVER: "database",
   SESSION_SECURE_COOKIE: "false",
+  TELEGRAM_ACTIONS_ENABLED: "false",
   TELEGRAM_BOOKING_NOTIFICATIONS_ENABLED: "false",
   TELEGRAM_BOT_TOKEN: "",
   TELEGRAM_STAFF_CHAT_ID: "",
