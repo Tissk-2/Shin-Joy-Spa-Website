@@ -37,7 +37,10 @@ async function requestNezuko(
     .getByLabel(/nomor whatsapp|whatsapp number/i)
     .fill("+6281234567890");
   await page.getByLabel(/^tanggal$|^date$/i).fill(date);
-  await page.getByLabel(/^waktu$|^time$/i).selectOption(time);
+  await page
+    .getByRole("radiogroup", { name: /^waktu$|^time$/i })
+    .getByRole("radio", { name: time })
+    .check();
   await page
     .getByRole("button", { name: /tinjau reservasi|review booking/i })
     .click();
@@ -150,7 +153,7 @@ test("a pay-at-spa request reaches staff, and every decision reaches the custome
   await staff.locator('[data-mode="regular"]').click();
   await staff.locator('[data-duration="90"]').click();
   await staff.locator("#staff-date").fill("2099-10-08");
-  await staff.locator("#staff-time").selectOption("10:30");
+  await staff.locator('#staff-time input[value="10:30"]').check();
   await staff.locator("#staff-approve").check();
   await staff.getByRole("button", { name: "Save and approve" }).click();
   await expect(staff).toHaveURL(/\/admin\/bookings\/SJ-/);

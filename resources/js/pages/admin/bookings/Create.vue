@@ -4,13 +4,14 @@ import { computed, nextTick, ref, watch } from "vue";
 
 import PackageConfigurator from "@/components/PackageConfigurator.vue";
 import RoomAvailability from "@/components/booking/RoomAvailability.vue";
+import DateTimePicker from "@/components/booking/DateTimePicker.vue";
 import { useLanguage } from "@/composables/useLanguage";
 import { useRoomAvailability } from "@/composables/useRoomAvailability";
 import {
   availabilityQueryKey,
   jakartaAppointment,
 } from "@/lib/roomAvailability";
-import { treatmentFitsBusinessHours, timeSlots, todayIso } from "@/lib/booking";
+import { treatmentFitsBusinessHours, timeSlots } from "@/lib/booking";
 import {
   emptySelection,
   guestCoverage,
@@ -205,6 +206,18 @@ watch(
       values.value.time = "";
   },
   { flush: "sync" },
+);
+// Why the time list is empty, when the reason is not simply that nothing is free.
+const timesEmptyText = computed(() =>
+  !servicePackage.value
+    ? tr("dtp.pickService")
+    : !availabilityEnabled.value || !values.value.date
+      ? undefined
+      : availabilityStatus.value === "loading"
+        ? tr("dtp.checking")
+        : availabilityStatus.value !== "success"
+          ? tr("dtp.seeBelow")
+          : undefined,
 );
 
 const summaryFields = [
@@ -520,22 +533,25 @@ function submit(): void {
                   {{ errors.guests }}
                 </p>
               </div>
-              <div class="min-w-0">
-                <label
-                  for="staff-date"
-                  class="mb-1 block text-sm font-semibold"
-                  >{{ tr("ad.manual.date") }}</label
-                >
-                <input
-                  id="staff-date"
-                  v-model="values.date"
-                  type="date"
-                  :min="todayIso()"
-                  class="admin-control"
-                  :aria-invalid="!!errors.date"
-                  :aria-describedby="
+              <div class="min-w-0 sm:col-span-2">
+                <DateTimePicker
+                  v-model:date="values.date"
+                  v-model:time="values.time"
+                  tone="admin"
+                  :times="availableTimeSlots"
+                  date-id="staff-date"
+                  time-id="staff-time"
+                  :date-label="tr('ad.manual.date')"
+                  :time-label="tr('ad.manual.time')"
+                  :date-invalid="!!errors.date"
+                  :time-invalid="!!errors.time"
+                  :date-described-by="
                     errors.date ? 'staff-date-error' : undefined
                   "
+                  :time-described-by="
+                    errors.time ? 'staff-time-error' : undefined
+                  "
+                  :empty-text="timesEmptyText"
                 />
                 <p
                   v-if="errors.date"
@@ -544,31 +560,6 @@ function submit(): void {
                 >
                   {{ errors.date }}
                 </p>
-              </div>
-              <div class="min-w-0">
-                <label
-                  for="staff-time"
-                  class="mb-1 block text-sm font-semibold"
-                  >{{ tr("ad.manual.time") }}</label
-                >
-                <select
-                  id="staff-time"
-                  v-model="values.time"
-                  class="admin-control"
-                  :aria-invalid="!!errors.time"
-                  :aria-describedby="
-                    errors.time ? 'staff-time-error' : undefined
-                  "
-                >
-                  <option value=""></option>
-                  <option
-                    v-for="slot in availableTimeSlots"
-                    :key="slot"
-                    :value="slot"
-                  >
-                    {{ slot }}
-                  </option>
-                </select>
                 <p
                   v-if="errors.time"
                   id="staff-time-error"

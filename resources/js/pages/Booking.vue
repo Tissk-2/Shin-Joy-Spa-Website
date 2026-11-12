@@ -4,6 +4,7 @@ import { ArrowRight, ExternalLink, ShieldCheck } from "lucide-vue-next";
 import { computed, nextTick, ref, watch } from "vue";
 import PackageConfigurator from "@/components/PackageConfigurator.vue";
 import RoomAvailability from "@/components/booking/RoomAvailability.vue";
+import DateTimePicker from "@/components/booking/DateTimePicker.vue";
 import { useContactInformation } from "@/composables/useContactInformation";
 import { useLanguage } from "@/composables/useLanguage";
 import { useRoomAvailability } from "@/composables/useRoomAvailability";
@@ -12,7 +13,6 @@ import {
   buildBookingSubmissionPayload,
   treatmentFitsBusinessHours,
   timeSlots,
-  todayIso,
   validateBooking,
   type BookingErrors,
   type BookingSubmissionInput,
@@ -262,6 +262,18 @@ watch(
       bookingForm.time = "";
   },
   { flush: "sync" },
+);
+// Why the time list is empty, when the reason is not simply that nothing is free.
+const timesEmptyText = computed(() =>
+  !servicePackage.value
+    ? tr("dtp.pickService")
+    : !availabilityEnabled.value || !bookingForm.date
+      ? undefined
+      : availabilityStatus.value === "loading"
+        ? tr("dtp.checking")
+        : availabilityStatus.value !== "success"
+          ? tr("dtp.seeBelow")
+          : undefined,
 );
 const restartHref = computed(() => {
   const params = new URLSearchParams({
@@ -759,29 +771,19 @@ function confirm(): void {
                 <p>{{ labels.s2sub }}</p>
               </header>
               <div class="bk-fields">
-                <div class="field">
-                  <label for="f-date">{{ tr("b.fdate") }}</label
-                  ><input
-                    id="f-date"
-                    v-model="bookingForm.date"
-                    type="date"
-                    :min="todayIso()"
-                    :aria-invalid="fieldError('date') ? 'true' : undefined"
-                    :aria-describedby="describedBy('date')"
-                  /><span id="f-date-error" class="err">{{
-                    fieldError("date")
-                  }}</span>
-                </div>
-                <div class="field">
-                  <label for="f-time">{{ tr("b.ftime") }}</label
-                  ><select
-                    id="f-time"
-                    v-model="bookingForm.time"
-                    :disabled="
-                      availabilityEnabled && availabilityStatus !== 'success'
-                    "
-                    :aria-invalid="fieldError('time') ? 'true' : undefined"
-                    :aria-describedby="
+                <div class="bk-fields__wide">
+                  <DateTimePicker
+                    v-model:date="bookingForm.date"
+                    v-model:time="bookingForm.time"
+                    :times="availableTimeSlots"
+                    date-id="f-date"
+                    time-id="f-time"
+                    :date-label="tr('b.fdate')"
+                    :time-label="tr('b.ftime')"
+                    :date-invalid="Boolean(fieldError('date'))"
+                    :time-invalid="Boolean(fieldError('time'))"
+                    :date-described-by="describedBy('date')"
+                    :time-described-by="
                       describedBy(
                         'time',
                         availabilityEnabled
@@ -792,18 +794,16 @@ function confirm(): void {
                           : [],
                       )
                     "
-                  >
-                    <option value="">{{ tr("b.ftime") }}</option>
-                    <option
-                      v-for="slot in availableTimeSlots"
-                      :key="slot"
-                      :value="slot"
-                    >
-                      {{ slot }}
-                    </option></select
-                  ><span id="f-time-error" class="err">{{
-                    fieldError("time")
-                  }}</span>
+                    :empty-text="timesEmptyText"
+                  />
+                  <div class="field">
+                    <span id="f-date-error" class="err">{{
+                      fieldError("date")
+                    }}</span>
+                    <span id="f-time-error" class="err">{{
+                      fieldError("time")
+                    }}</span>
+                  </div>
                 </div>
                 <div class="field bk-fields__wide">
                   <label for="f-guests">{{ tr("b.fguests") }}</label

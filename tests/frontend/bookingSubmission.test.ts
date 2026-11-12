@@ -198,7 +198,7 @@ async function completeDetails(wrapper: ReturnType<typeof mountBooking>) {
   await wrapper.get<HTMLInputElement>("#f-name").setValue(" Nadia Lestari ");
   await wrapper.get<HTMLInputElement>("#f-phone").setValue("+62 812-3456-7890");
   await wrapper.get<HTMLInputElement>("#f-date").setValue("2099-09-06");
-  await wrapper.get<HTMLSelectElement>("#f-time").setValue("09:00");
+  await wrapper.get('#f-time input[value="09:00"]').setValue(true);
   await wrapper.get<HTMLSelectElement>("#f-guests").setValue("2");
   await wrapper
     .get<HTMLTextAreaElement>("#f-notes")
@@ -577,7 +577,7 @@ describe("reviewed booking submission", () => {
   it("only offers start times whose selected treatment ends by closing", async () => {
     const wrapper = mountBooking();
     const times = wrapper
-      .findAll<HTMLSelectElement>("#f-time option")
+      .findAll<HTMLInputElement>('#f-time input[type="radio"]')
       .map((item) => item.element.value);
 
     expect(times).toContain("18:30");
@@ -601,19 +601,18 @@ describe("reviewed booking submission", () => {
 
     const times = () =>
       wrapper
-        .get("#f-time")
-        .findAll("option")
-        .map((option) => option.attributes("value"));
+        .findAll('#f-time input[type="radio"]')
+        .map((radio) => radio.attributes("value"));
 
     expect(times()).toContain("09:00");
     expect(times()).toContain("20:00");
 
-    await wrapper.get<HTMLSelectElement>("#f-time").setValue("20:00");
+    await wrapper.get('#f-time input[value="20:00"]').setValue(true);
     await wrapper.get('button[data-mode="regular"]').trigger("click");
     await wrapper.get('button[data-duration="90"]').trigger("click");
 
     expect(times()).not.toContain("20:00");
-    expect(wrapper.get<HTMLSelectElement>("#f-time").element.value).toBe("");
+    expect(wrapper.find("#f-time input:checked").exists()).toBe(false);
   });
 
   it("shows every distinct server selection error in the associated configuration group", async () => {
@@ -652,7 +651,7 @@ describe("reviewed booking submission", () => {
     await wrapper.get<HTMLInputElement>("#f-name").setValue("Ayu Lestari");
     await wrapper.get<HTMLInputElement>("#f-phone").setValue("  ");
     await wrapper.get<HTMLInputElement>("#f-date").setValue("2099-09-06");
-    await wrapper.get<HTMLSelectElement>("#f-time").setValue("09:00");
+    await wrapper.get('#f-time input[value="09:00"]').setValue(true);
     await wrapper.get<HTMLSelectElement>("#f-guests").setValue("2");
 
     await wrapper.get("form").trigger("submit");

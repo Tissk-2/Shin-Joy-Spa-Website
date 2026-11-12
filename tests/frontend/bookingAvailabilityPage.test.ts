@@ -205,7 +205,7 @@ function mountPage(enabled?: unknown) {
 async function details(wrapper: ReturnType<typeof mountPage>) {
   await wrapper.get("#f-date").setValue("2099-09-06");
   await flushPromises();
-  await wrapper.get("#f-time").setValue("09:00");
+  await wrapper.get('#f-time input[value="09:00"]').setValue(true);
 }
 beforeEach(() => {
   inertia.forms = [];
@@ -247,7 +247,7 @@ describe("booking page availability integration", () => {
   );
   it("replaces legacy times, displays read-only room observations as text, clears synchronously on guests/treatment changes", async () => {
     const wrapper = mountPage(true);
-    expect(wrapper.get("#f-time").findAll("option")).toHaveLength(1);
+    expect(wrapper.findAll('#f-time input[type="radio"]')).toHaveLength(0);
     await details(wrapper);
     expect(wrapper.get("[data-room-availability]").text()).toContain(
       "Quiet <script> room",
@@ -267,7 +267,7 @@ describe("booking page availability integration", () => {
     inertia.forms[0].duration = 60;
     expect(inertia.forms[0].time).toBe("");
     await flushPromises();
-    expect(wrapper.get("#f-time").findAll("option")).toHaveLength(1);
+    expect(wrapper.findAll('#f-time input[type="radio"]')).toHaveLength(0);
     wrapper.unmount();
   });
   it("uses latest usable data at review and confirmation and preserves exact existing payload", async () => {
@@ -331,7 +331,7 @@ describe("booking page availability integration", () => {
     expect(wrapper.get<HTMLTextAreaElement>("#f-notes").element.value).toBe(
       "Retain my draft",
     );
-    expect(wrapper.get<HTMLSelectElement>("#f-time").element.value).toBe("");
+    expect(wrapper.find("#f-time input:checked").exists()).toBe(false);
     wrapper.unmount();
   });
   it("shows localized incomplete/empty/incompatible/rate limit/auth/error and explicit recovery", async () => {
@@ -368,7 +368,7 @@ describe("booking page availability integration", () => {
     await wrapper.get("[data-availability-refresh]").trigger("click");
     await flushPromises();
     expect(wrapper.text()).toContain("belum dapat dimuat");
-    expect(wrapper.get("#f-time").findAll("option")).toHaveLength(1);
+    expect(wrapper.findAll('#f-time input[type="radio"]')).toHaveLength(0);
     await wrapper.get("[data-availability-refresh]").trigger("click");
     await flushPromises();
     expect(wrapper.get("#f-time").text()).toContain("09:00");

@@ -128,9 +128,12 @@ async function fillDetails(wrapper: ReturnType<typeof mountPage>) {
   await wrapper.get("#staff-name").setValue("Siti");
   await wrapper.get("#staff-phone").setValue("+62 812-1111-2222");
   await wrapper.get("#staff-date").setValue("2026-12-01");
-  const options = wrapper.get("#staff-time").findAll("option");
-  await wrapper.get("#staff-time").setValue(options[1]!.attributes("value"));
-  return options[1]!.attributes("value");
+  // Times are radio buttons in the date and time picker; take the first one.
+  const first = wrapper.get<HTMLInputElement>(
+    '#staff-time input[type="radio"]',
+  );
+  await first.setValue(true);
+  return first.element.value;
 }
 
 beforeEach(() => {
@@ -297,11 +300,11 @@ describe("admin manual booking entry", () => {
 
     await wrapper.get("#staff-date").setValue("2099-09-06");
     await flushPromises();
-    await wrapper.get("#staff-time").setValue("09:00");
+    await wrapper.get('#staff-time input[value="09:00"]').setValue(true);
     await wrapper.setProps({ packages: structuredClone(packages) });
     await flushPromises();
     expect(
-      (wrapper.get("#staff-time").element as HTMLSelectElement).value,
+      wrapper.get<HTMLInputElement>("#staff-time input:checked").element.value,
     ).toBe("09:00");
     await wrapper.get("form").trigger("submit");
     expect(inertia.posts).toHaveLength(1);

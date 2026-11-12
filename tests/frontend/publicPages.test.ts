@@ -116,7 +116,14 @@ describe("Laravel-owned public pages", () => {
 
     expect(source).toMatch(/validateBooking/);
     expect(source).toMatch(/timeSlots/);
-    expect(source).toMatch(/todayIso/);
+    // Past days are kept unpickable by the shared date and time picker.
+    expect(source).toMatch(/DateTimePicker/);
+    expect(
+      readFileSync(
+        resolve(pageRoot, "../components/booking/DateTimePicker.vue"),
+        "utf8",
+      ),
+    ).toMatch(/todayIso/);
     expect(source).toMatch(/novalidate/);
     expect(source).not.toMatch(
       /localStorage|bookingHistory|createBookingStore|useAuth/,

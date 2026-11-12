@@ -208,9 +208,9 @@ describe("official menu homepage", () => {
     expect(wrapper.text()).toContain("Body Care");
     expect(wrapper.text()).toContain("Rp 175.000");
     expect(
-      wrapper.findAll(".package-menu-card__type").some((label) =>
-        label.text().includes("VIP"),
-      ),
+      wrapper
+        .findAll(".package-menu-card__type")
+        .some((label) => label.text().includes("VIP")),
     ).toBe(true);
     expect(wrapper.get('a[href="/booking?service=nezuko"]')).toBeTruthy();
     expect(wrapper.get('a[href="/booking?service=nezuko-vip"]')).toBeTruthy();
@@ -365,7 +365,7 @@ describe("authenticated package booking", () => {
     await wrapper.get('button[data-duration="90"]').trigger("click");
     await wrapper.get('input[value="nezuko-regular-extra-60"]').setValue(true);
     await wrapper.get<HTMLInputElement>("#f-date").setValue("2099-09-06");
-    await wrapper.get<HTMLSelectElement>("#f-time").setValue("09:00");
+    await wrapper.get('#f-time input[value="09:00"]').setValue(true);
     await wrapper.get("form").trigger("submit");
     expect(wrapper.text()).toContain("No reservation has been submitted yet");
     expect(wrapper.text()).toContain("Edit details");

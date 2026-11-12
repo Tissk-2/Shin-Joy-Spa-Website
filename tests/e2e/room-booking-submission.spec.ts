@@ -46,8 +46,8 @@ test("stale availability rejects real confirmation, preserves focused draft, the
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
   await page.goto("/booking?service=b3j-treatment&mode=regular&duration=90");
   await page.locator("#f-date").fill(seed.date);
-  await expect(page.locator('#f-time option[value="09:00"]')).toHaveCount(1);
-  await page.locator("#f-time").selectOption("09:00");
+  await expect(page.locator('#f-time input[value="09:00"]')).toHaveCount(1);
+  await page.locator('#f-time input[value="09:00"]').check();
   await page.locator("#f-notes").fill("B3K preserved submission draft");
   await page
     .getByRole("button", { name: "Review booking", exact: true })
@@ -84,9 +84,9 @@ test("stale availability rejects real confirmation, preserves focused draft, the
 
   fixture("room-booking-submission", ["unblock"]);
   await page.locator("[data-availability-refresh]").click();
-  await expect(page.locator('#f-time option[value="09:00"]')).toHaveCount(1);
-  await expect(page.locator("#f-time")).toHaveValue("");
-  await page.locator("#f-time").selectOption("09:00");
+  await expect(page.locator('#f-time input[value="09:00"]')).toHaveCount(1);
+  await expect(page.locator("#f-time input:checked")).toHaveCount(0);
+  await page.locator('#f-time input[value="09:00"]').check();
   await page
     .getByRole("button", { name: "Review booking", exact: true })
     .click();

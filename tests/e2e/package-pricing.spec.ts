@@ -97,7 +97,7 @@ test("owner saves visible prices before attestation and customer reviews the tot
       customer.locator(".package-configurator__total"),
     ).toContainText("For 2 guests");
     await customer.locator("#f-date").fill("2099-10-10");
-    await customer.locator("#f-time").selectOption("10:00");
+    await customer.locator('#f-time input[value="10:00"]').check();
     await customer
       .getByRole("button", { name: "Review booking", exact: true })
       .click();

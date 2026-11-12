@@ -78,12 +78,11 @@ test("customer observes real availability, keyboard time selection, safe review,
       (room: { available: boolean }) => room.available,
     ),
   ).toEqual([true, false]);
-  await expect(page.locator('#f-time option[value="09:00"]')).toHaveCount(1);
-  await page.locator("#f-time").focus();
-  await page.keyboard.press("Home");
-  await page.keyboard.press("ArrowDown");
-  await page.keyboard.press("Enter");
-  await expect(page.locator("#f-time")).toHaveValue("09:00");
+  await expect(page.locator('#f-time input[value="09:00"]')).toHaveCount(1);
+  // Times are radio buttons: pick 09:00 with the keyboard.
+  await page.locator('#f-time input[value="09:00"]').focus();
+  await page.keyboard.press("Space");
+  await expect(page.locator('#f-time input[value="09:00"]')).toBeChecked();
   await expect(availability).toContainText("Quiet room");
   await expect(availability).toContainText("Garden room");
   await expect(availability).toContainText("Unavailable");
@@ -116,7 +115,7 @@ test("customer observes real availability, keyboard time selection, safe review,
   await expect(page.locator("#f-notes")).toHaveValue("Retain this draft");
   await page.locator("#f-guests").selectOption("3");
   await expect(availability).toContainText("No compatible rooms");
-  await expect(page.locator('#f-time option:not([value=""])')).toHaveCount(0);
+  await expect(page.locator('#f-time input[type="radio"]')).toHaveCount(0);
   await page.locator("#f-guests").selectOption("1");
   await expect(availability).toContainText("Choose a time");
   await page.getByRole("button", { name: "ID", exact: true }).click();
@@ -127,7 +126,7 @@ test("customer observes real availability, keyboard time selection, safe review,
   await expect(availability).toContainText(
     "Semua ruangan yang sesuai sudah terisi",
   );
-  await expect(page.locator('#f-time option:not([value=""])')).toHaveCount(0);
+  await expect(page.locator('#f-time input[type="radio"]')).toHaveCount(0);
   await availability.scrollIntoViewIfNeeded();
   expect(
     await page.evaluate(
@@ -136,8 +135,8 @@ test("customer observes real availability, keyboard time selection, safe review,
   ).toBe(true);
   await screenshot(page, "mobile-id-occupied");
   await page.locator("#f-date").fill(fixture.date);
-  await expect(page.locator('#f-time option[value="09:00"]')).toHaveCount(1);
-  await page.locator("#f-time").selectOption("09:00");
+  await expect(page.locator('#f-time input[value="09:00"]')).toHaveCount(1);
+  await page.locator('#f-time input[value="09:00"]').check();
   await expect(availability).toContainText("Tersedia");
   await expect(availability).toContainText("Tidak tersedia");
   await expect(availability).toContainText("Persetujuan staf");
