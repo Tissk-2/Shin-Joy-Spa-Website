@@ -113,4 +113,23 @@ describe("public grouped catalog page", () => {
     expect(translations.id["menu.hotWaterPolicy"]).toBe(faq[0].aId);
     expect(translations.en["menu.hotWaterPolicy"]).toBe(faq[0].aEn);
   });
+
+  // This release has no rescheduling: staff cancel, and another time is a new booking.
+  it("answers cancellation with a new booking and never promises a reschedule", () => {
+    const entry = faq.find(
+      (item) => item.qEn === "What if I need to cancel or reschedule?",
+    );
+
+    expect(entry?.aEn).toContain(
+      "make a new booking and ask us to cancel the old one",
+    );
+    expect(entry?.aId).toContain(
+      "buat reservasi baru dan minta kami membatalkan reservasi lama",
+    );
+    for (const item of faq) {
+      expect(`${item.aEn} ${item.aId}`).not.toMatch(
+        /reschedule|jadwal(kan)? ulang/i,
+      );
+    }
+  });
 });

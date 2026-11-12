@@ -494,6 +494,19 @@ describe("reviewed booking submission", () => {
     );
   });
 
+  // The number is optional, and staff's decision reaches the customer on their booking page, not by phone.
+  it("never says the WhatsApp number is how the booking gets confirmed", () => {
+    inertia.page.props.locale = "en";
+    expect(mountBooking().get("[data-booking-contact-note]").text()).toBe(
+      "Staff may use this number to contact you about your booking.",
+    );
+
+    inertia.page.props.locale = "id";
+    expect(mountBooking().get("[data-booking-contact-note]").text()).toBe(
+      "Staf dapat menggunakan nomor ini untuk menghubungi Anda tentang reservasi.",
+    );
+  });
+
   it("returns to the editable form with associated server errors while preserving values and the submission key", async () => {
     inertia.nextPostError = {
       date: "Please choose a future appointment date.",

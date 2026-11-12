@@ -320,7 +320,8 @@ const labels = computed(() =>
         s2: "Jadwal Kunjungan",
         s2sub: "Pilih hari, waktu mulai, dan jumlah tamu.",
         s3: "Data Tamu & Catatan",
-        s3sub: "Kami gunakan nomor ini untuk mengonfirmasi reservasi.",
+        s3sub:
+          "Staf dapat menggunakan nomor ini untuk menghubungi Anda tentang reservasi.",
         step1: "Layanan",
         step2: "Jadwal & Tamu",
         step3: "Selesai",
@@ -356,7 +357,7 @@ const labels = computed(() =>
         s2: "Visit Schedule",
         s2sub: "Choose the day, start time, and number of guests.",
         s3: "Guest Details & Notes",
-        s3sub: "We will use this number to confirm your reservation.",
+        s3sub: "Staff may use this number to contact you about your booking.",
         step1: "Service",
         step2: "Schedule & Guests",
         step3: "Done",
@@ -839,7 +840,7 @@ function confirm(): void {
             <section class="bk-step">
               <header class="bk-step__head">
                 <h2>3. {{ labels.s3 }}</h2>
-                <p>{{ labels.s3sub }}</p>
+                <p data-booking-contact-note>{{ labels.s3sub }}</p>
               </header>
               <div class="bk-fields">
                 <div class="field">

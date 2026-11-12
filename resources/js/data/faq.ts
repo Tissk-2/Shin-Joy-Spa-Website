@@ -32,8 +32,8 @@ export default [
   {
     qId: "Bagaimana jika saya perlu membatalkan atau menjadwalkan ulang?",
     qEn: "What if I need to cancel or reschedule?",
-    aId: "Hubungi kami beberapa jam sebelumnya lewat telepon atau WhatsApp, dan kami akan bantu jadwalkan ulang.",
-    aEn: "Call or WhatsApp us a few hours ahead and we will reschedule for you.",
+    aId: "Hubungi kami lewat telepon atau WhatsApp, dan staf kami akan membatalkan reservasi Anda. Reservasi tidak dapat dipindahkan ke waktu lain: untuk waktu yang berbeda, buat reservasi baru dan minta kami membatalkan reservasi lama.",
+    aEn: "Call or WhatsApp us and our staff will cancel your booking. A booking can't be moved to another time: for a different time, make a new booking and ask us to cancel the old one.",
   },
   {
     qId: "Bisakah saya datang bersama teman atau pasangan?",

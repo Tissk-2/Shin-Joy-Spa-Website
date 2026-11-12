@@ -10,7 +10,7 @@ Visitors browse spa treatments in Indonesian or English, compare prices, and req
 
 ## Product Purpose
 
-A Laravel/Inertia website for Shin Joy Spa with a database-backed treatment catalog and staff-confirmed booking requests. Payments and resource availability scheduling are outside the current scope.
+A Laravel/Inertia website for Shin Joy Spa with a database-backed treatment catalog and staff-approved booking requests. Every new booking is paid at the spa; online payment is deferred to a later release. Bookings are not rescheduled: customers ask the spa to cancel and make a new booking. Room scheduling, Telegram staff notifications and actions, and customer status emails are built, and each stays off until the spa switches it on.
 
 ## Brand Personality
 
