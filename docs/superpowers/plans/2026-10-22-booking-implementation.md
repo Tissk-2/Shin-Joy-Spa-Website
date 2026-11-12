@@ -106,6 +106,66 @@ No credentials should be pasted into the plan or Telegram. No paid account creat
 | E1c | The staff operations guide (`docs/superpowers/plans/2026-10-22-booking-operations.md`), and one browser test for the whole pay-at-spa journey (`tests/e2e/booking-release.spec.ts`), which Qoder writes and Claude runs in the review. `bookings:readiness` only reports, so the guide must make "ready" an explicit step before room scheduling is switched on. `BOOKING_SCHEDULING_ENABLED` and `TELEGRAM_BOOKING_NOTIFICATIONS_ENABLED` are read without a boolean filter, and Laravel converts only words like `true`/`false`, so `off` or `no` stays a string that counts as on. The code also reads the scheduling switch three ways: truthy at approval, cancellation, completion and no-show; `=== true` on the customer booking form, the new-request room check, the staff booking form, the schedule page and `bookings:readiness`; and `(bool)` on the admin rooms page and the admin booking page. So `1` enforces rooms at approval while the customer booking form, the new-request check and readiness say scheduling is off. E1c fixes both switches as C4e fixed `TELEGRAM_ACTIONS_ENABLED`. With scheduling on, a customer's new request for a time that overlaps their own confirmed booking can be refused when no other suitable room is free, so the guide tells staff to cancel the old booking first in that case. |
 | E1d | The full regression run (every command below, with measured results) and the stage E close-out. |
 
+## Stage E close-out: the pay-at-spa release (12 November 2026)
+
+Stage E is complete as code for the pay-at-spa release: every booking is paid at the spa. Online payment, refunds and their Review Focus cases wait for stage D, and two of Task E1's steps are still open (items 8 and 9 below). This section records what stage E delivered, what was measured, and what is still open. Every claim rests on a run or on the code as it stands.
+
+**What stage E delivered:**
+
+| Part | Commit | Delivered |
+|---|---|---|
+| E1a | `e458869` | `BookingReleaseAcceptanceTest`: five pay-at-spa acceptance tests through the real outbox |
+| E1b | `fd70cd2` | Customer text: the FAQ no longer promises a reschedule, `PRODUCT.md` states the release's scope, and the booking form no longer says the WhatsApp number confirms the booking |
+| E1c | `7e116a3`, `0715c3b` | The scheduling and Telegram notification switches read as real booleans; the browser journey `tests/e2e/booking-release.spec.ts`; the [staff operations guide](2026-10-22-booking-operations.md) and its README pointer. `7e116a3` came from outside the recorded handoffs; it was reviewed in E1c and the user kept it |
+| E1d | the commit adding this section | The regression run below and this close-out |
+
+**The regression run.** On `0715c3b` with a clean tree, 12 November 2026. Qoder ran every command that can run here except #7, one at a time; Claude ran #7. Windows 10, PHP 8.5.3, Node 24.15.0, Laravel 13.40.0, PHPUnit 11.5.56, Vitest 4.1.12, Playwright 1.62.1, SQLite 3.49.2. Telegram and mail are faked, and online payment is off. The live database's hash was the same before and after Qoder's run, around #9, and after each browser run.
+
+| # | Command | Run as | Measured result |
+|---|---|---|---|
+| 1 | `php artisan test` | the same | 1146 passed (11908 assertions) |
+| 2 | `composer test:coverage` | `php artisan test --coverage --min=80` | **not measured**: exit 1, "Code coverage driver not available" (no Xdebug or PCOV) |
+| 3 | `npm run test:legacy` | the same | 60 tests: 58 pass, **2 fail** (open item 7) |
+| 4 | `npm run test:frontend` | the same | 301 passed in 30 files |
+| 5 | `npm run types:check` | the same | clean |
+| 6 | `npm run build` | the same | exit 0 |
+| 7 | `npm run test:e2e` | as one run; then the 5 room specs that need `E2E_BOOKING_SCHEDULING_ENABLED=true`. The whole suite doesn't run again with it: five fixtures (`booking-settings`, `package-pricing`, `room-inventory`, `room-management`, `staff-permissions`) refuse to run with scheduling on | As one run: 34 passed, **5 failed**, 5 skipped (the room specs that need the opt-in). Each failing test passes when its spec file runs alone (open item 1). With the opt-in: all 5 room specs pass, 3 of them only when run alone; `booking-release` skips itself, as designed |
+| 8 | `php vendor/phpunit/phpunit --configuration phpunit.concurrency.xml` | `php vendor/bin/phpunit -c phpunit.concurrency.xml` (the listed path is wrong) | 16 tests, 1 skipped: `test_the_mysql_session_runs_in_utc`, which needs MySQL |
+| 9 | `composer verify` | its script: #1, then `route:cache` and `route:clear` against a throwaway database | both succeed; no route cache left behind |
+| 10 | `composer audit` | — | **not run**: Composer is not installed |
+| 11 | `npm audit` | `npm audit`, and `npm audit --omit=dev` | 11 moderate, 0 high, 0 critical, all in development tooling; production dependencies: 0 |
+
+The logs are `storage/framework/testing/e1d-*`. Qoder's report and Claude's review are `task-E1d-report.md` and `task-E1d-review.md` in `.superpowers/sdd/2026-10-22-booking-scheduling-pricing/`. Both places are git-ignored.
+
+**Open items.** None of these is done:
+
+1. **The browser suite doesn't pass as one run.** Each failing test passes when its spec file runs alone. They fail because all specs in a run share one database and one pair of servers:
+   - `package-pricing` leaves the Nezuko package at 2–4 guests with a new price. Run right after it, three `service-catalog` tests fail, because they expect the seeded one-guest totals;
+   - from the first spec that writes the test Vite hot file (`booking-settings`, at its own start) to the end of the run, pages are compiled on demand by the Vite dev server instead of coming from `public/build`. The dev server is slower late in a run. In a run of every spec up to `booking-settings`, single files took up to 21 s (`Profile.vue`) and `booking-settings` ran out of time; alone, it passes in under a minute. `catalog-presentation`'s second test uses built assets when run alone. Right after `booking-settings` it used 1.8 of its 2 minutes on the dev server, and in the full run it ran out of time. Why the dev server slows is not established;
+   - the room specs assume a database no other room spec has used. With the opt-in in one run, two room fixtures stop with an error and one test counts another spec's reservation; only `room-approval` and `room-block-termination` pass.
+
+   None of these failures points to a product defect, and production serves built assets. Fixing the harness is its own task.
+2. **The production database engine.** The concurrency suite has only run on SQLite: room allocation and outbox races are unproven on the engine the spa will deploy, and its MySQL session check is skipped. Stage C's close-out lists what a MySQL run must cover ([Telegram plan](2026-10-22-booking-telegram-actions.md), "Not verified, and required before production"): this suite with `CONCURRENCY_DB_*` pointed at a disposable database, then the MySQL-only checks in `task-C3c-review.md` and the C4b lock checks.
+3. **Live delivery.** Telegram and customer email were tested only with fakes. Their switches stay off until each is proven on a test account, following the README's "Before switching actions on" and "Before switching emails on" checklists.
+4. **Coverage.** Unmeasured, so the project's 80% requirement is unverified. It needs Xdebug or PCOV.
+5. **`composer audit`.** Not run, so the PHP dependencies have had no advisory check. It needs Composer.
+6. **11 moderate npm advisories,** all in development tooling: the `typescript-eslint` packages, and `@vue/test-utils` with `glob`, `minimatch`, `js-beautify` and `editorconfig`. None ships to production. The `@vue/test-utils` fix is a downgrade from 2.5.1 to 2.4.11, outside the `^2.5.0` range in `package.json`, so npm marks it as breaking and it needs its own check.
+7. **The 2 legacy-suite failures.** Two scope rules in `tests/frontend/translation-parity.test.mjs` reject the "Awaiting payment" / "Menunggu pembayaran" status labels. Stage D decides whether the labels or the rules change.
+8. **A deployment rehearsal.** Task E1 asks for one with production-shaped synthetic data, including overlapping legacy appointments, missing pricing verification and a queue or scheduler outage (its disabled-checkout case waits for stage D). The operations guide is checked against the code only.
+9. **A final review of the whole release.** Each part had an independent review; no code and security review has covered the release as one (Task E1's last step).
+10. **Unused leftovers.** The translation keys `b.sub`, `b.successs`, `b.note` and `booking.historyWarning` are used by nothing, and `src/Data/faq.js` belongs to the legacy `src/` app, which is not built or served. They are harmless now, but they still say WhatsApp confirms the booking and promise a reschedule, so nothing should reuse them.
+11. **Stage D:** payments and refunds, Review Focus 1, the payment half of Review Focus 3, and the online, late-payment and refund browser journeys.
+
+**Verdict: not production-ready.** The pay-at-spa release is complete as code. On SQLite with fake delivery, every check this machine can run passes except two: the legacy suite's 2 failures (item 7, left for stage D) and the browser suite as one run (item 1; each failing test passes alone). Before it is deployed:
+- the browser suite passes as one run (open item 1);
+- the MySQL checks in item 2 pass on the production engine;
+- `composer audit` reports no high or critical advisory (item 5);
+- coverage is measured and reaches 80% (item 4);
+- a deployment rehearsal with production-shaped synthetic data follows the operations guide from backup to "ready" (item 8);
+- a final code and security review of the release finds no critical or high issue (item 9).
+
+After deployment, Telegram notifications, Telegram actions and customer emails each stay off until proven on a test account (item 3), and room scheduling stays off until `bookings:readiness` prints `Booking readiness: ready.` (guide §3).
+
 ## Task E1: Integrated acceptance, recovery and handover
 
 **Files:** Create `tests/Feature/BookingReleaseAcceptanceTest.php`, `tests/e2e/booking-release.spec.ts`, `docs/superpowers/plans/2026-10-22-booking-operations.md` during implementation. Extend the isolated fixture helpers in `tests/e2e/helpers/`, the scheduling `tests/Concurrency/` harness, `README.md`, `PRODUCT.md`, and `resources/js/data/faq.ts` as needed. The operations document is an execution deliverable, not a claimed existing runbook.
