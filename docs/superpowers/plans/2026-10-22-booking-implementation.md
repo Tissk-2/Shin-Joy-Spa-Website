@@ -118,7 +118,8 @@ Stage E is complete as code for the pay-at-spa release: every booking is paid at
 | E1b | `fd70cd2` | Customer text: the FAQ no longer promises a reschedule, `PRODUCT.md` states the release's scope, and the booking form no longer says the WhatsApp number confirms the booking |
 | E1c | `7e116a3`, `0715c3b` | The scheduling and Telegram notification switches read as real booleans; the browser journey `tests/e2e/booking-release.spec.ts`; the [staff operations guide](2026-10-22-booking-operations.md) and its README pointer. `7e116a3` came from outside the recorded handoffs; it was reviewed in E1c and the user kept it |
 | E1d | `09f2e50` | The regression run below and this close-out |
-| E1e | the commit recording it here | The browser suite as one run: each spec file starts from the seeded database, no spec uses the Vite dev server, and six specs pick times from the calendar's time buttons that `e664842` introduced (open item 1) |
+| E1e | `03b4f6d` | The browser suite as one run: each spec file starts from the seeded database, no spec uses the Vite dev server, and six specs pick times from the calendar's time buttons that `e664842` introduced (open item 1) |
+| E1f | the commit recording it here | The regression re-measured on `03b4f6d`, the first `composer audit` (item 5), and the final code and security review of the whole release (item 9) |
 
 **The regression run.** On `0715c3b` with a clean tree, 12 November 2026. Qoder ran every command that can run here except #7, one at a time; Claude ran #7. Windows 10, PHP 8.5.3, Node 24.15.0, Laravel 13.40.0, PHPUnit 11.5.56, Vitest 4.1.12, Playwright 1.62.1, SQLite 3.49.2. Telegram and mail are faked, and online payment is off. The live database's hash was the same before and after Qoder's run, around #9, and after each browser run.
 
@@ -133,12 +134,28 @@ Stage E is complete as code for the pay-at-spa release: every booking is paid at
 | 7 | `npm run test:e2e` | as one run; then the 5 room specs that need `E2E_BOOKING_SCHEDULING_ENABLED=true`. The whole suite doesn't run again with it: five fixtures (`booking-settings`, `package-pricing`, `room-inventory`, `room-management`, `staff-permissions`) refuse to run with scheduling on | As one run: 34 passed, **5 failed**, 5 skipped (the room specs that need the opt-in). Each failing test passes when its spec file runs alone (open item 1). With the opt-in: all 5 room specs pass, 3 of them only when run alone; `booking-release` skips itself, as designed. **After E1e** (on `e664842` with the change): as one run, 39 passed, 0 failed, 5 skipped, in 7.9 min; with the opt-in, the 5 room specs pass together |
 | 8 | `php vendor/phpunit/phpunit --configuration phpunit.concurrency.xml` | `php vendor/bin/phpunit -c phpunit.concurrency.xml` (the listed path is wrong) | 16 tests, 1 skipped: `test_the_mysql_session_runs_in_utc`, which needs MySQL |
 | 9 | `composer verify` | its script: #1, then `route:cache` and `route:clear` against a throwaway database | both succeed; no route cache left behind |
-| 10 | `composer audit` | — | **not run**: Composer is not installed |
+| 10 | `composer audit` | in E1f: `php …/Composer/latest.phar audit --locked --no-plugins` | **not run in E1d**, which looked for Composer only on PATH. The phar was there all along. E1f ran it: 10 advisories, see item 5 |
 | 11 | `npm audit` | `npm audit`, and `npm audit --omit=dev` | 11 moderate, 0 high, 0 critical, all in development tooling; production dependencies: 0 |
 
 The logs are `storage/framework/testing/e1d-*`. Qoder's report and Claude's review are `task-E1d-report.md` and `task-E1d-review.md` in `.superpowers/sdd/2026-10-22-booking-scheduling-pricing/`. Both places are git-ignored.
 
-**Open items.** E1e closed item 1. None of the others is done:
+**Re-measured on `03b4f6d` in E1f** (12–13 November 2026, clean tree). Qoder ran every command except #2, #7 and #9; Claude ran #7. The live database's hash was unchanged throughout.
+- **Not run:**
+  - #2: there is still no coverage driver;
+  - #9: routes are unchanged since `0715c3b`.
+- **Results:**
+  - #1: 1147 passed (11917 assertions);
+  - #3: 61 tests, 59 pass, the same 2 failures (item 7);
+  - #4: 315 passed in 31 files;
+  - #5: clean;
+  - #6: exit 0;
+  - #7: as one run, 39 passed, 0 failed, 5 skipped; with the opt-in, the 5 room specs pass together;
+  - #8: 16 tests, 1 skipped;
+  - #10: 10 advisories (item 5);
+  - #11: unchanged.
+- **Records:** the logs are `storage/framework/testing/e1f-*`; the reports are `task-E1f-report.md` and `task-E1f-review.md`.
+
+**Open items.** E1e closed item 1. E1f ran item 5's audit and item 9's review, and their fixes are still open. None of the others is done:
 
 1. **Closed by E1e: the browser suite passes as one run.**
    - **The fix:**
@@ -158,20 +175,62 @@ The logs are `storage/framework/testing/e1d-*`. Qoder's report and Claude's revi
 2. **The production database engine.** The concurrency suite has only run on SQLite: room allocation and outbox races are unproven on the engine the spa will deploy, and its MySQL session check is skipped. Stage C's close-out lists what a MySQL run must cover ([Telegram plan](2026-10-22-booking-telegram-actions.md), "Not verified, and required before production"): this suite with `CONCURRENCY_DB_*` pointed at a disposable database, then the MySQL-only checks in `task-C3c-review.md` and the C4b lock checks.
 3. **Live delivery.** Telegram and customer email were tested only with fakes. Their switches stay off until each is proven on a test account, following the README's "Before switching actions on" and "Before switching emails on" checklists.
 4. **Coverage.** Unmeasured, so the project's 80% requirement is unverified. It needs Xdebug or PCOV.
-5. **`composer audit`.** Not run, so the PHP dependencies have had no advisory check. It needs Composer.
+5. **`composer audit` reports 10 Symfony advisories, none reachable as shipped.**
+   - **Where they are:** `symfony/http-foundation` (4), `http-kernel`, `routing`, `serializer` (3) and `yaml`. All were reported on 4 November 2026, and all are fixed in 8.1.11.
+   - **Why none can be reached:**
+     - Laravel uses none of the vulnerable `http-foundation`, `http-kernel` and `routing` features;
+     - link hosts are pinned to `APP_URL`;
+     - no trusted proxies are configured;
+     - no route has a domain;
+     - `serializer` comes in only through Fortify's passkeys, which are off;
+     - `yaml` is development only.
+
+     One `http-foundation` advisory depends on deployment: it applies if a web-server path rule is added before upgrading.
+   - **The fix:** the user approved downloading the update on 13 November 2026. It is part E1j (item 9).
 6. **11 moderate npm advisories,** all in development tooling: the `typescript-eslint` packages, and `@vue/test-utils` with `glob`, `minimatch`, `js-beautify` and `editorconfig`. None ships to production. The `@vue/test-utils` fix is a downgrade from 2.5.1 to 2.4.11, outside the `^2.5.0` range in `package.json`, so npm marks it as breaking and it needs its own check.
 7. **The 2 legacy-suite failures.** Two scope rules in `tests/frontend/translation-parity.test.mjs` reject the "Awaiting payment" / "Menunggu pembayaran" status labels. Stage D decides whether the labels or the rules change.
 8. **A deployment rehearsal.** Task E1 asks for one with production-shaped synthetic data, including overlapping legacy appointments, missing pricing verification and a queue or scheduler outage (its disabled-checkout case waits for stage D). The operations guide is checked against the code only.
-9. **A final review of the whole release.** Each part had an independent review; no code and security review has covered the release as one (Task E1's last step).
+9. **The final code and security review (E1f) found one High and nine Medium issues to fix before launch.**
+   - **How it ran:** five independent read-only reviewers covered the whole application at `03b4f6d`, one slice each:
+     - accounts and staff authority;
+     - bookings and rooms;
+     - Telegram, outbox and email;
+     - content, catalogue and public pages;
+     - configuration and dependencies.
+
+     Claude verified every finding above Low, six of them with failing tests.
+   - **What it confirmed:** all 12 findings of the 15 October backend audit are fixed.
+   - **Critical:** none.
+   - **High:** the default contact number `+62 812 3456 7890` is a placeholder. With no **Content** override, it becomes the live WhatsApp "Contact the spa" link, so customers' cancellation requests would reach a stranger. The owner gave the spa's real number on 13 November 2026.
+   - **Medium:**
+     - a Markdown-link name in the account emails;
+     - `/user/confirm-password` has no rate limit;
+     - an email change needs no password;
+     - scheduling ignores confirmed bookings that hold no room;
+     - with scheduling on, staff can't enter walk-ins;
+     - the webhook has one global rate limit;
+     - a forged `Host` makes `X-Forwarded-For` trusted, which defeats every IP limit;
+     - no security headers;
+     - emailed links take the request's scheme.
+   - **Low:** 40, recorded in `task-E1f-review.md`.
+   - **The user chose to fix the High and all nine Mediums before deploying,** in four parts:
+     - **E1g, account and connection hardening:** the real contact number, the Markdown name, the confirm-password limit, the email change, trusted hosts and proxies, security headers, and HTTPS links;
+     - **E1h, scheduling safety:** roomless confirmed bookings, and walk-ins;
+     - **E1i, the Telegram webhook:** limits per sender;
+     - **E1j, the Symfony 8.1.11 update** (item 5).
 10. **Unused leftovers.** The translation keys `b.sub`, `b.successs`, `b.note` and `booking.historyWarning` are used by nothing, and `src/Data/faq.js` belongs to the legacy `src/` app, which is not built or served. They are harmless now, but they still say WhatsApp confirms the booking and promise a reschedule, so nothing should reuse them.
 11. **Stage D:** payments and refunds, Review Focus 1, the payment half of Review Focus 3, and the online, late-payment and refund browser journeys.
 
-**Verdict: not production-ready.** The pay-at-spa release is complete as code. On SQLite with fake delivery, every check this machine can run passes except the legacy suite's 2 failures (item 7, left for stage D). The browser suite passes as one run since E1e (item 1). Before it is deployed:
-- the MySQL checks in item 2 pass on the production engine;
-- `composer audit` reports no high or critical advisory (item 5);
-- coverage is measured and reaches 80% (item 4);
-- a deployment rehearsal with production-shaped synthetic data follows the operations guide from backup to "ready" (item 8);
-- a final code and security review of the release finds no critical or high issue (item 9).
+**Verdict: not production-ready.** The pay-at-spa release is complete as code. On SQLite with fake delivery, every check this machine can run passes except:
+- the legacy suite's 2 failures (item 7, left for stage D);
+- `composer audit`'s 10 advisories, none reachable as shipped (item 5).
+
+The browser suite passes as one run since E1e (item 1). Before it is deployed:
+- **E1g, E1h and E1i** fix the final review's High and nine Medium findings, each with its own review (item 9);
+- **E1j** updates Symfony to 8.1.11, and `composer audit` then reports no advisory that can be reached here (item 5);
+- **the MySQL checks** in item 2 pass on the production engine;
+- **coverage** is measured and reaches 80% (item 4);
+- **a deployment rehearsal** with production-shaped synthetic data follows the operations guide from backup to "ready" (item 8).
 
 After deployment, Telegram notifications, Telegram actions and customer emails each stay off until proven on a test account (item 3), and room scheduling stays off until `bookings:readiness` prints `Booking readiness: ready.` (guide §3).
 
