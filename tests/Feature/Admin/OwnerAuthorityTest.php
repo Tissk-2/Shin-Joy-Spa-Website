@@ -57,7 +57,7 @@ class OwnerAuthorityTest extends TestCase
         User::factory()->owner()->unverified()->create();
         $this->actingAs($owner)->from('/settings/profile')->delete('/settings/profile', ['password' => 'password'])
             ->assertSessionHasErrors('password');
-        $this->actingAs($owner)->patch('/settings/profile', ['name' => $owner->name, 'email' => 'new@example.com'])
+        $this->actingAs($owner)->patch('/settings/profile', ['name' => $owner->name, 'email' => 'new@example.com', 'current_password' => 'password'])
             ->assertSessionHasErrors('email');
         $this->assertTrue($owner->refresh()->hasVerifiedEmail());
     }
@@ -66,7 +66,7 @@ class OwnerAuthorityTest extends TestCase
     {
         $owner = User::factory()->owner()->unverified()->create();
         $this->actingAs($owner)->delete('/settings/profile', ['password' => 'password'])->assertSessionHasErrors('password');
-        $this->actingAs($owner)->patch('/settings/profile', ['name' => $owner->name, 'email' => 'fixed@example.com'])
+        $this->actingAs($owner)->patch('/settings/profile', ['name' => $owner->name, 'email' => 'fixed@example.com', 'current_password' => 'password'])
             ->assertSessionHasNoErrors();
         $this->assertSame('fixed@example.com', $owner->refresh()->email);
     }
@@ -169,7 +169,7 @@ class OwnerAuthorityTest extends TestCase
         $this->actingAs($user);
         User::whereKey($user->id)->update(['role' => 'owner']);
         foreach (['en', 'id'] as $locale) {
-            $this->withSession(['locale' => $locale])->patch('/settings/profile', ['name' => $user->name, 'email' => 'new@example.com'])
+            $this->withSession(['locale' => $locale])->patch('/settings/profile', ['name' => $user->name, 'email' => 'new@example.com', 'current_password' => 'password'])
                 ->assertSessionHasErrors(['email' => trans('auth.final_owner_email', [], $locale)]);
             $this->withSession(['locale' => $locale])->delete('/settings/profile', ['password' => 'password'])
                 ->assertSessionHasErrors(['password' => trans('auth.final_owner', [], $locale)]);
@@ -181,7 +181,7 @@ class OwnerAuthorityTest extends TestCase
     {
         $first = User::factory()->owner()->create();
         $second = User::factory()->owner()->create();
-        $this->actingAs($first)->patch('/settings/profile', ['name' => $first->name, 'email' => 'changed@example.com'])->assertSessionHasNoErrors();
+        $this->actingAs($first)->patch('/settings/profile', ['name' => $first->name, 'email' => 'changed@example.com', 'current_password' => 'password'])->assertSessionHasNoErrors();
         $this->assertNull($first->refresh()->email_verified_at);
         $this->actingAs($first)->delete('/settings/profile', ['password' => 'password'])->assertSessionHasNoErrors()->assertRedirect('/');
         $this->assertGuest();
@@ -261,7 +261,7 @@ class OwnerAuthorityTest extends TestCase
         $connection->setQueryGrammar($grammar);
         try {
             $this->artisan('admin:revoke', ['email' => $admin->email, '--yes' => true])->assertSuccessful();
-            $this->actingAs($owner)->patch('/settings/profile', ['name' => $owner->name, 'email' => 'new@example.com'])->assertSessionHasErrors('email');
+            $this->actingAs($owner)->patch('/settings/profile', ['name' => $owner->name, 'email' => 'new@example.com', 'current_password' => 'password'])->assertSessionHasErrors('email');
             $this->actingAs($owner)->delete('/settings/profile', ['password' => 'password'])->assertSessionHasErrors('password');
         } finally {
             $connection->setQueryGrammar($original);

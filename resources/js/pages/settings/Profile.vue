@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { TransitionRoot } from "@headlessui/vue";
 import { Head, Link, useForm, usePage } from "@inertiajs/vue3";
+import { computed } from "vue";
 
 import DeleteUser from "@/components/DeleteUser.vue";
 import HeadingSmall from "@/components/HeadingSmall.vue";
@@ -33,11 +34,21 @@ const user = page.props.auth.user as User;
 const form = useForm({
   name: user.name,
   email: user.email,
+  current_password: "",
 });
+
+// The server asks for the password whenever the email changes.
+const emailChanged = computed(
+  () => form.email !== (page.props.auth.user as User).email,
+);
 
 const submit = () => {
   form.patch(route("profile.update"), {
     preserveScroll: true,
+    // A successful save copies the submitted data into the form's defaults,
+    // so clear the default too, or reset() would put the password back.
+    onFinish: () =>
+      form.defaults("current_password", "").reset("current_password"),
   });
 };
 </script>
@@ -79,6 +90,24 @@ const submit = () => {
               placeholder="Email address"
             />
             <InputError class="mt-2" :message="form.errors.email" />
+          </div>
+
+          <div v-if="emailChanged" class="grid gap-2">
+            <Label for="current_password">Current password</Label>
+            <Input
+              id="current_password"
+              type="password"
+              class="mt-1 block w-full"
+              v-model="form.current_password"
+              required
+              autocomplete="current-password"
+              placeholder="Current password"
+              aria-describedby="current_password_hint"
+            />
+            <p id="current_password_hint" class="text-sm text-neutral-600">
+              Enter your password to change your email address.
+            </p>
+            <InputError class="mt-2" :message="form.errors.current_password" />
           </div>
 
           <div v-if="mustVerifyEmail && !user.email_verified_at">

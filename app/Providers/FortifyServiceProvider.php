@@ -106,6 +106,12 @@ class FortifyServiceProvider extends ServiceProvider
             if ($event->route->getName() === 'password.update') {
                 $event->route->middleware(RejectArrayIdentityInput::class);
             }
+
+            // Unused by the app, but Fortify always registers it. It checks the
+            // password, so it shares the settings password-guessing budget.
+            if ($event->route->getName() === 'password.confirm.store') {
+                $event->route->middleware('throttle:password-update');
+            }
         });
     }
 }

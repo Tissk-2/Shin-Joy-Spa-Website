@@ -197,7 +197,7 @@ describe("public contact information", () => {
       "Jalan Terusan Batubara No. 12, Lantai 2",
     );
     expect(wrapper.get(".footer-contact").text()).toContain(
-      "+62 812 3456 7890",
+      "+62 895-3247-48530",
     );
   });
 
@@ -223,8 +223,9 @@ describe("public contact information", () => {
         submissionKey: "00000000-0000-4000-8000-000000000003",
       },
     });
+    // The shipped default is the spa's own number (the placeholder once sent customers to a stranger).
     expect(fallback.get(".summary-card__help a").attributes("href")).toBe(
-      "https://wa.me/6281234567890",
+      "https://wa.me/62895324748530",
     );
     fallback.unmount();
 

@@ -24,6 +24,7 @@
         <env name="APP_PREVIOUS_KEYS" value="" force="true"/>
         <env name="APP_DEBUG" value="false" force="true"/>
         <env name="APP_URL" value="http://localhost" force="true"/>
+        <env name="TRUSTED_PROXIES" value="" force="true"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file" force="true"/>
         <env name="BCRYPT_ROUNDS" value="4" force="true"/>
         <env name="CACHE_STORE" value="array" force="true"/>

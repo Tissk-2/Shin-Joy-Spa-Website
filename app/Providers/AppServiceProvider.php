@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Http\Responses\NeutralPasswordResetLinkResponse;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Mail\Markdown;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\Vite;
@@ -47,6 +48,15 @@ class AppServiceProvider extends ServiceProvider
         }
 
         URL::forceRootUrl((string) config('app.url'));
+        // Without this the request's own scheme wins, so a reset requested over
+        // plain HTTP would mail an http:// link.
+        if (str_starts_with((string) config('app.url'), 'https://')) {
+            URL::forceScheme('https');
+        }
+
+        // Escapes Markdown in mail echoes, so a customer name such as
+        // "[Verify here](https://…)" stays text instead of becoming a link.
+        Markdown::withSecuredEncoding();
 
         RateLimiter::for('booking-store', fn (Request $request): array => [
             Limit::perMinute(6)->by('user:'.$request->user()?->getAuthIdentifier()),

@@ -42,9 +42,33 @@ link to use booking features with a new account.
 
 For a deployment, set `APP_ENV=production`, the real HTTPS `APP_URL`,
 `SESSION_SECURE_COOKIE=true`, and `MAIL_MAILER` plus its credentials for a
-delivery transport with a valid `MAIL_FROM_ADDRESS`. Verify that registration
-and password-reset emails arrive before accepting customers; both flows require
-email delivery.
+delivery transport with a valid `MAIL_FROM_ADDRESS`. Before accepting customers,
+register a test account, open the link in the verification email and check
+that the account is verified, then check that a password-reset email arrives;
+both flows require email delivery.
+
+Serve the site over HTTPS only, and redirect HTTP to HTTPS at the web server.
+With an `https://` `APP_URL`, every generated and emailed link uses HTTPS, and
+HTTPS responses carry `Strict-Transport-Security`.
+
+If a reverse proxy or load balancer terminates HTTPS in front of the app, set
+`TRUSTED_PROXIES` so the app sees HTTPS and the real client address:
+- **A fixed proxy:** its addresses or CIDR ranges, comma-separated without
+  spaces.
+- **A load balancer whose address changes:** `REMOTE_ADDR`, which trusts only
+  the machine connecting to the app. Then make the app reachable only through
+  that load balancer.
+
+Never use `*`: it trusts every address, so a client could set its own IP and
+get past the rate limits. Without `TRUSTED_PROXIES`, behind such a proxy the app
+sees plain HTTP, and the links in verification emails fail with "Invalid
+signature". This applies to Laravel Forge, Vapor and Cloud too: their proxies
+are no longer trusted automatically. With no proxy in front, leave it empty, so
+no `X-Forwarded-*` header is trusted.
+
+The app sends `X-Content-Type-Options: nosniff` and its other security headers
+on every PHP response. Uploaded images under `/storage` are served by the web
+server directly, so set `nosniff` there as well.
 
 ## Common commands
 

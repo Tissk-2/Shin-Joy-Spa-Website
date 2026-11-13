@@ -61,6 +61,7 @@ class ProfileUpdateTest extends TestCase
             ->patch('/settings/profile', [
                 'name' => 'Test User',
                 'email' => 'test@example.com',
+                'current_password' => 'password',
             ]);
 
         $response
@@ -155,7 +156,7 @@ class ProfileUpdateTest extends TestCase
         Password::broker()->createToken($owner);
 
         $this->actingAs($owner)
-            ->patch('/settings/profile', ['name' => $owner->name, 'email' => 'moved-owner@example.com'])
+            ->patch('/settings/profile', ['name' => $owner->name, 'email' => 'moved-owner@example.com', 'current_password' => 'password'])
             ->assertSessionHasErrors('email');
 
         $this->assertDatabaseHas('password_reset_tokens', ['email' => $owner->email]);
@@ -304,6 +305,7 @@ class ProfileUpdateTest extends TestCase
             ->patch('/settings/profile', [
                 'name' => $user->name,
                 'email' => 'moved@example.com',
+                'current_password' => 'password',
             ])
             ->assertSessionHasNoErrors();
 
@@ -320,6 +322,7 @@ class ProfileUpdateTest extends TestCase
             ->patch('/settings/profile', [
                 'name' => $user->name,
                 'email' => 'moved@example.com',
+                'current_password' => 'password',
             ])
             ->assertSessionHasNoErrors();
 

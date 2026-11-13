@@ -9,7 +9,9 @@ Route::middleware('auth')->group(function () {
     Route::redirect('settings', 'settings/profile');
 
     Route::get('settings/profile', [ProfileController::class, 'edit'])->name('profile.edit');
-    Route::patch('settings/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::patch('settings/profile', [ProfileController::class, 'update'])
+        ->middleware('throttle:password-update')
+        ->name('profile.update');
     Route::delete('settings/profile', [ProfileController::class, 'destroy'])
         ->middleware('throttle:profile-destroy')
         ->name('profile.destroy');

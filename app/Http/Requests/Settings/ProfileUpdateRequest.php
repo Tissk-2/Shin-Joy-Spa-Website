@@ -25,6 +25,15 @@ class ProfileUpdateRequest extends FormRequest
                 'max:255',
                 Rule::unique(User::class)->ignore($this->user()->id),
             ],
+            // A new email lets its owner reset the password, so a session alone must not be enough.
+            // Ignored while the email is unchanged, so a stale value can't block a name edit.
+            'current_password' => [
+                Rule::excludeIf(fn (): bool => $this->input('email') === $this->user()->email),
+                'bail',
+                'required',
+                'string',
+                'current_password',
+            ],
         ];
     }
 }

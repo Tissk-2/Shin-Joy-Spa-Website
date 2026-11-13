@@ -51,6 +51,7 @@ return [
     ],
     'attributes' => [
         'currentStatus' => 'current status',
+        'current_password' => 'current password',
         'date' => 'date',
         'duration' => 'duration',
         'guests' => 'guest count',

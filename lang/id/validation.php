@@ -51,6 +51,7 @@ return [
     ],
     'attributes' => [
         'currentStatus' => 'Status saat ini',
+        'current_password' => 'Kata sandi saat ini',
         'date' => 'Tanggal',
         'duration' => 'Durasi',
         'guests' => 'Jumlah tamu',
