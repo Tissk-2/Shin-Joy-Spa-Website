@@ -185,6 +185,72 @@ class TelegramRaceTest extends ConcurrencyTestCase
         $this->assertSame($before + 2, $this->guardRevision());
     }
 
+    public static function firstSendRaces(): array
+    {
+        return [
+            // The press fills in the lost send's message ID first, so the retried send posts no second copy.
+            'press, then the retried send' => ['telegram', 'send', 'prompted/', '0/0'],
+            // The retried send replaces the copy's buttons first, so the press finds its token gone.
+            'retried send, then the press' => ['send', 'telegram', '1/0', 'ignored/expired'],
+        ];
+    }
+
+    /**
+     * C3c's possible deadlock: a retried first send renders while the row has no message ID, and a Decline press on the
+     * delivered copy creates its confirmation. The press writes the row before the staff guard, so whichever comes second
+     * waits for the row.
+     *
+     * When the press goes first, MySQL does deadlock: the send's insertOrIgnore takes a shared lock on the booking for its
+     * foreign key, then waits for the row, while the press holds the row and locks the booking. MySQL rolls the send back
+     * and send()'s three attempts retry it, so the outcome below is the one after that retry.
+     *
+     * When the send goes first on MySQL, the press's early write still stamps copy 123 on the row, because its reads used
+     * a snapshot from before the send's render; only the send's final save then sets 456. If that save never happened, the
+     * row would keep 123 with the new copy's tokens. The final state here can't show it (close-out item 2).
+     */
+    #[DataProvider('firstSendRaces')]
+    public function test_a_retried_first_send_and_a_decline_press_are_serialized(
+        string $first,
+        string $second,
+        string $firstOut,
+        string $secondOut,
+    ): void {
+        [$a] = $this->scene();
+        $before = $this->guardRevision();
+        // The first send's response was lost: copy 123 is in the chat, but its row has no message ID.
+        $press = $this->press($a, 1, 'decline_prompt', null);
+        $old = (int) DB::table('telegram_action_tokens')->value('id');
+        $sendFirst = $first === 'send';
+        // When the send goes first on SQLite, the press's first write waits for the send's render transaction, so its reads
+        // already miss the token and it is refused before the staff guard, its own pause point. On MySQL it reads first,
+        // waits at the message row, and is refused under the guard. A send that comes second always reaches its pause point.
+        $pressRefusedEarly = $sendFirst && $this->driver() === 'sqlite';
+
+        [$firstOutput, $secondOutput] = $this->race(
+            $first,
+            $sendFirst ? $a->id : $press,
+            $second,
+            $sendFirst ? $press : $a->id,
+            ! $pressRefusedEarly,
+        );
+
+        $this->assertSame($firstOut, $firstOutput);
+        $this->assertSame($secondOut, $secondOutput);
+        $this->assertSame('pending', DB::table('bookings')->where('id', $a->id)->value('status'));
+        $this->assertSame(1, DB::table('telegram_booking_messages')->count());
+        $row = DB::table('telegram_booking_messages')->first();
+        $this->assertSame($sendFirst ? 456 : 123, (int) $row->message_id);
+        $this->assertSame('sent', $row->state);
+        $tokens = DB::table('telegram_action_tokens')->orderBy('id')->get();
+        $this->assertSame($sendFirst ? ['approve', 'decline_prompt'] : ['decline_prompt', 'decline_confirm'], $tokens->pluck('action')->all());
+        $this->assertSame(! $sendFirst, $tokens->contains('id', $old));
+        $this->assertSame($sendFirst ? 0 : 1, DB::table('outbox_messages')->where('type', 'telegram.decline.prompt')->count());
+        $answer = $this->answerFor($press);
+        $this->assertSame($sendFirst ? __('admin.telegram.callback.expired') : __('admin.telegram.callback.prompted', ['minutes' => 5]), $answer['text']);
+        $this->assertSame($sendFirst, $answer['show_alert']);
+        $this->assertSame($before + ($pressRefusedEarly ? 0 : 1), $this->guardRevision());
+    }
+
     /** @return array{0: Booking, 1: Booking, 2: User} two bookings that want the same last room, and the linked staff member */
     private function scene(): array
     {
@@ -206,13 +272,16 @@ class TelegramRaceTest extends ConcurrencyTestCase
         return [$a->fresh(), $b->fresh(), $staff];
     }
 
-    /** Records a press of the booking's button and returns its telegram.update.received outbox message ID. */
-    private function press(Booking $booking, int $updateId, string $action = 'approve'): int
+    /**
+     * Records a press of the booking's button on copy 123 and returns its telegram.update.received outbox message ID. A null
+     * $messageId leaves the row as a send whose response was lost.
+     */
+    private function press(Booking $booking, int $updateId, string $action = 'approve', ?int $messageId = 123): int
     {
         $nonce = substr(hash('sha256', $action.$booking->id), 0, 43);   // the same booking and action give the same button
         $row = TelegramBookingMessage::query()->firstOrCreate(
             ['booking_id' => $booking->id, 'chat_id' => '-1001234567890'],
-            ['message_id' => 123, 'booking_version' => 1, 'state' => 'sent'],
+            ['message_id' => $messageId, 'booking_version' => 1, 'state' => $messageId === null ? 'sending' : 'sent'],
         );
         TelegramActionToken::query()->firstOrCreate(['nonce_hash' => hash('sha256', $nonce)], [
             'telegram_booking_message_id' => $row->id,
@@ -231,8 +300,13 @@ class TelegramRaceTest extends ConcurrencyTestCase
         return (int) OutboxMessage::query()->where('type', 'telegram.update.received')->orderByDesc('id')->value('id');
     }
 
-    /** @return array{0: string, 1: string} the first and second workers' output */
-    private function race(string $first, int $firstId, string $second, int $secondId): array
+    /**
+     * $secondAcquires is false when the second worker is refused before its own pause point (a press whose token is
+     * already gone, on SQLite).
+     *
+     * @return array{0: string, 1: string} the first and second workers' output
+     */
+    private function race(string $first, int $firstId, string $second, int $secondId, bool $secondAcquires = true): array
     {
         $this->worker($first, 'first', $firstId);
         $this->worker($second, 'second', $secondId);
@@ -249,7 +323,7 @@ class TelegramRaceTest extends ConcurrencyTestCase
             $this->assertSame(0, $worker->wait(), $worker->getErrorOutput().$worker->getOutput());
         }
 
-        $this->assertFileExists($this->directory.'/second-acquired');
+        $this->assertSame($secondAcquires, is_file($this->directory.'/second-acquired'), 'Whether the second worker reached its pause point.');
 
         return [$this->workers['first']->getOutput(), $this->workers['second']->getOutput()];
     }
