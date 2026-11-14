@@ -29,7 +29,8 @@ return new class extends Migration
             $table->text('long_description_id')->nullable()->change();
             $table->text('long_description_en')->nullable()->change();
             $table->string('image_path')->nullable()->change();
-            $table->json('gallery_paths')->default('[]')->change();
+            // An expression default: MySQL refuses a literal default on a JSON column.
+            $table->json('gallery_paths')->default(DB::raw("('[]')"))->change();
             $table->unsignedInteger('popularity')->default(0)->change();
             $table->timestamp('published_at')->nullable()->index();
             $table->unsignedBigInteger('lock_version')->default(0);

@@ -26,7 +26,11 @@ php artisan migrate --seed
 The default `.env.example` uses SQLite and needs no database configuration; the
 database file lives at `database/database.sqlite` (create an empty file first if
 it does not exist yet). To use MySQL instead, set `DB_CONNECTION=mysql` in `.env`
-and fill in the connection values.
+and fill in the connection values. MySQL must be 8.0.13 or later, with
+`sql_require_primary_key` off: the `room_service_variant` table has no primary
+key. If `php artisan migrate` ever stops partway on MySQL, drop and recreate the
+database before migrating again, because MySQL keeps the schema changes the
+failed migration had already made.
 
 Run the app with two terminals:
 
@@ -511,7 +515,10 @@ Check the production server first:
 
 ```sql
 SELECT @@global.time_zone, @@system_time_zone, TIMEDIFF(NOW(), UTC_TIMESTAMP());
+SELECT @@version, @@sql_require_primary_key;
 ```
+
+The second query must show 8.0.13 or later and `0` (see Local setup).
 
 If the offset is not `00:00:00` and the database already holds data, set
 `DB_TIMEZONE` in the deployment's environment to that offset (for example
