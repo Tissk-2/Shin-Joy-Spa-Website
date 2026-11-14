@@ -108,7 +108,7 @@ No credentials should be pasted into the plan or Telegram. No paid account creat
 
 ## Stage E close-out: the pay-at-spa release (12 November 2026)
 
-Stage E is complete as code for the pay-at-spa release: every booking is paid at the spa. Online payment, refunds and their Review Focus cases wait for stage D, and two of Task E1's steps are still open (items 8 and 9 below). This section records what stage E delivered, what was measured, and what is still open. Every claim rests on a run or on the code as it stands.
+Stage E is complete as code for the pay-at-spa release: every booking is paid at the spa. Online payment, refunds and their Review Focus cases wait for stage D, and one of Task E1's steps is still open (item 8 below). This section records what stage E delivered, what was measured, and what is still open. Every claim rests on a run or on the code as it stands.
 
 **What stage E delivered:**
 
@@ -119,7 +119,11 @@ Stage E is complete as code for the pay-at-spa release: every booking is paid at
 | E1c | `7e116a3`, `0715c3b` | The scheduling and Telegram notification switches read as real booleans; the browser journey `tests/e2e/booking-release.spec.ts`; the [staff operations guide](2026-10-22-booking-operations.md) and its README pointer. `7e116a3` came from outside the recorded handoffs; it was reviewed in E1c and the user kept it |
 | E1d | `09f2e50` | The regression run below and this close-out |
 | E1e | `03b4f6d` | The browser suite as one run: each spec file starts from the seeded database, no spec uses the Vite dev server, and six specs pick times from the calendar's time buttons that `e664842` introduced (open item 1) |
-| E1f | the commit recording it here | The regression re-measured on `03b4f6d`, the first `composer audit` (item 5), and the final code and security review of the whole release (item 9) |
+| E1f | `926081d` | The regression re-measured on `03b4f6d`, the first `composer audit` (item 5), and the final code and security review of the whole release (item 9) |
+| E1g | `4443b7e` | Account and connection hardening: the spa's real contact number, the Markdown name, rate limits on password confirmation and profile updates, the password for an email change, no trusted proxies unless configured, security headers, and HTTPS links (item 9) |
+| E1h | `7bb3fd0` | Scheduling safety: approval is refused while a booking without a room overlaps the slot, and staff can enter walk-ins with scheduling on (item 9) |
+| E1i | `2360e3d` | The Telegram webhook limits each sender to 20 updates a minute, on top of the shared limit (item 9) |
+| E1j | the commit recording it here | Symfony 8.1.11 (item 5), and the regression re-measured with it |
 
 **The regression run.** On `0715c3b` with a clean tree, 12 November 2026. Qoder ran every command that can run here except #7, one at a time; Claude ran #7. Windows 10, PHP 8.5.3, Node 24.15.0, Laravel 13.40.0, PHPUnit 11.5.56, Vitest 4.1.12, Playwright 1.62.1, SQLite 3.49.2. Telegram and mail are faked, and online payment is off. The live database's hash was the same before and after Qoder's run, around #9, and after each browser run.
 
@@ -155,7 +159,23 @@ The logs are `storage/framework/testing/e1d-*`. Qoder's report and Claude's revi
   - #11: unchanged.
 - **Records:** the logs are `storage/framework/testing/e1f-*`; the reports are `task-E1f-report.md` and `task-E1f-review.md`.
 
-**Open items.** E1e closed item 1. E1f ran item 5's audit and item 9's review, and their fixes are still open. None of the others is done:
+**Re-measured on `2360e3d` with E1j's lock** (14 November 2026). Besides `composer.lock`, the tree held two uncommitted admin room-page edits, `RoomDetails.vue` and `admin/rooms/Index.vue`. They are someone else's work and not part of this release, but #4 to #7 ran with them. Qoder ran #1, #8 and #10; Claude ran the rest. The live database's hash was unchanged throughout.
+- **Not run:**
+  - #2: there is still no coverage driver;
+  - #11: no npm dependency changed.
+- **Results:**
+  - #1: 1173 passed (12187 assertions);
+  - #3: 61 tests, 59 pass, the same 2 failures (item 7);
+  - #4: 316 passed in 32 files;
+  - #5: clean;
+  - #6: exit 0;
+  - #7: as one run, 39 passed, 0 failed, 5 skipped; with the opt-in, the 5 room specs pass together;
+  - #8: 16 tests, 1 skipped;
+  - #9: `route:cache` and `route:clear` both succeed against a throwaway database, rerun because `symfony/routing` changed;
+  - #10: no advisories (item 5).
+- **Records:** the logs are `storage/framework/testing/e1j-*`; the reports are `task-E1j-report.md` and `task-E1j-review.md`.
+
+**Open items.** E1e closed item 1, and E1g to E1j closed items 5 and 9. None of the others is done:
 
 1. **Closed by E1e: the browser suite passes as one run.**
    - **The fix:**
@@ -175,9 +195,9 @@ The logs are `storage/framework/testing/e1d-*`. Qoder's report and Claude's revi
 2. **The production database engine.** The concurrency suite has only run on SQLite: room allocation and outbox races are unproven on the engine the spa will deploy, and its MySQL session check is skipped. Stage C's close-out lists what a MySQL run must cover ([Telegram plan](2026-10-22-booking-telegram-actions.md), "Not verified, and required before production"): this suite with `CONCURRENCY_DB_*` pointed at a disposable database, then the MySQL-only checks in `task-C3c-review.md` and the C4b lock checks.
 3. **Live delivery.** Telegram and customer email were tested only with fakes. Their switches stay off until each is proven on a test account, following the README's "Before switching actions on" and "Before switching emails on" checklists.
 4. **Coverage.** Unmeasured, so the project's 80% requirement is unverified. It needs Xdebug or PCOV.
-5. **`composer audit` reports 10 Symfony advisories, none reachable as shipped.**
-   - **Where they are:** `symfony/http-foundation` (4), `http-kernel`, `routing`, `serializer` (3) and `yaml`. All were reported on 4 November 2026, and all are fixed in 8.1.11.
-   - **Why none can be reached:**
+5. **Closed by E1j: `composer audit` reports no advisory.** E1f found 10 Symfony advisories, none reachable as shipped:
+   - **Where they were:** `symfony/http-foundation` (4), `http-kernel`, `routing`, `serializer` (3) and `yaml`. All were reported on 4 November 2026, and all are fixed in 8.1.11.
+   - **Why none could be reached:**
      - Laravel uses none of the vulnerable `http-foundation`, `http-kernel` and `routing` features;
      - link hosts are pinned to `APP_URL`;
      - no trusted proxies are configured;
@@ -186,11 +206,11 @@ The logs are `storage/framework/testing/e1d-*`. Qoder's report and Claude's revi
      - `yaml` is development only.
 
      One `http-foundation` advisory depends on deployment: it applies if a web-server path rule is added before upgrading.
-   - **The fix:** the user approved downloading the update on 13 November 2026. It is part E1j (item 9).
+   - **The fix:** E1j moved `http-foundation`, `http-kernel`, `routing`, `serializer` and `yaml` to 8.1.11 in `composer.lock`, as the user approved on 13 November 2026. No other package changed, and `composer.json` is unchanged. Production must install from the committed lock (`composer install --no-dev`); the README doesn't spell that step out yet (E1f's Low finding R5-L1).
 6. **11 moderate npm advisories,** all in development tooling: the `typescript-eslint` packages, and `@vue/test-utils` with `glob`, `minimatch`, `js-beautify` and `editorconfig`. None ships to production. The `@vue/test-utils` fix is a downgrade from 2.5.1 to 2.4.11, outside the `^2.5.0` range in `package.json`, so npm marks it as breaking and it needs its own check.
 7. **The 2 legacy-suite failures.** Two scope rules in `tests/frontend/translation-parity.test.mjs` reject the "Awaiting payment" / "Menunggu pembayaran" status labels. Stage D decides whether the labels or the rules change.
 8. **A deployment rehearsal.** Task E1 asks for one with production-shaped synthetic data, including overlapping legacy appointments, missing pricing verification and a queue or scheduler outage (its disabled-checkout case waits for stage D). The operations guide is checked against the code only.
-9. **The final code and security review (E1f) found one High and nine Medium issues to fix before launch.**
+9. **Closed by E1g to E1j: the final code and security review (E1f) found one High and nine Medium issues, and all are fixed.**
    - **How it ran:** five independent read-only reviewers covered the whole application at `03b4f6d`, one slice each:
      - accounts and staff authority;
      - bookings and rooms;
@@ -218,16 +238,13 @@ The logs are `storage/framework/testing/e1d-*`. Qoder's report and Claude's revi
      - **E1h, scheduling safety:** roomless confirmed bookings, and walk-ins;
      - **E1i, the Telegram webhook:** limits per sender;
      - **E1j, the Symfony 8.1.11 update** (item 5).
+   - **How each part was checked:** Claude prepared and probed it, Qoder ran it, and an independent reviewer checked it; Claude fixed the review's findings, and showed that each new test fails when the code it guards is broken (`task-E1g-review.md` to `task-E1j-review.md`).
+   - **Deferred by the user (14 November 2026):** the email-change fix asks for the password but doesn't notify the old address. It is recorded as a Low finding in `task-E1g-review.md`.
 10. **Unused leftovers.** The translation keys `b.sub`, `b.successs`, `b.note` and `booking.historyWarning` are used by nothing, and `src/Data/faq.js` belongs to the legacy `src/` app, which is not built or served. They are harmless now, but they still say WhatsApp confirms the booking and promise a reschedule, so nothing should reuse them.
 11. **Stage D:** payments and refunds, Review Focus 1, the payment half of Review Focus 3, and the online, late-payment and refund browser journeys.
+12. **Symfony 8.1 reaches end of life in January 2027** (`END_OF_LIFE` in `symfony/http-kernel`'s `Kernel.php`), and its security fixes stop then. Before that, the Symfony packages must move to a supported version; Laravel 13 accepts 7.4 or 8.x. Found in E1j's review.
 
-**Verdict: not production-ready.** The pay-at-spa release is complete as code. On SQLite with fake delivery, every check this machine can run passes except:
-- the legacy suite's 2 failures (item 7, left for stage D);
-- `composer audit`'s 10 advisories, none reachable as shipped (item 5).
-
-The browser suite passes as one run since E1e (item 1). Before it is deployed:
-- **E1g, E1h and E1i** fix the final review's High and nine Medium findings, each with its own review (item 9);
-- **E1j** updates Symfony to 8.1.11, and `composer audit` then reports no advisory that can be reached here (item 5);
+**Verdict: not production-ready.** The pay-at-spa release is complete as code, and the final review's High and nine Medium findings are fixed (item 9). On SQLite with fake delivery, every check this machine can run passes except the legacy suite's 2 failures (item 7, left for stage D). The browser suite passes as one run since E1e (item 1), and `composer audit` reports no advisory since E1j (item 5). Before it is deployed:
 - **the MySQL checks** in item 2 pass on the production engine;
 - **coverage** is measured and reaches 80% (item 4);
 - **a deployment rehearsal** with production-shaped synthetic data follows the operations guide from backup to "ready" (item 8).
