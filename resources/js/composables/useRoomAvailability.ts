@@ -20,6 +20,8 @@ export type AvailabilityStatus =
 export function useRoomAvailability(
   enabled: Readonly<Ref<unknown>>,
   query: Readonly<Ref<AvailabilityQuery | null>>,
+  // The staff form asks /admin/bookings/availability, which skips the customer notice.
+  endpoint = "/booking/availability",
 ) {
   const slots = ref<AvailabilitySlot[]>([]);
   const generatedAt = ref<string | null>(null);
@@ -57,7 +59,7 @@ export function useRoomAvailability(
         : new AbortController();
     status.value = "loading";
     try {
-      const response = await fetch(`/booking/availability?${identity}`, {
+      const response = await fetch(`${endpoint}?${identity}`, {
         headers: { Accept: "application/json" },
         credentials: "same-origin",
         signal: controller?.signal,

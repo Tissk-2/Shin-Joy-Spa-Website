@@ -12,6 +12,7 @@ use App\Http\Controllers\Admin\AdminRoomController;
 use App\Http\Controllers\Admin\AdminScheduleController;
 use App\Http\Controllers\Admin\AdminStaffController;
 use App\Http\Controllers\Admin\AdminTelegramStaffController;
+use App\Http\Controllers\BookingAvailabilityController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('admin')->name('admin.')->group(function (): void {
@@ -59,6 +60,10 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
         });
         Route::get('/bookings', [AdminBookingController::class, 'index'])->name('bookings.index');
         Route::get('/bookings/create', [AdminBookingController::class, 'create'])->name('bookings.create');
+        // Before /bookings/{booking:reference}, which would otherwise match it.
+        Route::get('/bookings/availability', [BookingAvailabilityController::class, 'staff'])
+            ->middleware('throttle:booking-availability')
+            ->name('bookings.availability');
         Route::post('/bookings', [AdminBookingController::class, 'store'])
             ->middleware('throttle:admin-booking-status')
             ->name('bookings.store');

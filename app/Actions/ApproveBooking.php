@@ -59,10 +59,17 @@ class ApproveBooking
                     if (! $operationalConfirmed) {
                         throw ValidationException::withMessages(['operationalConfirmed' => __('admin.status.operational_required')]);
                     }
+                    $allocator = new RoomAllocator;
                     try {
-                        (new RoomAllocator)->allocateLocked($locked);
+                        $reservation = $allocator->allocateLocked($locked);
                     } catch (ValidationException) {
                         throw ValidationException::withMessages(['room' => __('admin.status.room_unavailable')]);
+                    }
+                    // Bookings confirmed while scheduling was off hold no room; until
+                    // bookings:reconcile-rooms assigns them, any room might be theirs.
+                    // Refusing here rolls the new reservation back with the approval.
+                    if ($allocator->hasUnassignedOverlapLocked($reservation)) {
+                        throw ValidationException::withMessages(['room' => __('admin.status.unassigned_overlap')]);
                     }
                     $attestedAt = CarbonImmutable::now('UTC')->setMicrosecond(0);
                 }

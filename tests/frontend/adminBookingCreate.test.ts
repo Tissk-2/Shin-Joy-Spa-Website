@@ -300,6 +300,10 @@ describe("admin manual booking entry", () => {
 
     await wrapper.get("#staff-date").setValue("2099-09-06");
     await flushPromises();
+    // Final review M5: staff times come from the staff route, which skips the customer notice.
+    expect(String(vi.mocked(fetch).mock.calls.at(-1)?.[0])).toMatch(
+      /^\/admin\/bookings\/availability\?/,
+    );
     await wrapper.get('#staff-time input[value="09:00"]').setValue(true);
     await wrapper.setProps({ packages: structuredClone(packages) });
     await flushPromises();

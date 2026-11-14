@@ -17,6 +17,7 @@ use App\Models\ServiceVariant;
 use App\Models\User;
 use App\Support\ActionContext;
 use App\Support\CustomerIdentity;
+use App\Support\Scheduling\BookingSubmissionAvailability;
 use Carbon\CarbonImmutable;
 use Database\Seeders\ServiceCatalogSeeder;
 use Illuminate\Database\QueryException;
@@ -213,6 +214,46 @@ class StaffBookingTest extends TestCase
         }
 
         $this->assertDatabaseCount('bookings', 1);
+    }
+
+    // Final review M5: with scheduling on, staff must be able to record a walk-in inside the notice customers must give.
+    public function test_staff_can_record_a_booking_inside_the_customer_notice_with_scheduling_on(): void
+    {
+        $room = $this->enableScheduling();
+        BookingSettings::query()->whereKey(1)->update(['minimum_lead_minutes' => 240]);
+        $staff = User::factory()->bookingStaff()->create();
+        $data = $this->scheduledData(); // 09:00 WIB, three hours from now
+
+        try {
+            app(BookingSubmissionAvailability::class)->validate($data);
+            $this->fail('A customer booking inside the minimum notice was accepted.');
+        } catch (ValidationException $error) {
+            $this->assertSame(['time'], array_keys($error->errors()));
+        }
+
+        $booking = app(CreateStaffBooking::class)($staff, $data, true, $this->context(), true);
+
+        $this->assertSame(BookingStatus::Confirmed, $booking->status);
+        $this->assertSame(1, RoomReservation::query()
+            ->where('booking_id', $booking->id)->where('room_id', $room->id)->count());
+    }
+
+    // Final review M5: the staff form's times skip the customer notice, and only booking staff may ask for them.
+    public function test_the_staff_availability_route_skips_the_notice_and_needs_the_booking_capability(): void
+    {
+        $this->enableScheduling();
+        BookingSettings::query()->whereKey(1)->update(['minimum_lead_minutes' => 240]);
+        $query = http_build_query(['service' => 'local', 'mode' => 'regular', 'duration' => 60, 'date' => '2026-10-26', 'guests' => 1]);
+        $starts = fn ($response): array => array_column($response->assertOk()->json('slots'), 'start_at');
+        $nineWib = '2026-10-26T02:00:00.000000Z'; // three hours from now
+
+        $this->assertContains($nineWib, $starts($this->actingAs(User::factory()->bookingStaff()->create())
+            ->getJson('/admin/bookings/availability?'.$query)));
+        $this->assertNotContains($nineWib, $starts($this->actingAs(User::factory()->create())
+            ->getJson('/booking/availability?'.$query)));
+
+        $this->actingAs(User::factory()->create())->getJson('/admin/bookings/availability?'.$query)->assertForbidden();
+        $this->actingAs(User::factory()->admin()->create())->getJson('/admin/bookings/availability?'.$query)->assertForbidden();
     }
 
     // Production break caught: staff without the booking capability and customers must not create bookings.

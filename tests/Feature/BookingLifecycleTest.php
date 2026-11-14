@@ -11,6 +11,7 @@ use App\Enums\BookingStatus;
 use App\Models\Booking;
 use App\Models\BookingStatusChange;
 use App\Models\OutboxMessage;
+use App\Models\Room;
 use App\Models\RoomReservation;
 use App\Models\User;
 use App\Support\ActionContext;
@@ -122,6 +123,98 @@ class BookingLifecycleTest extends TestCase
         $this->assertSame(0, RoomReservation::query()->where('booking_id', $second->id)->count());
         $this->assertSame(1, OutboxMessage::query()->where('type', 'booking.approved')->count());
         $this->assertSame(0, BookingStatusChange::query()->where('booking_id', $second->id)->count());
+    }
+
+    // Final review M4: a booking confirmed while scheduling was off holds no room, so
+    // switching scheduling on must not hand its room to a second group.
+    public function test_scheduling_refuses_an_approval_that_overlaps_a_confirmed_booking_without_a_room(): void
+    {
+        [$roomless, $next, $actor] = $this->roomlessAndNext('overlapping-approval');
+
+        $this->assertRefusedForRoomless($actor, $next, 'An approval overlapping a booking without a room was accepted.');
+
+        $this->assertSame(BookingStatus::Pending, $next->fresh()->status);
+        $this->assertSame(0, RoomReservation::query()->count());
+    }
+
+    // Final review M4: before the new booking, the block reaches as far as the room's cleaning time (15 minutes).
+    public function test_a_booking_without_a_room_blocks_approvals_within_cleaning_time_before_it(): void
+    {
+        [$roomless, $next, $actor] = $this->roomlessAndNext('boundary-before');
+        $start = $next->fresh()->starts_at;
+        $endsAt = fn (CarbonImmutable $end) => DB::table('bookings')->where('id', $roomless->id)->update([
+            'starts_at' => $end->subHour()->format('Y-m-d H:i:s'),
+            'treatment_ends_at' => $end->format('Y-m-d H:i:s'),
+        ]);
+
+        $endsAt($start->subMinutes(14));
+        $this->assertRefusedForRoomless($actor, $next, 'A booking ending 14 minutes before the start did not block.');
+
+        $endsAt($start->subMinutes(15));
+        (new ApproveBooking)($actor, $next->id, BookingStatus::Pending, $this->context(), true);
+        $this->assertSame(1, RoomReservation::query()->where('booking_id', $next->id)->count());
+    }
+
+    // Final review M4 (review fix): after the new booking, the block covers its own cleaning time too.
+    public function test_a_booking_without_a_room_blocks_approvals_whose_cleaning_time_it_starts_in(): void
+    {
+        [$roomless, $next, $actor] = $this->roomlessAndNext('boundary-after');
+        $end = $next->fresh()->treatment_ends_at;
+        $startsAt = fn (CarbonImmutable $start) => DB::table('bookings')->where('id', $roomless->id)->update([
+            'starts_at' => $start->format('Y-m-d H:i:s'),
+            'treatment_ends_at' => $start->addHour()->format('Y-m-d H:i:s'),
+        ]);
+
+        $startsAt($end->addMinutes(14));
+        $this->assertRefusedForRoomless($actor, $next, 'A booking starting 14 minutes after the treatment did not block.');
+
+        $startsAt($end->addMinutes(15));
+        (new ApproveBooking)($actor, $next->id, BookingStatus::Pending, $this->context(), true);
+        $this->assertSame(1, RoomReservation::query()->where('booking_id', $next->id)->count());
+    }
+
+    // Final review M4 (review fix): staff may mark a treatment completed while it is still running, so it keeps its time.
+    public function test_a_booking_without_a_room_still_blocks_after_being_completed_mid_treatment(): void
+    {
+        [$roomless, $next, $actor] = $this->roomlessAndNext('after-completion');
+        $this->travelTo(CarbonImmutable::parse('2026-10-25 10:15', 'Asia/Jakarta'));
+        (new CompleteBooking)($actor, $roomless->id, BookingStatus::Confirmed, $this->context());
+
+        $this->assertRefusedForRoomless($actor, $next, 'A booking completed mid-treatment stopped blocking its room.');
+    }
+
+    // Final review M4 (review fix): once its treatment and cleaning are over, a booking without a room stops
+    // blocking, so the refusal never outlives it (reconcile-rooms ignores finished bookings).
+    public function test_a_booking_without_a_room_stops_blocking_once_its_cleaning_time_is_over(): void
+    {
+        [, $next, $actor] = $this->roomlessAndNext('after-cleaning'); // treatment ends 11:30 WIB, cleaning 15 minutes
+
+        $this->travelTo(CarbonImmutable::parse('2026-10-25 11:44', 'Asia/Jakarta'));
+        $this->assertRefusedForRoomless($actor, $next, 'A booking still in its cleaning time stopped blocking.');
+
+        $this->travelTo(CarbonImmutable::parse('2026-10-25 11:45', 'Asia/Jakarta'));
+        (new ApproveBooking)($actor, $next->id, BookingStatus::Pending, $this->context(), true);
+        $this->assertSame(1, RoomReservation::query()->where('booking_id', $next->id)->count());
+    }
+
+    // Final review M4: only bookings without a room block; one that holds a room never stops another room being used.
+    public function test_a_booking_that_holds_a_room_does_not_block_an_approval_into_another_room(): void
+    {
+        // Before the fixture's treatment, so the first booking hasn't finished and still counts.
+        $this->travelTo(CarbonImmutable::parse('2026-10-24 09:00', 'Asia/Jakarta'));
+        config(['booking.scheduling_enabled' => true]);
+        [$first, $room] = (new RoomAllocationTest('fixture'))->fixture();
+        $this->schedule($first);
+        $second = $this->pendingCopy($first, 'second-room-approval');
+        $other = Room::create(['code' => 'second', 'name' => 'Second', 'capacity' => 2, 'cleaning_minutes' => 15]);
+        $other->variants()->attach($first->service_variant_id);
+        $actor = User::factory()->bookingStaff()->create();
+
+        (new ApproveBooking)($actor, $first->id, BookingStatus::Pending, $this->context(), true);
+        (new ApproveBooking)($actor, $second->id, BookingStatus::Pending, $this->context(), true);
+
+        $this->assertSame($room->id, RoomReservation::query()->where('booking_id', $first->id)->value('room_id'));
+        $this->assertSame($other->id, RoomReservation::query()->where('booking_id', $second->id)->value('room_id'));
     }
 
     public function test_stale_expected_status_fails_without_writes(): void
@@ -501,5 +594,52 @@ class BookingLifecycleTest extends TestCase
     private function context(): ActionContext
     {
         return new ActionContext('dashboard', '203.0.113.10', 'Booking lifecycle test');
+    }
+
+    /** A booking approved while scheduling was off, so it holds no room, and a pending copy at the same time. */
+    private function roomlessAndNext(string $key): array
+    {
+        // A day before the fixture's 10:00-11:30 WIB treatment, so neither booking has finished yet.
+        $this->travelTo(CarbonImmutable::parse('2026-10-24 09:00', 'Asia/Jakarta'));
+        config(['booking.scheduling_enabled' => false]);
+        [$roomless] = (new RoomAllocationTest('fixture'))->fixture();
+        $this->schedule($roomless);
+        $next = $this->pendingCopy($roomless, $key);
+        $actor = User::factory()->bookingStaff()->create();
+        (new ApproveBooking)($actor, $roomless->id, BookingStatus::Pending, $this->context());
+        $this->assertSame(0, RoomReservation::query()->where('booking_id', $roomless->id)->count());
+        config(['booking.scheduling_enabled' => true]);
+
+        return [$roomless, $next, $actor];
+    }
+
+    private function assertRefusedForRoomless(User $actor, Booking $next, string $failure): void
+    {
+        try {
+            (new ApproveBooking)($actor, $next->id, BookingStatus::Pending, $this->context(), true);
+            $this->fail($failure);
+        } catch (ValidationException $exception) {
+            $this->assertSame([__('admin.status.unassigned_overlap')], $exception->errors()['room']);
+        }
+    }
+
+    // Real bookings store their start and end when created; the factory leaves them empty.
+    private function schedule(Booking $booking): void
+    {
+        $schedule = new BookingSchedule;
+        $booking->forceFill([
+            'starts_at' => $schedule->startsAt($booking),
+            'treatment_ends_at' => $schedule->treatmentEndsAt($booking),
+        ])->save();
+    }
+
+    private function pendingCopy(Booking $booking, string $key): Booking
+    {
+        $copy = $booking->replicate(['reference', 'submission_key']);
+        $copy->reference = $key;
+        $copy->submission_key = $key;
+        $copy->save();
+
+        return $copy;
     }
 }

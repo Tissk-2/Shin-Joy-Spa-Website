@@ -22,8 +22,13 @@ use InvalidArgumentException;
 
 class RoomAvailabilityQuery
 {
-    /** Read-only observation: approval must recheck rooms; therapist allocation is separate. */
-    public function forSelection(array $validatedSelection): array
+    /**
+     * Read-only observation: approval must recheck rooms; therapist allocation is separate.
+     *
+     * @param  bool  $staffEntry  staff record walk-ins and calls as they happen, so
+     *                            the owner's minimum notice for customers doesn't apply
+     */
+    public function forSelection(array $validatedSelection, bool $staffEntry = false): array
     {
         $selection = (new BookingAvailabilityInput)->validate($validatedSelection);
         if (config('booking.scheduling_enabled') !== true) {
@@ -50,7 +55,7 @@ class RoomAvailabilityQuery
         } catch (ValidationException $error) {
             throw new BookingAvailabilityUnavailable(previous: $error);
         }
-        $cutoff = $now->addMinutes($settings['minimum_lead_minutes']);
+        $cutoff = $staffEntry ? $now : $now->addMinutes($settings['minimum_lead_minutes']);
         $closing = $date->setTime(21, 0)->utc();
         $slots = [];
         for ($start = $first; $start <= $last; $start = $start->addMinutes(30)) {

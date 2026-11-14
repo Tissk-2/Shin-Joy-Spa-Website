@@ -69,6 +69,7 @@ return [
     'status' => [
         'operational_required' => 'Confirm that suitable therapists are available for this treatment and the whole group.',
         'room_unavailable' => 'No compatible room is available. Review the schedule and treatment before trying again.',
+        'unassigned_overlap' => 'A confirmed booking at this time has no room yet, so rooms cannot be checked. Ask whoever runs the server to assign rooms with bookings:reconcile-rooms, or try again once that booking and its cleaning time are over.',
         'stale' => 'This booking status has changed. Refresh the page and try again.',
         'invalid' => 'The requested booking status transition is not allowed.',
         'unsupported_field' => 'The request contains an unsupported field.',

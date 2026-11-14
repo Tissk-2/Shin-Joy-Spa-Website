@@ -11,7 +11,7 @@ final class BookingSubmissionAvailability
     public function __construct(private readonly RoomAvailabilityQuery $availability) {}
 
     /** Current observation only: pending submissions do not hold or reserve a room. */
-    public function validate(array $data): void
+    public function validate(array $data, bool $staffEntry = false): void
     {
         if (config('booking.scheduling_enabled') !== true) {
             return;
@@ -30,7 +30,7 @@ final class BookingSubmissionAvailability
                 'extension' => $data['extension'] ?? null,
                 'date' => $data['appointment_date'] ?? null,
                 'guests' => $data['guests'] ?? null,
-            ]);
+            ], $staffEntry);
         } catch (BookingAvailabilityUnavailable) {
             throw ValidationException::withMessages(['time' => __('validation.booking.availability_unavailable')]);
         }

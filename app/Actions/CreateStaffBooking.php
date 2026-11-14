@@ -51,7 +51,7 @@ final class CreateStaffBooking
                 ]);
             }
 
-            $this->availability->validate($data);
+            $this->availability->validate($data, staffEntry: true);
             $attributes = $this->quoteResolver->resolveForContact($data, $data['email'])->bookingAttributes();
             if ($attributes['total_price_idr'] !== $data['expected_total_price_idr']) {
                 throw ValidationException::withMessages([

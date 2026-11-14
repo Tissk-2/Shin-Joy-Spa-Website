@@ -69,6 +69,7 @@ return [
     'status' => [
         'operational_required' => 'Konfirmasikan terapis yang sesuai tersedia untuk perawatan ini dan seluruh tamu.',
         'room_unavailable' => 'Ruang yang sesuai tidak tersedia. Tinjau jadwal dan perawatan sebelum mencoba lagi.',
+        'unassigned_overlap' => 'Ada reservasi terkonfirmasi pada waktu ini yang belum mendapat ruang, sehingga ruang belum bisa diperiksa. Minta pengelola server menetapkan ruang dengan bookings:reconcile-rooms, atau coba lagi setelah reservasi itu dan waktu pembersihannya selesai.',
         'stale' => 'Status reservasi ini telah berubah. Muat ulang halaman lalu coba lagi.',
         'invalid' => 'Perubahan status reservasi yang diminta tidak diizinkan.',
         'unsupported_field' => 'Permintaan berisi kolom yang tidak didukung.',

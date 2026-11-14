@@ -69,6 +69,32 @@ final class RoomAllocator
         $this->fail('No compatible room is available for the whole group.');
     }
 
+    /**
+     * Whether a booking that holds no room could be using this new reservation's room.
+     * Such a booking was confirmed while scheduling was off, so it may be in any room,
+     * this one included. It counts while confirmed or awaiting payment, and once marked
+     * completed, which staff may do while the treatment is still running. The overlap
+     * uses this room's cleaning time on both sides, and a booking whose treatment and
+     * cleaning are over stops counting, so a refusal always clears by itself.
+     */
+    public function hasUnassignedOverlapLocked(RoomReservation $reservation): bool
+    {
+        (new ScheduleLock)->assertHeld();
+        $cleaning = (int) $reservation->cleaning_minutes;
+        $from = CarbonImmutable::instance($reservation->starts_at)->utc()->subMinutes($cleaning);
+        $until = CarbonImmutable::instance($reservation->treatment_ends_at)->utc()->addMinutes($cleaning);
+        $roomFreeBy = CarbonImmutable::now('UTC')->subMinutes($cleaning);
+
+        return DB::table('bookings')
+            ->where('id', '!=', $reservation->booking_id)
+            ->whereIn('status', ['awaiting_payment', 'confirmed', 'completed'])
+            ->where('starts_at', '<', $until->format('Y-m-d H:i:s'))
+            ->where('treatment_ends_at', '>', $from->format('Y-m-d H:i:s'))
+            ->where('treatment_ends_at', '>', $roomFreeBy->format('Y-m-d H:i:s'))
+            ->whereNotIn('id', DB::table('room_reservations')->whereNull('released_at')->select('booking_id'))
+            ->orderBy('id')->lockForUpdate()->first(['id']) !== null;
+    }
+
     public function releaseLocked(Booking $booking, string $reason, CarbonImmutable $releasedAt): void
     {
         $saved = $this->booking($booking);

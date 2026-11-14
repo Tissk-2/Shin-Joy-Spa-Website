@@ -154,6 +154,7 @@ const availabilityQuery = computed(() => {
 const availability = useRoomAvailability(
   availabilityEnabled,
   availabilityQuery,
+  "/admin/bookings/availability",
 );
 const {
   slots: roomSlots,

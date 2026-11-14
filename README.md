@@ -536,7 +536,9 @@ only after a separate, reviewed conversion of the `TIMESTAMP` columns.
 6. Set `BOOKING_SCHEDULING_ENABLED=true` in the deployment's environment, then
    run `php artisan config:cache` and `php artisan queue:restart`, and restart
    the web processes. Keep the scheduler from the Telegram section running; it
-   also expires pending requests.
+   also expires pending requests. A booking approved between step 5 and the
+   restart holds no room; approvals that overlap its time are refused until you
+   run step 4 again.
 7. Make one controlled test booking with test contact details, approve it in
    the admin panel, and confirm that it shows an assigned room on its detail
    page and in `/admin/schedule`. Then cancel it.
@@ -547,6 +549,11 @@ Set `BOOKING_SCHEDULING_ENABLED=false`, run `php artisan config:cache` and
 `php artisan queue:restart`, and restart the web processes. Room reservations
 already made stay in place and do no harm. Do not restore the backup once real
 bookings have arrived after the switch: they would be lost.
+
+Bookings approved while scheduling is off hold no room. Before switching it on
+again, repeat steps 3 to 5 above, so that `bookings:reconcile-rooms` gives each
+of them a room. Until it does, approving a booking whose time overlaps one of
+them is refused with "A confirmed booking at this time has no room yet".
 
 ### Concurrency checks (MySQL)
 

@@ -112,6 +112,7 @@ Bookings can't be moved.
 3. Choose the package, treatment type, duration, guests, date and start time.
 4. To approve in the same step, tick **Approve now** and press **Save and approve**.
    - With room scheduling on, also tick the therapist confirmation. The page shows which rooms are free at each time.
+   - With room scheduling on, the page offers every time from the next half-hour, without the minimum notice customers must give. For a walk-in, choose the next half-hour.
 
 Never enter your own account or email for a guest: staff-entered bookings have no customer account.
 
@@ -174,6 +175,8 @@ If the message shows an old status, it is an older copy of the same message. Use
 ### 5.4 Room scheduling causes trouble
 
 Switch it off ([README: Switching scheduling off again](../../../README.md#switching-scheduling-off-again)). Room reservations already made stay in place and do no harm.
+
+Before switching it on again, follow the README's steps 3 to 5 again. Bookings approved while it was off hold no room. Until `bookings:reconcile-rooms` assigns them one, approving a booking at an overlapping time is refused with "A confirmed booking at this time has no room yet".
 
 ## 6. Never roll back, never restore over new bookings
 
