@@ -315,8 +315,16 @@ release stores updates but never processes them.
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | 200      | Stored, already stored, or authenticated but unusable (logged as `telegram.webhook.rejected` with a reason)                                            |
 | 403      | Missing or wrong secret header. Nothing is stored or logged                                                                                            |
-| 429      | More than 300 authenticated requests in a minute; Telegram retries                                                                                     |
+| 429      | More than 300 accepted updates in a minute; Telegram retries                                                                                           |
 | 503      | `TELEGRAM_WEBHOOK_SECRET` or `TELEGRAM_BOT_TOKEN` missing or invalid, or the database write failed (`telegram.webhook.store_failed`); Telegram retries |
+
+Anyone on Telegram can message the bot, so each sender is also limited to 20
+updates a minute. Further updates from that sender are answered 200 and
+dropped, so Telegram doesn't resend them. They are logged once per minute as
+`telegram.webhook.rejected` with the reason `sender_limited`, and they don't
+count towards the 300. Both limits live in the cache store (`CACHE_STORE`,
+`database` by default). Several web servers must share it; `array` switches
+the limits off, and with `file` they are only approximate.
 
 The secret must be 32 to 256 characters of letters, digits, `_` and `-`.
 To rotate it, set the new value, refresh configuration and run `setWebhook`
@@ -381,7 +389,9 @@ recorded message is edited to the new status and its buttons are removed.
 The answer to a press normally appears within 10 to 25 seconds, because it
 passes through two `outbox:dispatch` runs and the queue worker. Telegram drops
 an answer that arrives too late: the press was still handled, but nothing pops
-up, so check the message or the dashboard.
+up, so check the message or the dashboard. One exception: presses beyond 20 a
+minute from the same person are ignored. Nothing pops up and the buttons stay;
+press again after a minute (`sender_limited` in the log).
 
 ### Before switching actions on
 

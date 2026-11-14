@@ -363,6 +363,112 @@ class WebhookTest extends TestCase
         $this->assertDatabaseCount('telegram_updates', 1);
     }
 
+    // Final review M6: one Telegram user can't use up the shared budget or flood the outbox and the log.
+    public function test_one_sender_is_limited_on_its_own_and_dropped_updates_use_no_shared_budget(): void
+    {
+        for ($i = 1; $i <= 22; $i++) {
+            $this->sendUpdate($this->startUpdate(9000 + $i, '/start', 5550002222))->assertOk();
+        }
+
+        $this->assertSame(20, TelegramUpdate::query()->count());
+        $this->assertDatabaseMissing('telegram_updates', ['update_id' => 9021]);
+        $this->assertDatabaseMissing('telegram_updates', ['update_id' => 9022]);
+        $this->assertSame(20, OutboxMessage::query()->count());
+        $this->assertSame(20, RateLimiter::attempts('telegram-webhook'));
+        Log::shouldHaveReceived('warning')->with('telegram.webhook.rejected', ['reason' => 'sender_limited'])->once();
+
+        $this->sendUpdate($this->startUpdate(9100, '/start', 5550003333))->assertOk();
+        $this->assertDatabaseHas('telegram_updates', ['update_id' => 9100]);
+    }
+
+    // Final review M6: an update refused with 429 comes back later, so it must not count against its sender.
+    public function test_an_update_refused_by_the_shared_limit_does_not_use_its_senders_budget(): void
+    {
+        for ($i = 0; $i < 300; $i++) {
+            RateLimiter::hit('telegram-webhook', 60);
+        }
+        for ($i = 1; $i <= 20; $i++) {
+            $this->sendUpdate($this->startUpdate(9200 + $i, '/start', 5550004444))->assertStatus(429);
+        }
+        RateLimiter::clear('telegram-webhook');
+
+        for ($i = 1; $i <= 20; $i++) {
+            $this->sendUpdate($this->startUpdate(9200 + $i, '/start', 5550004444))->assertOk();
+        }
+        $this->assertSame(20, TelegramUpdate::query()->count());
+    }
+
+    // Final review M6 (review fix): button presses are what the limit protects, and they are counted per presser:
+    // every staff member presses in the same group chat, so keying on the chat would pool them.
+    public function test_button_presses_are_limited_per_presser_not_per_chat(): void
+    {
+        for ($i = 1; $i <= 21; $i++) {
+            $this->sendUpdate($this->callbackUpdate(9300 + $i, 'a', 5550005555))->assertOk();
+        }
+        $this->assertDatabaseMissing('telegram_updates', ['update_id' => 9321]);
+
+        $this->sendUpdate($this->callbackUpdate(9322, 'a', 5550006666))->assertOk();
+        $this->assertDatabaseHas('telegram_updates', ['update_id' => 9322]);
+    }
+
+    // Final review M6 (review fix): concurrent requests can push a sender's count past the limit
+    // before the first drop; the window's one log line must still appear.
+    public function test_a_burst_that_overshoots_the_limit_is_still_logged_once(): void
+    {
+        $key = 'telegram-webhook-sender:'.hash_hmac('sha256', '5550007777', (string) config('app.key'));
+        for ($i = 0; $i < 22; $i++) {
+            RateLimiter::hit($key, 60);
+        }
+
+        $this->sendUpdate($this->startUpdate(9401, '/start', 5550007777))->assertOk();
+        $this->sendUpdate($this->startUpdate(9402, '/start', 5550007777))->assertOk();
+
+        $this->assertDatabaseCount('telegram_updates', 0);
+        Log::shouldHaveReceived('warning')->with('telegram.webhook.rejected', ['reason' => 'sender_limited'])->once();
+    }
+
+    // Final review M6 (review fix): an update that failed to store (503) comes back, so it must not count.
+    public function test_an_update_that_failed_to_store_does_not_use_its_senders_budget(): void
+    {
+        $events = config('outbox.events');
+        config(['outbox.events' => ['booking.created' => []]]);
+        for ($i = 0; $i < 20; $i++) {
+            $this->sendUpdate($this->startUpdate(9501, '/start', 5550008888))->assertStatus(503);
+        }
+        config(['outbox.events' => $events]);
+
+        $this->sendUpdate($this->startUpdate(9501, '/start', 5550008888))->assertOk();
+        $this->assertDatabaseHas('telegram_updates', ['update_id' => 9501]);
+    }
+
+    // Final review M6 (review fix): the window lasts a minute; afterwards the sender gets through and is logged again.
+    public function test_a_sender_gets_through_again_after_the_minute(): void
+    {
+        for ($i = 1; $i <= 21; $i++) {
+            $this->sendUpdate($this->startUpdate(9600 + $i, '/start', 5550009999))->assertOk();
+        }
+        $this->travel(61)->seconds();
+        for ($i = 31; $i <= 51; $i++) {
+            $this->sendUpdate($this->startUpdate(9600 + $i, '/start', 5550009999))->assertOk();
+        }
+
+        $this->assertSame(40, TelegramUpdate::query()->count());
+        Log::shouldHaveReceived('warning')->with('telegram.webhook.rejected', ['reason' => 'sender_limited'])->twice();
+    }
+
+    // Final review M6 (review fix): updates without a sender (channel posts) share no per-sender bucket.
+    public function test_updates_without_a_sender_fall_under_the_shared_limit_only(): void
+    {
+        for ($i = 1; $i <= 25; $i++) {
+            $this->sendUpdate(['update_id' => 9700 + $i, 'channel_post' => [
+                'message_id' => $i, 'date' => 1793000000, 'text' => 'news',
+                'chat' => ['id' => -1009876543210, 'type' => 'channel', 'title' => 'Spa news'],
+            ]])->assertOk();
+        }
+
+        $this->assertSame(25, TelegramUpdate::query()->count());
+    }
+
     public function test_the_webhook_route_has_no_session_or_csrf(): void
     {
         $this->assertSame([], Route::getRoutes()->getByName('webhooks.telegram')->gatherMiddleware());
@@ -387,20 +493,20 @@ class WebhookTest extends TestCase
         return $this->send(json_encode($update, JSON_THROW_ON_ERROR), $secret);
     }
 
-    private function startUpdate(int $updateId, string $text): array
+    private function startUpdate(int $updateId, string $text, int $from = 5550001111): array
     {
         return ['update_id' => $updateId, 'message' => [
             'message_id' => 11, 'date' => 1793000000, 'text' => $text,
-            'from' => ['id' => 5550001111, 'is_bot' => false, 'first_name' => 'Rani', 'username' => 'rani_k', 'language_code' => 'id'],
-            'chat' => ['id' => 5550001111, 'type' => 'private', 'first_name' => 'Rani', 'username' => 'rani_k'],
+            'from' => ['id' => $from, 'is_bot' => false, 'first_name' => 'Rani', 'username' => 'rani_k', 'language_code' => 'id'],
+            'chat' => ['id' => $from, 'type' => 'private', 'first_name' => 'Rani', 'username' => 'rani_k'],
         ]];
     }
 
-    private function callbackUpdate(int $updateId, string $data): array
+    private function callbackUpdate(int $updateId, string $data, int $from = 5550001111): array
     {
         return ['update_id' => $updateId, 'callback_query' => [
             'id' => '4382bfdwdsb323b2d9', 'chat_instance' => '-8122', 'data' => $data,
-            'from' => ['id' => 5550001111, 'is_bot' => false, 'first_name' => 'Rani', 'username' => 'rani_k'],
+            'from' => ['id' => $from, 'is_bot' => false, 'first_name' => 'Rani', 'username' => 'rani_k'],
             'message' => ['message_id' => 77, 'message_thread_id' => 5, 'date' => 1793000000, 'text' => 'Booking SJ-123 for Budi Santoso',
                 'chat' => ['id' => -1001234567890, 'type' => 'supergroup', 'title' => 'Shin Joy staff']],
         ]];
