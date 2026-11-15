@@ -126,7 +126,8 @@ Stage E is complete as code for the pay-at-spa release: every booking is paid at
 | E1j | `2fe58f0` | Symfony 8.1.11 (item 5), and the regression re-measured with it |
 | E1k | `251ff83` | The migrations run on MySQL 8: a JSON column's default is now an expression. The race suite and the stage C lock mutations ran on MySQL 8.4, and the README states MySQL's requirements (item 2) |
 | E1l | `53ff406` | A race between a retried first Telegram send and a Decline press, proven on MySQL 8.4 with its lock mutations, and race workers that report their own crashes (item 2) |
-| E1m | the commit recording it here | A Telegram press whose reads predate a retried send's render no longer records its old copy on the message row; a regular test and a MySQL race prove it (item 2) |
+| E1m | `a43b5af` | A Telegram press whose reads predate a retried send's render no longer records its old copy on the message row; a regular test and a MySQL race prove it (item 2) |
+| E1n | the commit recording it here | Two outbox dispatchers racing for the same deliveries, and for the same expired lease, proven on MySQL 8.4 with two claim mutations (item 2); PHP coverage measured at 95.0% (item 4) |
 
 **The regression run.** On `0715c3b` with a clean tree, 12 November 2026. Qoder ran every command that can run here except #7, one at a time; Claude ran #7. Windows 10, PHP 8.5.3, Node 24.15.0, Laravel 13.40.0, PHPUnit 11.5.56, Vitest 4.1.12, Playwright 1.62.1, SQLite 3.49.2. Telegram and mail are faked, and online payment is off. The live database's hash was the same before and after Qoder's run, around #9, and after each browser run.
 
@@ -196,7 +197,13 @@ The logs are `storage/framework/testing/e1d-*`. Qoder's report and Claude's revi
   - #8: on SQLite, 19 tests, 1 skipped; **on MySQL 8.4.13, 19 passed with none skipped** (item 2).
 - **Records:** the logs are `storage/framework/testing/e1m-*`; the plan, report and review are `task-E1m-plan.md`, `task-E1m-report.md` and `task-E1m-review.md`.
 
-**Open items.** E1e closed item 1, E1g to E1j closed items 5 and 9, and E1k, E1l and E1m did most of item 2. None of the others is done:
+**Re-measured on `74de922` with E1n's race test** (15 November 2026; the two room WIP files were still in the tree). E1n changes only the race suite, so only #8 was rerun. Claude also measured #2 for the first time, on `74de922` before the patch. The live database's hash was unchanged throughout.
+- **Results:**
+  - #2: 1174 passed, **95.0% of `app/`'s lines**, exit 0 (item 4);
+  - #8: on SQLite, 21 tests, 1 skipped; **on MySQL 8.4.13, 21 passed with none skipped** (item 2).
+- **Records:** the logs are `storage/framework/testing/coverage-php.log` and `storage/framework/testing/e1n-*`; the plan, report and review are `task-E1n-plan.md`, `task-E1n-report.md` and `task-E1n-review.md`.
+
+**Open items.** E1e closed item 1, E1g to E1j closed items 5 and 9, E1n closed item 4, and E1k to E1n did most of item 2. None of the others is done:
 
 1. **Closed by E1e: the browser suite passes as one run.**
    - **The fix:**
@@ -213,7 +220,7 @@ The logs are `storage/framework/testing/e1d-*`. Qoder's report and Claude's revi
    - the room specs assume a database no other room spec has used. With the opt-in in one run, two room fixtures stop with an error and one test counts another spec's reservation; only `room-approval` and `room-block-termination` pass.
 
    None of these failures pointed to a product defect, and production serves built assets.
-2. **The production database engine: mostly done by E1k, E1l and E1m, still open.** Production runs MySQL 8 (the user's decision, 14 November 2026). Stage C's close-out lists what a MySQL run must cover ([Telegram plan](2026-10-22-booking-telegram-actions.md), "Not verified, and required before production"): the race suite with `CONCURRENCY_DB_*` pointed at a disposable database, then the MySQL-only checks in `task-C3c-review.md` and the C4b lock checks.
+2. **The production database engine: mostly done by E1k to E1n, still open.** Production runs MySQL 8 (the user's decision, 14 November 2026). Stage C's close-out lists what a MySQL run must cover ([Telegram plan](2026-10-22-booking-telegram-actions.md), "Not verified, and required before production"): the race suite with `CONCURRENCY_DB_*` pointed at a disposable database, then the MySQL-only checks in `task-C3c-review.md` and the C4b lock checks.
    - **What E1k found:** the migrations had never run on MySQL, and they stopped at `2026_09_10_000000_add_catalog_publishing_lifecycle.php`. MySQL refuses a literal default on a JSON column (error 1101), so no MySQL install was possible. The default is now an expression, `('[]')`, which SQLite, MariaDB and MySQL 8.0.13 or later accept.
    - **What E1k proved on MySQL 8.4.13** (`REPEATABLE-READ`, in a throwaway Docker container):
      - all 30 migrations run;
@@ -233,8 +240,11 @@ The logs are `storage/framework/testing/e1d-*`. Qoder's report and Claude's revi
      - **What it cost:** usually nothing, because the retry's final save writes the new copy's ID over it. If that save never happened (the retried post failed or its response was lost again), the row kept the old ID with the new copy's tokens. The booking then had no working Telegram buttons: the old copy answered "expired", a new copy "wrong message", and the outbox never posted again. The dashboard still worked, and no wrong decision was made.
      - **The fix:** the early write also requires the render key the press read (`render_key`). Once a newer render has committed, it matches nothing, and the row is left for that send to record. When nothing rendered in between, the key matches and the press identifies its copy as before.
      - **Proven:** on MySQL 8.4.13, the send-first race with the retried post failing stamped copy 123 before the fix, and leaves the row without a message ID after it; the outbox's next attempt then posts a working copy. A regular test reproduces the same order in one process, so `php artisan test` guards it on SQLite. Mutation N4, which drops the condition, fails the race on MySQL and the regular test on SQLite; on SQLite the race passes either way.
+   - **What E1n proved on MySQL 8.4.13, the outbox dispatcher:**
+     - **The race:** two dispatchers read the same deliveries before either claims. The second tries to claim the first delivery while the first dispatcher holds that claim uncommitted; its claim statement waits for the row lock, then matches nothing. So 20 pending deliveries are each claimed once, and an expired lease that both read is reclaimed once, under one new token. The old token's job is then refused and counts no attempt.
+     - **Mutations:** a claim that ignores the delivery's current state (O1) fails both tests. A claim that checks only the state it read (O2) fails the reclaim test; the pending test passes either way, because the first claim already changed a pending delivery's state. Both behave the same on SQLite: unlike the C3c and C4b checks, the dispatcher relies on no MySQL-only lock, so this confirms the state and lease-expiry checks of its compare-and-set on the production engine. Its other checks (the state it read, attempts below the maximum, and `available_at`) are caught by no test, here or in the regular suite; each matters only when a delivery changes between the dispatcher's read and its claim, on either engine (found in E1n's review).
+     - `OutboxDispatcherContentionTest` stays in the regular suite, on SQLite.
    - **Still open:**
-     - **the outbox dispatcher race:** `OutboxDispatcherContentionTest` runs only on SQLite, and the race suite has no dispatcher scenario;
      - **the regular suite:** `php artisan test` runs only on SQLite, so most paths (catalogue, content, accounts, booking creation, readiness, webhook intake) have never run on MySQL. Running it there, or holding the rehearsal (item 8) on MySQL 8, would cover them. Several regular tests, among them E1m's, find a query by its SQLite text (a double-quoted table name, `insert or ignore`), so they would fail there until their patterns also accept MySQL's;
      - C3c's first mutation has a second form, reusing the token read before the guard, which E1k didn't run.
    - **Deployment requirements, now in the README:**
@@ -245,7 +255,9 @@ The logs are `storage/framework/testing/e1d-*`. Qoder's report and Claude's revi
      The pre-deploy check now also selects `@@version` and `@@sql_require_primary_key`.
    - **Known limit:** MySQL `TIMESTAMP` columns end on 19 January 2038. Bookings are at most 365 days ahead, so this matters only from 2037.
 3. **Live delivery.** Telegram and customer email were tested only with fakes. Their switches stay off until each is proven on a test account, following the README's "Before switching actions on" and "Before switching emails on" checklists.
-4. **Coverage.** Unmeasured, so the project's 80% requirement is unverified. It needs Xdebug or PCOV.
+4. **Closed by E1n: PHP coverage is 95.0%.** The project's check, `php artisan test --coverage --min=80` (`composer test:coverage`), measured 95.0% of `app/`'s lines on 15 November 2026 and exited 0. Xdebug 3.5.3 ran in coverage mode for that run only, loaded through `PHP_INI_SCAN_DIR`, because `artisan test` starts PHPUnit as a child process. Of 196 files, 137 are fully covered and 13 are under 80%:
+   - most are unused code (item 10): the login, registration, password-reset and password-confirmation controllers, `LoginRequest`, and `SaveCatalogCategory`;
+   - the rest are small gaps: the room-block form's "all rooms" scope and its update action at the controller, the password settings page, `BookingSchedule`'s guards against a corrupt saved time, and five relations on three models.
 5. **Closed by E1j: `composer audit` reports no advisory.** E1f found 10 Symfony advisories, none reachable as shipped:
    - **Where they were:** `symfony/http-foundation` (4), `http-kernel`, `routing`, `serializer` (3) and `yaml`. All were reported on 4 November 2026, and all are fixed in 8.1.11.
    - **Why none could be reached:**
@@ -291,13 +303,12 @@ The logs are `storage/framework/testing/e1d-*`. Qoder's report and Claude's revi
      - **E1j, the Symfony 8.1.11 update** (item 5).
    - **How each part was checked:** Claude prepared and probed it, Qoder ran it, and an independent reviewer checked it; Claude fixed the review's findings, and showed that each new test fails when the code it guards is broken (`task-E1g-review.md` to `task-E1j-review.md`).
    - **Deferred by the user (14 November 2026):** the email-change fix asks for the password but doesn't notify the old address. It is recorded as a Low finding in `task-E1g-review.md`.
-10. **Unused leftovers.** The translation keys `b.sub`, `b.successs`, `b.note` and `booking.historyWarning` are used by nothing, and `src/Data/faq.js` belongs to the legacy `src/` app, which is not built or served. They are harmless now, but they still say WhatsApp confirms the booking and promise a reschedule, so nothing should reuse them.
+10. **Unused leftovers.** The translation keys `b.sub`, `b.successs`, `b.note` and `booking.historyWarning` are used by nothing, and `src/Data/faq.js` belongs to the legacy `src/` app, which is not built or served. They are harmless now, but they still say WhatsApp confirms the booking and promise a reschedule, so nothing should reuse them. Found in E1n's coverage run: no route file loads `routes/auth.php`, because Fortify serves login, registration and password reset. So five controllers in `app/Http/Controllers/Auth/` (`AuthenticatedSessionController`, `RegisteredUserController`, `PasswordResetLinkController`, `NewPasswordController` and `ConfirmablePasswordController`) and `LoginRequest` are unused. The three email-verification controllers in the same folder are live: `routes/web.php` routes them. `SaveCatalogCategory` has no route; only a throttle test calls it.
 11. **Stage D:** payments and refunds, Review Focus 1, the payment half of Review Focus 3, and the online, late-payment and refund browser journeys.
 12. **Symfony 8.1 reaches end of life in January 2027** (`END_OF_LIFE` in `symfony/http-kernel`'s `Kernel.php`), and its security fixes stop then. Before that, the Symfony packages must move to a supported version; Laravel 13 accepts 7.4 or 8.x. Found in E1j's review.
 
-**Verdict: not production-ready.** The pay-at-spa release is complete as code, and the final review's High and nine Medium findings are fixed (item 9). On SQLite with fake delivery, every check this machine can run passes except the legacy suite's 2 failures (item 7, left for stage D). The browser suite passes as one run since E1e (item 1), and `composer audit` reports no advisory since E1j (item 5). Since E1k the migrations run on MySQL 8, and there the race suite passes and catches each stage C lock mutation. Since E1l it also covers the C4b lock checks, including the one deadlock they can hit, which the sender's retry absorbs, and since E1m a press can no longer leave the row pointing at an old copy (item 2). Before it is deployed:
-- **the rest of item 2's MySQL checks** pass: the outbox dispatcher race, and the regular suite or the rehearsal on MySQL 8;
-- **coverage** is measured and reaches 80% (item 4);
+**Verdict: not production-ready.** The pay-at-spa release is complete as code, and the final review's High and nine Medium findings are fixed (item 9). On SQLite with fake delivery, every check this machine can run passes except the legacy suite's 2 failures (item 7, left for stage D). The browser suite passes as one run since E1e (item 1), and `composer audit` reports no advisory since E1j (item 5). Since E1k the migrations run on MySQL 8, and there the race suite passes and catches each stage C lock mutation. Since E1l it also covers the C4b lock checks, including the one deadlock they can hit, which the sender's retry absorbs, and since E1m a press can no longer leave the row pointing at an old copy. Since E1n the outbox dispatcher's claims are proven there too (item 2), and PHP coverage is 95.0% (item 4). Before it is deployed:
+- **the rest of item 2's MySQL checks** pass: the regular suite or the rehearsal on MySQL 8;
 - **a deployment rehearsal** with production-shaped synthetic data follows the operations guide from backup to "ready" (item 8).
 
 After deployment, Telegram notifications, Telegram actions and customer emails each stay off until proven on a test account (item 3), and room scheduling stays off until `bookings:readiness` prints `Booking readiness: ready.` (guide §3).

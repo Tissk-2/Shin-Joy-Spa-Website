@@ -14,10 +14,15 @@ use App\Models\Room;
 use App\Models\TelegramUpdate;
 use App\Models\User;
 use App\Support\Outbox\Handlers\TelegramBookingNotificationHandler;
+use App\Support\Outbox\OutboxDispatcher;
 use App\Support\Telegram\TelegramUpdateHandler;
 use Carbon\CarbonImmutable;
+use Illuminate\Contracts\Queue\Factory as QueueFactory;
+use Illuminate\Database\Events\QueryExecuted;
+use Illuminate\Database\Events\TransactionCommitting;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\ValidationException;
 use Tests\Concurrency\ConcurrencyDatabase;
@@ -39,18 +44,20 @@ $scenario = $argv[1] ?? '';
 $role = $argv[2] ?? '';
 $bookingId = $argv[3] ?? '';
 
-if (! in_array($scenario, ['approve', 'block', 'complete', 'no_show', 'send', 'send_fails', 'telegram', 'unlink', 'unpermit'], true) || ! in_array($role, ['first', 'second'], true) || ! ctype_digit($bookingId)) {
+if (! in_array($scenario, ['approve', 'block', 'complete', 'dispatch', 'no_show', 'send', 'send_fails', 'telegram', 'unlink', 'unpermit'], true) || ! in_array($role, ['first', 'second'], true) || ! ctype_digit($bookingId)) {
     throw new RuntimeException('Invalid worker arguments.');
 }
 
 // A send_fails is a send whose post fails at Telegram.
 $sends = in_array($scenario, ['send', 'send_fails'], true);
+// A dispatch runs one outbox dispatcher batch, and takes no booking.
+$dispatch = $scenario === 'dispatch';
 // Telegram, unlink and unpermit act on a staff member's authority, not on a booking row they are given.
 $staffSide = in_array($scenario, ['telegram', 'unlink', 'unpermit'], true);
-$booking = $staffSide ? null : Booking::findOrFail((int) $bookingId);
+$booking = $staffSide || $dispatch ? null : Booking::findOrFail((int) $bookingId);
 $actor = match (true) {
     $scenario === 'telegram' => null,   // a press acts as the linked staff member, whom the callback finds itself
-    $sends => null,                     // the outbox sends as no one
+    $sends, $dispatch => null,          // the outbox sends and dispatches as no one
     in_array($scenario, ['block', 'unlink', 'unpermit'], true) => User::where('role', 'owner')->orderBy('id')->firstOrFail(),
     default => User::where('role', 'admin')->orderBy('id')->get()[$role === 'first' ? 0 : 1],
 };
@@ -75,12 +82,72 @@ if ($sends) {
     ]);
 }
 
+if ($dispatch) {
+    // A queue that records the jobs the dispatcher pushes, instead of running them.
+    $queue = new class implements QueueFactory
+    {
+        /** @var list<array{id: int, token: string}> */
+        public array $pushed = [];
+
+        public function connection($name = null)
+        {
+            return $this;
+        }
+
+        public function push(object $job, mixed $data = '', ?string $queue = null): void
+        {
+            $this->pushed[] = ['id' => $job->deliveryId, 'token' => $job->leaseToken];
+        }
+    };
+    app()->instance(QueueFactory::class, $queue);
+}
+
 file_put_contents($dir.'/'.$role.'-ready', 'ready');
 ConcurrencyDatabase::wait($dir.'/'.$role.'-go');
 
 $acquired = false;
 $guarded = false;
 $rowRead = false;
+
+if ($dispatch) {
+    // Both dispatchers read the same candidates before either claims. The first pauses as it commits its first claim,
+    // still holding that row (MySQL) or the write lock (SQLite), and the second tries to claim the same delivery then.
+    $selected = false;
+    $claiming = false;
+    $claimed = false;
+    DB::listen(function (QueryExecuted $query) use ($dir, $role, &$selected, &$claimed): void {
+        if (! $selected && preg_match('/\Aselect .*[`"]outbox_deliveries[`"]/is', $query->sql) === 1) {
+            $selected = true;
+            file_put_contents("{$dir}/{$role}-selected", 'selected');
+            ConcurrencyDatabase::wait($dir.'/'.($role === 'first' ? 'second' : 'first').'-selected');
+        }
+        // How long the first claim's statement ran: the second's includes its wait for the first's lock.
+        if (! $claimed && preg_match('/\Aupdate [`"]?outbox_deliveries[`"]?/i', $query->sql) === 1) {
+            $claimed = true;
+            file_put_contents("{$dir}/{$role}-claim-ms", (string) $query->time);
+        }
+    });
+    DB::connection()->beforeExecuting(function (string $query) use ($dir, $role, &$claiming): void {
+        if (! $claiming && preg_match('/\Aupdate [`"]?outbox_deliveries[`"]?/i', $query) === 1) {
+            $claiming = true;
+            if ($role === 'second') {
+                ConcurrencyDatabase::wait("{$dir}/first-acquired");
+            }
+            file_put_contents("{$dir}/{$role}-attempting", 'attempting');
+        }
+    });
+    Event::listen(TransactionCommitting::class, function () use ($dir, $role, &$acquired): void {
+        if (! $acquired) {
+            $acquired = true;
+            file_put_contents("{$dir}/{$role}-acquired", 'acquired');
+
+            if ($role === 'first') {
+                ConcurrencyDatabase::wait("{$dir}/release-first");
+            }
+        }
+    });
+}
+
 $table = $scenario === 'block' ? 'rooms' : 'bookings';
 // A Telegram update's transaction writes its telegram_updates row first. On SQLite that write is where it waits, behind
 // the database-wide write lock; on MySQL that row isn't contended, so the worker waits at the staff guard, or at the
@@ -146,6 +213,9 @@ try {
         } catch (OutboxRetryableException $exception) {
             echo 'retryable/'.$exception->reason();   // the outbox would try again later
         }
+    } elseif ($dispatch) {
+        $accepted = app(OutboxDispatcher::class)->dispatchBatch();
+        echo json_encode(['accepted' => $accepted, 'pushed' => $queue->pushed], JSON_THROW_ON_ERROR);
     } elseif ($scenario === 'unlink') {
         (new RevokeStaffLink)($actor, (int) $bookingId);
         echo 'unlinked';
