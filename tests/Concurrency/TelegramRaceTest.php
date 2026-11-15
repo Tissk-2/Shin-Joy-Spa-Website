@@ -9,8 +9,10 @@ use App\Models\TelegramBookingMessage;
 use App\Models\TelegramStaffLink;
 use App\Models\User;
 use App\Support\Telegram\TelegramUpdateRecorder;
+use App\Support\TelegramBookingSender;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Feature\Scheduling\RoomAllocationTest;
 
@@ -204,9 +206,9 @@ class TelegramRaceTest extends ConcurrencyTestCase
      * foreign key, then waits for the row, while the press holds the row and locks the booking. MySQL rolls the send back
      * and send()'s three attempts retry it, so the outcome below is the one after that retry.
      *
-     * When the send goes first on MySQL, the press's early write still stamps copy 123 on the row, because its reads used
-     * a snapshot from before the send's render; only the send's final save then sets 456. If that save never happened, the
-     * row would keep 123 with the new copy's tokens. The final state here can't show it (close-out item 2).
+     * When the send goes first on MySQL, the press's reads predate the send's render, so its early write, which needs the
+     * render key it read, matches nothing, and the send's final save sets 456.
+     * test_a_press_does_not_record_its_copy_after_a_newer_render_whose_post_failed covers a save that never happens.
      */
     #[DataProvider('firstSendRaces')]
     public function test_a_retried_first_send_and_a_decline_press_are_serialized(
@@ -249,6 +251,42 @@ class TelegramRaceTest extends ConcurrencyTestCase
         $this->assertSame($sendFirst ? __('admin.telegram.callback.expired') : __('admin.telegram.callback.prompted', ['minutes' => 5]), $answer['text']);
         $this->assertSame($sendFirst, $answer['show_alert']);
         $this->assertSame($before + ($pressRefusedEarly ? 0 : 1), $this->guardRevision());
+    }
+
+    /**
+     * Close-out item 2's gap (E1m): the retried send goes first and its post fails. On MySQL the press read the row before
+     * the send's render and writes it after, so an early write that checked only for a missing message ID stamped copy 123
+     * on a row whose buttons belong to the failed render. The outbox's next attempt then found a message ID and never
+     * posted again. On SQLite the press is refused before that write, so this passes there either way.
+     */
+    public function test_a_press_does_not_record_its_copy_after_a_newer_render_whose_post_failed(): void
+    {
+        [$a] = $this->scene();
+        // The first send's response was lost: copy 123 is in the chat, but its row has no message ID.
+        $press = $this->press($a, 1, 'decline_prompt', null);
+
+        [$sendOutput, $pressOutput] = $this->race('send_fails', $a->id, 'telegram', $press, $this->driver() !== 'sqlite');
+
+        $this->assertSame('retryable/telegram_http', $sendOutput);
+        $this->assertSame('ignored/expired', $pressOutput);
+        $row = DB::table('telegram_booking_messages')->sole();
+        $this->assertNull($row->message_id);
+        $this->assertSame('sending', $row->state);
+        $this->assertSame(['approve', 'decline_prompt'], DB::table('telegram_action_tokens')->orderBy('id')->pluck('action')->all());
+
+        // The outbox's next attempt posts a fresh copy, and the row now points at it.
+        CarbonImmutable::setTestNow('2026-10-24 00:00:00 UTC');
+        config([
+            'services.telegram.actions_enabled' => true,
+            'services.telegram.staff_chat_id' => '-1001234567890',
+            'services.telegram.bot_token' => '123456789:'.str_repeat('A', 35),
+        ]);
+        Http::preventStrayRequests();
+        Http::fake(['api.telegram.org/*/sendMessage' => Http::response(['ok' => true, 'result' => ['message_id' => 456]])]);
+
+        $this->assertSame(456, app(TelegramBookingSender::class)->send($a->fresh()));
+        Http::assertSentCount(1);
+        $this->assertSame(456, (int) DB::table('telegram_booking_messages')->value('message_id'));
     }
 
     /** @return array{0: Booking, 1: Booking, 2: User} two bookings that want the same last room, and the linked staff member */

@@ -7,6 +7,7 @@ use App\Actions\Staff\SetBookingPermission;
 use App\Actions\Telegram\RevokeStaffLink;
 use App\Actions\TransitionBookingStatus;
 use App\Enums\BookingStatus;
+use App\Exceptions\Outbox\OutboxRetryableException;
 use App\Models\Booking;
 use App\Models\OutboxMessage;
 use App\Models\Room;
@@ -38,16 +39,18 @@ $scenario = $argv[1] ?? '';
 $role = $argv[2] ?? '';
 $bookingId = $argv[3] ?? '';
 
-if (! in_array($scenario, ['approve', 'block', 'complete', 'no_show', 'send', 'telegram', 'unlink', 'unpermit'], true) || ! in_array($role, ['first', 'second'], true) || ! ctype_digit($bookingId)) {
+if (! in_array($scenario, ['approve', 'block', 'complete', 'no_show', 'send', 'send_fails', 'telegram', 'unlink', 'unpermit'], true) || ! in_array($role, ['first', 'second'], true) || ! ctype_digit($bookingId)) {
     throw new RuntimeException('Invalid worker arguments.');
 }
 
+// A send_fails is a send whose post fails at Telegram.
+$sends = in_array($scenario, ['send', 'send_fails'], true);
 // Telegram, unlink and unpermit act on a staff member's authority, not on a booking row they are given.
 $staffSide = in_array($scenario, ['telegram', 'unlink', 'unpermit'], true);
 $booking = $staffSide ? null : Booking::findOrFail((int) $bookingId);
 $actor = match (true) {
     $scenario === 'telegram' => null,   // a press acts as the linked staff member, whom the callback finds itself
-    $scenario === 'send' => null,       // the outbox sends as no one
+    $sends => null,                     // the outbox sends as no one
     in_array($scenario, ['block', 'unlink', 'unpermit'], true) => User::where('role', 'owner')->orderBy('id')->firstOrFail(),
     default => User::where('role', 'admin')->orderBy('id')->get()[$role === 'first' ? 0 : 1],
 };
@@ -60,12 +63,14 @@ if ($scenario === 'block' && $roomId === null) {
 CarbonImmutable::setTestNow(in_array($scenario, ['complete', 'no_show'], true) ? '2026-10-25 06:00:00 UTC' : '2026-10-24 00:00:00 UTC');
 config(['services.telegram.actions_enabled' => true, 'services.telegram.staff_chat_id' => '-1001234567890']);
 
-if ($scenario === 'send') {
-    // A fake Telegram, which gives a newly posted copy the message ID 456.
+if ($sends) {
+    // A fake Telegram, which gives a newly posted copy the message ID 456, or fails the post.
     config(['services.telegram.booking_notifications_enabled' => true, 'services.telegram.bot_token' => '123456789:'.str_repeat('A', 35)]);
     Http::preventStrayRequests();
     Http::fake([
-        'api.telegram.org/*/sendMessage' => Http::response(['ok' => true, 'result' => ['message_id' => 456]]),
+        'api.telegram.org/*/sendMessage' => $scenario === 'send'
+            ? Http::response(['ok' => true, 'result' => ['message_id' => 456]])
+            : Http::response(['ok' => false, 'error_code' => 500, 'description' => 'Internal Server Error'], 500),
         'api.telegram.org/*/editMessageText' => Http::response(['ok' => true, 'result' => ['message_id' => 456]]),
     ]);
 }
@@ -82,9 +87,9 @@ $table = $scenario === 'block' ? 'rooms' : 'bookings';
 // message row when a press fills in a lost send's message ID. A send is marked attempting at its insert of the message
 // row: on SQLite it waits there; on MySQL the duplicate insert returns at once and it waits at its locking read just after.
 $contended = DB::connection()->getDriverName() === 'sqlite' ? 'staff_access_guards|telegram_updates' : 'staff_access_guards|telegram_booking_messages';
-DB::connection()->beforeExecuting(function (string $query) use ($dir, $role, $table, $scenario, $staffSide, $contended, &$acquired, &$guarded, &$rowRead): void {
+DB::connection()->beforeExecuting(function (string $query) use ($dir, $role, $table, $sends, $staffSide, $contended, &$acquired, &$guarded, &$rowRead): void {
     if (preg_match('/\Aupdate [`"]?('.$contended.')[`"]?/i', $query)   // mutation H1
-        || ($scenario === 'send' && preg_match('/\Ainsert .*into [`"]?telegram_booking_messages[`"]?/i', $query))) {
+        || ($sends && preg_match('/\Ainsert .*into [`"]?telegram_booking_messages[`"]?/i', $query))) {
         file_put_contents("{$dir}/{$role}-attempting", 'attempting');
     }
     if (preg_match('/\Aupdate [`"]?staff_access_guards[`"]?/i', $query)) {
@@ -97,7 +102,7 @@ DB::connection()->beforeExecuting(function (string $query) use ($dir, $role, $ta
     $hit = $staffSide   // mutation H2
         ? $guarded && preg_match('/\Aselect /i', $query) === 1
         : preg_match('/\Aselect .*[`"]'.$table.'[`"]/is', $query) === 1 && DB::transactionLevel() > 0;
-    if ($scenario === 'send') {
+    if ($sends) {
         // A send pauses at its next statement after it read the message row in its transaction (with a lock, on MySQL).
         $hit = $rowRead;
         $rowRead = $rowRead || (DB::transactionLevel() > 0 && preg_match('/\Aselect .*[`"]telegram_booking_messages[`"]/is', $query) === 1);
@@ -130,13 +135,17 @@ try {
         app(TelegramUpdateHandler::class)->handle($message);
         $update = TelegramUpdate::query()->findOrFail($message->payload['telegram_update_id']);
         echo $update->outcome.'/'.$update->outcome_reason;
-    } elseif ($scenario === 'send') {
+    } elseif ($sends) {
         // The booking's first message, as the outbox runs it: send, then catch up with a decision made meanwhile.
-        app(TelegramBookingNotificationHandler::class)->handle((new OutboxMessage)->forceFill([
-            'type' => 'booking.created', 'payload' => ['booking_id' => $booking->id],
-        ]));
-        $calls = fn (string $method): int => Http::recorded(fn (Request $request): bool => str_ends_with($request->url(), '/'.$method))->count();
-        echo $calls('sendMessage').'/'.$calls('editMessageText');
+        try {
+            app(TelegramBookingNotificationHandler::class)->handle((new OutboxMessage)->forceFill([
+                'type' => 'booking.created', 'payload' => ['booking_id' => $booking->id],
+            ]));
+            $calls = fn (string $method): int => Http::recorded(fn (Request $request): bool => str_ends_with($request->url(), '/'.$method))->count();
+            echo $calls('sendMessage').'/'.$calls('editMessageText');
+        } catch (OutboxRetryableException $exception) {
+            echo 'retryable/'.$exception->reason();   // the outbox would try again later
+        }
     } elseif ($scenario === 'unlink') {
         (new RevokeStaffLink)($actor, (int) $bookingId);
         echo 'unlinked';

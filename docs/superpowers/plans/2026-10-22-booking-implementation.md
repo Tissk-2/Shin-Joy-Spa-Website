@@ -125,7 +125,8 @@ Stage E is complete as code for the pay-at-spa release: every booking is paid at
 | E1i | `2360e3d` | The Telegram webhook limits each sender to 20 updates a minute, on top of the shared limit (item 9) |
 | E1j | `2fe58f0` | Symfony 8.1.11 (item 5), and the regression re-measured with it |
 | E1k | `251ff83` | The migrations run on MySQL 8: a JSON column's default is now an expression. The race suite and the stage C lock mutations ran on MySQL 8.4, and the README states MySQL's requirements (item 2) |
-| E1l | the commit recording it here | A race between a retried first Telegram send and a Decline press, proven on MySQL 8.4 with its lock mutations, and race workers that report their own crashes (item 2) |
+| E1l | `53ff406` | A race between a retried first Telegram send and a Decline press, proven on MySQL 8.4 with its lock mutations, and race workers that report their own crashes (item 2) |
+| E1m | the commit recording it here | A Telegram press whose reads predate a retried send's render no longer records its old copy on the message row; a regular test and a MySQL race prove it (item 2) |
 
 **The regression run.** On `0715c3b` with a clean tree, 12 November 2026. Qoder ran every command that can run here except #7, one at a time; Claude ran #7. Windows 10, PHP 8.5.3, Node 24.15.0, Laravel 13.40.0, PHPUnit 11.5.56, Vitest 4.1.12, Playwright 1.62.1, SQLite 3.49.2. Telegram and mail are faked, and online payment is off. The live database's hash was the same before and after Qoder's run, around #9, and after each browser run.
 
@@ -189,7 +190,13 @@ The logs are `storage/framework/testing/e1d-*`. Qoder's report and Claude's revi
 - **Results:** #8 on SQLite, 18 tests, 1 skipped; **on MySQL 8.4.13, 18 passed with none skipped** (item 2).
 - **Records:** the logs are `storage/framework/testing/e1l-*`; the plan, report and review are `task-E1l-plan.md`, `task-E1l-report.md` and `task-E1l-review.md`.
 
-**Open items.** E1e closed item 1, E1g to E1j closed items 5 and 9, and E1k and E1l did most of item 2. None of the others is done:
+**Re-measured on `53ff406` with E1m's fix** (15 November 2026; the two room WIP files were still in the tree). The project now runs on CachyOS Linux: PHP 8.5.12, Node 26.13.1, Docker 29.9.3. Before E1m, Claude reran #1, #3, #4, #7 and #8 on `53ff406` alone, with the same results as on Windows: 1173 passed; 61 tests, 59 pass, the same 2 failures; 316 passed; as one run, 39 passed, 0 failed, 5 skipped; 18 tests with 1 skipped on SQLite, and 18 passed on MySQL 8.4.13. Those logs weren't kept. E1m changes one PHP class and PHP tests, so only #1 and #8 were rerun. The live database's hash was unchanged throughout.
+- **Results:**
+  - #1: 1174 passed (12193 assertions), one more than before: E1m's regular test;
+  - #8: on SQLite, 19 tests, 1 skipped; **on MySQL 8.4.13, 19 passed with none skipped** (item 2).
+- **Records:** the logs are `storage/framework/testing/e1m-*`; the plan, report and review are `task-E1m-plan.md`, `task-E1m-report.md` and `task-E1m-review.md`.
+
+**Open items.** E1e closed item 1, E1g to E1j closed items 5 and 9, and E1k, E1l and E1m did most of item 2. None of the others is done:
 
 1. **Closed by E1e: the browser suite passes as one run.**
    - **The fix:**
@@ -206,7 +213,7 @@ The logs are `storage/framework/testing/e1d-*`. Qoder's report and Claude's revi
    - the room specs assume a database no other room spec has used. With the opt-in in one run, two room fixtures stop with an error and one test counts another spec's reservation; only `room-approval` and `room-block-termination` pass.
 
    None of these failures pointed to a product defect, and production serves built assets.
-2. **The production database engine: mostly done by E1k and E1l, still open.** Production runs MySQL 8 (the user's decision, 14 November 2026). Stage C's close-out lists what a MySQL run must cover ([Telegram plan](2026-10-22-booking-telegram-actions.md), "Not verified, and required before production"): the race suite with `CONCURRENCY_DB_*` pointed at a disposable database, then the MySQL-only checks in `task-C3c-review.md` and the C4b lock checks.
+2. **The production database engine: mostly done by E1k, E1l and E1m, still open.** Production runs MySQL 8 (the user's decision, 14 November 2026). Stage C's close-out lists what a MySQL run must cover ([Telegram plan](2026-10-22-booking-telegram-actions.md), "Not verified, and required before production"): the race suite with `CONCURRENCY_DB_*` pointed at a disposable database, then the MySQL-only checks in `task-C3c-review.md` and the C4b lock checks.
    - **What E1k found:** the migrations had never run on MySQL, and they stopped at `2026_09_10_000000_add_catalog_publishing_lifecycle.php`. MySQL refuses a literal default on a JSON column (error 1101), so no MySQL install was possible. The default is now an expression, `('[]')`, which SQLite, MariaDB and MySQL 8.0.13 or later accept.
    - **What E1k proved on MySQL 8.4.13** (`REPEATABLE-READ`, in a throwaway Docker container):
      - all 30 migrations run;
@@ -220,14 +227,15 @@ The logs are `storage/framework/testing/e1d-*`. Qoder's report and Claude's revi
        - the press's early write of the row, and `send()`'s retry, are what keep the race right;
        - `refresh()`'s row lock is an equivalent mutant: its write-first update already holds the row.
      - **A harness hole, fixed:** a race worker that died from an exception exited 0 with no output, so a crash showed only through a later assertion. Workers now report their own crash and exit 1.
+   - **Fixed by E1m: a press could leave an old copy's message ID on the row** (MySQL only, found in E1l's review).
+     - **When:** a first send's response was lost, the outbox retries the send, and a staff member presses a button on the delivered copy at the same moment, with the retry going first.
+     - **Why:** the press checked its token on a snapshot from before the retry replaced that copy's buttons. Its early write (`ProcessBookingCallback`, `whereNull('message_id')`) then stamped the old copy's ID on the row, and the press was refused under the guard.
+     - **What it cost:** usually nothing, because the retry's final save writes the new copy's ID over it. If that save never happened (the retried post failed or its response was lost again), the row kept the old ID with the new copy's tokens. The booking then had no working Telegram buttons: the old copy answered "expired", a new copy "wrong message", and the outbox never posted again. The dashboard still worked, and no wrong decision was made.
+     - **The fix:** the early write also requires the render key the press read (`render_key`). Once a newer render has committed, it matches nothing, and the row is left for that send to record. When nothing rendered in between, the key matches and the press identifies its copy as before.
+     - **Proven:** on MySQL 8.4.13, the send-first race with the retried post failing stamped copy 123 before the fix, and leaves the row without a message ID after it; the outbox's next attempt then posts a working copy. A regular test reproduces the same order in one process, so `php artisan test` guards it on SQLite. Mutation N4, which drops the condition, fails the race on MySQL and the regular test on SQLite; on SQLite the race passes either way.
    - **Still open:**
-     - **A press can leave an old copy's message ID on the row** (MySQL only, found in E1l's review).
-       - **When:** a first send's response was lost, the outbox retries the send, and a staff member presses a button on the delivered copy at the same moment, with the retry going first.
-       - **Why:** the press checks its token on a snapshot from before the retry replaced that copy's buttons. Its early write (`ProcessBookingCallback`, `whereNull('message_id')`) then stamps the old copy's ID on the row, and the press is refused under the guard.
-       - **What it costs:** usually nothing, because the retry's final save writes the new copy's ID over it. If that save never happens (the retried post fails or its response is lost again), the row keeps the old ID with the new copy's tokens. The booking then has no working Telegram buttons: the old copy answers "expired", a new copy answers "wrong message", and the outbox never posts again. The dashboard still works, and no wrong decision is made.
-       - **The proposed fix:** make the early write conditional on the render it saw (`render_key`), so that once a newer render commits, it matches nothing. Its red test is the send-first race with the retried post failing, asserting the row keeps no message ID. Proposed as E1m.
      - **the outbox dispatcher race:** `OutboxDispatcherContentionTest` runs only on SQLite, and the race suite has no dispatcher scenario;
-     - **the regular suite:** `php artisan test` runs only on SQLite, so most paths (catalogue, content, accounts, booking creation, readiness, webhook intake) have never run on MySQL. Running it there, or holding the rehearsal (item 8) on MySQL 8, would cover them;
+     - **the regular suite:** `php artisan test` runs only on SQLite, so most paths (catalogue, content, accounts, booking creation, readiness, webhook intake) have never run on MySQL. Running it there, or holding the rehearsal (item 8) on MySQL 8, would cover them. Several regular tests, among them E1m's, find a query by its SQLite text (a double-quoted table name, `insert or ignore`), so they would fail there until their patterns also accept MySQL's;
      - C3c's first mutation has a second form, reusing the token read before the guard, which E1k didn't run.
    - **Deployment requirements, now in the README:**
      - MySQL 8.0.13 or later;
@@ -287,7 +295,7 @@ The logs are `storage/framework/testing/e1d-*`. Qoder's report and Claude's revi
 11. **Stage D:** payments and refunds, Review Focus 1, the payment half of Review Focus 3, and the online, late-payment and refund browser journeys.
 12. **Symfony 8.1 reaches end of life in January 2027** (`END_OF_LIFE` in `symfony/http-kernel`'s `Kernel.php`), and its security fixes stop then. Before that, the Symfony packages must move to a supported version; Laravel 13 accepts 7.4 or 8.x. Found in E1j's review.
 
-**Verdict: not production-ready.** The pay-at-spa release is complete as code, and the final review's High and nine Medium findings are fixed (item 9). On SQLite with fake delivery, every check this machine can run passes except the legacy suite's 2 failures (item 7, left for stage D). The browser suite passes as one run since E1e (item 1), and `composer audit` reports no advisory since E1j (item 5). Since E1k the migrations run on MySQL 8, and there the race suite passes and catches each stage C lock mutation. Since E1l it also covers the C4b lock checks, including the one deadlock they can hit, which the sender's retry absorbs (item 2). Before it is deployed:
+**Verdict: not production-ready.** The pay-at-spa release is complete as code, and the final review's High and nine Medium findings are fixed (item 9). On SQLite with fake delivery, every check this machine can run passes except the legacy suite's 2 failures (item 7, left for stage D). The browser suite passes as one run since E1e (item 1), and `composer audit` reports no advisory since E1j (item 5). Since E1k the migrations run on MySQL 8, and there the race suite passes and catches each stage C lock mutation. Since E1l it also covers the C4b lock checks, including the one deadlock they can hit, which the sender's retry absorbs, and since E1m a press can no longer leave the row pointing at an old copy (item 2). Before it is deployed:
 - **the rest of item 2's MySQL checks** pass: the outbox dispatcher race, and the regular suite or the rehearsal on MySQL 8;
 - **coverage** is measured and reaches 80% (item 4);
 - **a deployment rehearsal** with production-shaped synthetic data follows the operations guide from backup to "ready" (item 8).
