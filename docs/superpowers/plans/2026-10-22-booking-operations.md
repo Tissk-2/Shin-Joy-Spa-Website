@@ -37,9 +37,10 @@ Do this once, in this order. For each switch, set `true` to turn it on and `fals
    1. Take a database backup.
    2. Do [README: Before deploying this version](../../../README.md#before-deploying-this-version). This version sets every MySQL session to UTC (`DB_TIMEZONE`, default `+00:00`). On a server with another offset and existing data, set `DB_TIMEZONE` **before** the code goes live, or stored times read back shifted.
    3. Deploy as [README: Deploying a release that changes notifications](../../../README.md#deploying-a-release-that-changes-notifications) says: run `php artisan migrate --force` before restarting any worker, then refresh the configuration and restart the web processes and the workers together.
+   4. **On the site's first launch only, load the treatment menu** right after `migrate --force`: `php artisan db:seed --force`. It adds the official Nezuko and Nezuko VIP packages only when they are missing, so it never overwrites later catalog edits. Without it the site opens with no treatments. The packages are public at once, with unconfirmed pricing. Before opening the site, the owner checks their prices and confirms the pricing on each package's page under **Catalog**. Until then, customers see an estimate that doesn't multiply by the number of guests, and `bookings:readiness` won't print ready, so room scheduling (step 6) stays off. A new server also needs the one-time install steps in [README: Local setup](../../../README.md#local-setup) (the deployment paragraph).
 
    Then keep the scheduler and a supervised queue worker running ([README: Telegram booking notifications](../../../README.md#telegram-booking-notifications-outbox)). They are needed even with every switch off: the scheduler also expires unanswered requests.
-   - **Done when:** `php artisan migrate:status` shows no pending migration.
+   - **Done when:** `php artisan migrate:status` shows no pending migration, and on a first launch the public treatments page (`/services`) lists Nezuko and Nezuko VIP.
 2. **Give people access** (section 2).
    - **Done when:**
      - the Staff page shows booking management for each person who decides bookings;
@@ -54,7 +55,13 @@ Do this once, in this order. For each switch, set `true` to turn it on and `fals
    1. **First put every existing outside booking into the website.** The readiness check only sees bookings the website already has; a room held by a phone, WhatsApp or paper booking would otherwise look free and be given away twice.
       - Enter every future phone, WhatsApp and walk-in booking as in 4.4.
       - Enter every planned closure as a maintenance period (`/admin/room-blocks`, **Add maintenance period**).
-   2. Then follow [README: Before switching scheduling on](../../../README.md#before-switching-scheduling-on).
+   2. Then follow [README: Before switching scheduling on](../../../README.md#before-switching-scheduling-on). While scheduling was off, the spa may have confirmed more bookings for one time than it has rooms. Whoever deploys then sees the extra ones in `php artisan bookings:reconcile-rooms` as "free rooms none", once the others have rooms. For each one:
+      - call the guest and agree another time;
+      - enter and approve the new booking (4.4);
+      - ask whoever deploys to give it a room with `bookings:reconcile-rooms` (if it also shows "free rooms none", agree another time);
+      - only then cancel the old booking (4.2).
+
+      Or the owner adds a suitable room.
    - `php artisan bookings:readiness` only reports; it never stops you from switching scheduling on. **Do not set `BOOKING_SCHEDULING_ENABLED=true` until it prints `Booking readiness: ready.`**
    - **Done when:** a controlled booking approved in the admin area shows an assigned room on its page and in **Schedule** (`/admin/schedule`). Then cancel it.
 
