@@ -289,6 +289,31 @@ class TelegramRaceTest extends ConcurrencyTestCase
         $this->assertSame(456, (int) DB::table('telegram_booking_messages')->value('message_id'));
     }
 
+    /**
+     * E1o: MySQL reports the rows an UPDATE changed, unless the connection asks for the rows it matched (ATTR_FOUND_ROWS),
+     * and refresh() reads a final save that reports no row as overtaken. Refreshing a message that already records the
+     * booking's version saves that same version, and an updated_at from the same second as the round's render-key write
+     * (always so here: the clock is frozen; usually so in production, as an edit takes under a second), so MySQL reported 0:
+     * the refresh edited three times and returned false. Found by running the regular suite on MySQL.
+     */
+    public function test_a_refresh_of_an_up_to_date_message_edits_once(): void
+    {
+        [$a] = $this->scene();
+        TelegramBookingMessage::query()->create(['booking_id' => $a->id, 'chat_id' => '-1001234567890', 'message_id' => 123,
+            'booking_version' => $a->booking_version, 'state' => 'sent', 'render_key' => 'first-render']);
+        CarbonImmutable::setTestNow('2026-10-24 00:00:00 UTC');
+        config([
+            'services.telegram.actions_enabled' => true,
+            'services.telegram.staff_chat_id' => '-1001234567890',
+            'services.telegram.bot_token' => '123456789:'.str_repeat('A', 35),
+        ]);
+        Http::preventStrayRequests();
+        Http::fake(['api.telegram.org/*/editMessageText' => Http::response(['ok' => true, 'result' => ['message_id' => 123]])]);
+
+        $this->assertTrue(app(TelegramBookingSender::class)->refresh($a->fresh()));
+        Http::assertSentCount(1);
+    }
+
     /** @return array{0: Booking, 1: Booking, 2: User} two bookings that want the same last room, and the linked staff member */
     private function scene(): array
     {

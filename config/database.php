@@ -64,6 +64,8 @@ return [
             'engine' => null,
             'options' => $mysqlSslCaAttribute !== null ? array_filter([
                 $mysqlSslCaAttribute => env('MYSQL_ATTR_SSL_CA'),
+                // Count the rows an UPDATE matched, as SQLite does; the code's affected-row checks rely on it.
+                (PHP_VERSION_ID >= 80500 ? \Pdo\Mysql::ATTR_FOUND_ROWS : \PDO::MYSQL_ATTR_FOUND_ROWS) => true,
             ]) : [],
         ],
 
@@ -85,6 +87,8 @@ return [
             'engine' => null,
             'options' => $mysqlSslCaAttribute !== null ? array_filter([
                 $mysqlSslCaAttribute => env('MYSQL_ATTR_SSL_CA'),
+                // Count the rows an UPDATE matched, as SQLite does; the code's affected-row checks rely on it.
+                (PHP_VERSION_ID >= 80500 ? \Pdo\Mysql::ATTR_FOUND_ROWS : \PDO::MYSQL_ATTR_FOUND_ROWS) => true,
             ]) : [],
         ],
 

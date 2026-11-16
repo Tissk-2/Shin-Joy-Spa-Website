@@ -2,6 +2,7 @@
 
 namespace Tests\Unit;
 
+use Pdo\Mysql;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Tests\Concurrency\ConcurrencyDatabase;
@@ -60,6 +61,21 @@ class ConcurrencyDatabaseGuardTest extends TestCase
             'CONCURRENCY_DB_DATABASE' => 'shinjoy_concurrency_test',
             'CONCURRENCY_DB_HOST' => '127.0.0.1',
         ])['driver']);
+    }
+
+    public function test_mysql_settings_count_the_rows_an_update_matched(): void
+    {
+        if (! extension_loaded('pdo_mysql')) {
+            $this->markTestSkipped('The pdo_mysql extension is not loaded.');
+        }
+
+        // E1o: the race suite counts matched rows on MySQL, as production does (config/database.php).
+        $settings = ConcurrencyDatabase::settings([
+            'CONCURRENCY_DB_DRIVER' => 'mysql',
+            'CONCURRENCY_DB_DATABASE' => 'shinjoy_concurrency_test',
+            'CONCURRENCY_DB_HOST' => '127.0.0.1',
+        ]);
+        $this->assertTrue($settings['options'][PHP_VERSION_ID >= 80500 ? Mysql::ATTR_FOUND_ROWS : \PDO::MYSQL_ATTR_FOUND_ROWS] ?? null);
     }
 
     public function test_sqlite_must_live_in_a_fresh_concurrency_directory(): void
