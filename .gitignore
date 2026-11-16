@@ -36,3 +36,9 @@ dist/
 /admin_block_modal.png
 /admin_edit_modal.png
 /MADU - Magasabe 12-screenshot.png
+
+# AI assistant setup and working notes, kept locally only
+/CLAUDE.md
+/PRODUCT.md
+/docs/agents/
+/docs/superpowers/

@@ -5,7 +5,7 @@ a public service catalogue, customer accounts with email verification, online
 booking, and an admin panel for bookings and catalogue management.
 
 Running bookings day to day, switching the release on and recovering from
-problems: see the [booking operations guide](docs/superpowers/plans/2026-10-22-booking-operations.md).
+problems: see the [booking operations guide](docs/booking-operations.md).
 
 ## Requirements
 

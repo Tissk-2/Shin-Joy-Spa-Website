@@ -1,6 +1,6 @@
 # Booking operations guide: the pay-at-spa release
 
-For the owner and the staff who run bookings, and for whoever deploys the site. Each procedure names the screen or command to use and what shows that it is done. Setup details live in the [README](../../../README.md); this guide links to them instead of repeating them.
+For the owner and the staff who run bookings, and for whoever deploys the site. Each procedure names the screen or command to use and what shows that it is done. Setup details live in the [README](../README.md); this guide links to them instead of repeating them.
 
 ## 1. What this release does
 
@@ -35,27 +35,27 @@ Do this once, in this order. For each switch, set `true` to turn it on and `fals
 
 1. **Deploy the release.** This is the one step you can't undo (section 6), so prepare first:
    1. Take a database backup.
-   2. Do [README: Before deploying this version](../../../README.md#before-deploying-this-version). This version sets every MySQL session to UTC (`DB_TIMEZONE`, default `+00:00`). On a server with another offset and existing data, set `DB_TIMEZONE` **before** the code goes live, or stored times read back shifted.
-   3. Deploy as [README: Deploying a release that changes notifications](../../../README.md#deploying-a-release-that-changes-notifications) says: run `php artisan migrate --force` before restarting any worker, then refresh the configuration and restart the web processes and the workers together.
-   4. **On the site's first launch only, load the treatment menu** right after `migrate --force`: `php artisan db:seed --force`. It adds the official Nezuko and Nezuko VIP packages only when they are missing, so it never overwrites later catalog edits. Without it the site opens with no treatments. The packages are public at once, with unconfirmed pricing. Before opening the site, the owner checks their prices and confirms the pricing on each package's page under **Catalog**. Until then, customers see an estimate that doesn't multiply by the number of guests, and `bookings:readiness` won't print ready, so room scheduling (step 6) stays off. A new server also needs the one-time install steps in [README: Local setup](../../../README.md#local-setup) (the deployment paragraph).
+   2. Do [README: Before deploying this version](../README.md#before-deploying-this-version). This version sets every MySQL session to UTC (`DB_TIMEZONE`, default `+00:00`). On a server with another offset and existing data, set `DB_TIMEZONE` **before** the code goes live, or stored times read back shifted.
+   3. Deploy as [README: Deploying a release that changes notifications](../README.md#deploying-a-release-that-changes-notifications) says: run `php artisan migrate --force` before restarting any worker, then refresh the configuration and restart the web processes and the workers together.
+   4. **On the site's first launch only, load the treatment menu** right after `migrate --force`: `php artisan db:seed --force`. It adds the official Nezuko and Nezuko VIP packages only when they are missing, so it never overwrites later catalog edits. Without it the site opens with no treatments. The packages are public at once, with unconfirmed pricing. Before opening the site, the owner checks their prices and confirms the pricing on each package's page under **Catalog**. Until then, customers see an estimate that doesn't multiply by the number of guests, and `bookings:readiness` won't print ready, so room scheduling (step 6) stays off. A new server also needs the one-time install steps in [README: Local setup](../README.md#local-setup) (the deployment paragraph).
 
-   Then keep the scheduler and a supervised queue worker running ([README: Telegram booking notifications](../../../README.md#telegram-booking-notifications-outbox)). They are needed even with every switch off: the scheduler also expires unanswered requests.
+   Then keep the scheduler and a supervised queue worker running ([README: Telegram booking notifications](../README.md#telegram-booking-notifications-outbox)). They are needed even with every switch off: the scheduler also expires unanswered requests.
    - **Done when:** `php artisan migrate:status` shows no pending migration, and on a first launch the public treatments page (`/services`) lists Nezuko and Nezuko VIP.
 2. **Give people access** (section 2).
    - **Done when:**
      - the Staff page shows booking management for each person who decides bookings;
      - after one of them approves a test booking, its **Notifications** section (on its admin page) shows **Processed** and **Not sent: customer emails are switched off** within about a minute, not **Waiting to send**. That proves the scheduler and the worker run. Then cancel the test booking.
-3. **Telegram notifications:** follow [README: Activate on a deployment](../../../README.md#activate-on-a-deployment).
+3. **Telegram notifications:** follow [README: Activate on a deployment](../README.md#activate-on-a-deployment).
    - **Done when:** a controlled booking's message reaches the staff group, and its delivery shows **Processed**.
-4. **Telegram linking and actions:** follow [README: Telegram staff linking](../../../README.md#telegram-staff-linking-webhook) and [Before switching actions on](../../../README.md#before-switching-actions-on).
+4. **Telegram linking and actions:** follow [README: Telegram staff linking](../README.md#telegram-staff-linking-webhook) and [Before switching actions on](../README.md#before-switching-actions-on).
    - **Done when:** every check in step 7 of "Before switching actions on" passes.
-5. **Customer emails:** follow [README: Before switching emails on](../../../README.md#before-switching-emails-on).
+5. **Customer emails:** follow [README: Before switching emails on](../README.md#before-switching-emails-on).
    - **Done when:** the test email arrives, in the right language, and the booking's Notifications section shows **Sent**.
 6. **Room scheduling, only after readiness.**
    1. **First put every existing outside booking into the website.** The readiness check only sees bookings the website already has; a room held by a phone, WhatsApp or paper booking would otherwise look free and be given away twice.
       - Enter every future phone, WhatsApp and walk-in booking as in 4.4.
       - Enter every planned closure as a maintenance period (`/admin/room-blocks`, **Add maintenance period**).
-   2. Then follow [README: Before switching scheduling on](../../../README.md#before-switching-scheduling-on). While scheduling was off, the spa may have confirmed more bookings for one time than it has rooms. Whoever deploys then sees the extra ones in `php artisan bookings:reconcile-rooms` as "free rooms none", once the others have rooms. For each one:
+   2. Then follow [README: Before switching scheduling on](../README.md#before-switching-scheduling-on). While scheduling was off, the spa may have confirmed more bookings for one time than it has rooms. Whoever deploys then sees the extra ones in `php artisan bookings:reconcile-rooms` as "free rooms none", once the others have rooms. For each one:
       - call the guest and agree another time;
       - enter and approve the new booking (4.4);
       - ask whoever deploys to give it a room with `bookings:reconcile-rooms` (if it also shows "free rooms none", agree another time);
@@ -158,14 +158,14 @@ Their bookings stay, with the name, email, phone number and notes saved on each 
 
 ### 5.1 A notification is stuck or failed
 
-**Where:** the booking's **Notifications** section. [README: Reading the Notifications section](../../../README.md#reading-the-notifications-section) explains each label.
+**Where:** the booking's **Notifications** section. [README: Reading the Notifications section](../README.md#reading-the-notifications-section) explains each label.
 
 - **Waiting to send for more than a minute:** the scheduler or the queue worker is not running. Restart it; the delivery is then sent without anything else to do.
 - **Failed, will retry:** a temporary failure; the next attempt is already scheduled.
 - **Failed:** this needs whoever deploys, because the admin page shows no delivery IDs.
   1. Fix the cause (usually configuration).
   2. Run `php artisan queue:restart`.
-  3. Requeue the delivery: `php artisan outbox:requeue <id>`. [README: Retries and failures](../../../README.md#retries-and-failures) shows how to find the IDs.
+  3. Requeue the delivery: `php artisan outbox:requeue <id>`. [README: Retries and failures](../README.md#retries-and-failures) shows how to find the IDs.
 
 **Done when:** the label shows **Sent** or **Processed**.
 
@@ -181,7 +181,7 @@ If the message shows an old status, it is an older copy of the same message. Use
 
 ### 5.4 Room scheduling causes trouble
 
-Switch it off ([README: Switching scheduling off again](../../../README.md#switching-scheduling-off-again)). Room reservations already made stay in place and do no harm.
+Switch it off ([README: Switching scheduling off again](../README.md#switching-scheduling-off-again)). Room reservations already made stay in place and do no harm.
 
 Before switching it on again, follow the README's steps 3 to 5 again. Bookings approved while it was off hold no room. Until `bookings:reconcile-rooms` assigns them one, approving a booking at an overlapping time is refused with "A confirmed booking at this time has no room yet".
 
@@ -192,7 +192,7 @@ Before switching it on again, follow the README's steps 3 to 5 again. Bookings a
 - **Never restore a database backup over a database that has received real bookings since the backup.** Those bookings would be lost.
 - **To back out a feature, switch it off** (section 3). Know what that drops:
   - switching Telegram notifications off drops messages that are still waiting;
-  - while customer emails are off, notices are dropped, not paused ([README: Retries and failures](../../../README.md#retries-and-failures)).
+  - while customer emails are off, notices are dropped, not paused ([README: Retries and failures](../README.md#retries-and-failures)).
 - **Running the previous code on the new database has not been tested.** Fix forward instead.
 
 ## 7. Not in this release
