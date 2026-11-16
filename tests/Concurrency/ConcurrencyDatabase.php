@@ -4,6 +4,7 @@ namespace Tests\Concurrency;
 
 use Illuminate\Support\Facades\DB;
 use PDO;
+use Pdo\Mysql;
 use RuntimeException;
 use Symfony\Component\Process\Process;
 
@@ -83,8 +84,10 @@ final class ConcurrencyDatabase
             'strict' => true,
             'engine' => null,
             'timezone' => '+00:00',
-            // An unreachable host (dropped packets) fails in seconds instead of stalling each attempt.
-            'options' => [PDO::ATTR_TIMEOUT => 5],
+            // An unreachable host (dropped packets) fails in seconds instead of stalling each attempt. Updates count the rows
+            // they matched, as production's connection does (config/database.php); without pdo_mysql there is no connection.
+            'options' => [PDO::ATTR_TIMEOUT => 5] + (extension_loaded('pdo_mysql')
+                ? [(PHP_VERSION_ID >= 80500 ? Mysql::ATTR_FOUND_ROWS : PDO::MYSQL_ATTR_FOUND_ROWS) => true] : []),
         ];
     }
 

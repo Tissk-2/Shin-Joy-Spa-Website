@@ -28,7 +28,9 @@ database file lives at `database/database.sqlite` (create an empty file first if
 it does not exist yet). To use MySQL instead, set `DB_CONNECTION=mysql` in `.env`
 and fill in the connection values. MySQL must be 8.0.13 or later, with
 `sql_require_primary_key` off: the `room_service_variant` table has no primary
-key. If `php artisan migrate` ever stops partway on MySQL, drop and recreate the
+key. Keep MySQL's default transaction isolation, `REPEATABLE-READ`: the
+concurrency checks ran only under it, and Telegram button presses rely on it.
+If `php artisan migrate` ever stops partway on MySQL, drop and recreate the
 database before migrating again, because MySQL keeps the schema changes the
 failed migration had already made.
 
@@ -50,6 +52,12 @@ delivery transport with a valid `MAIL_FROM_ADDRESS`. Before accepting customers,
 register a test account, open the link in the verification email and check
 that the account is verified, then check that a password-reset email arrives;
 both flows require email delivery.
+
+A new server also needs, once: `composer install --no-dev` (from the committed
+`composer.lock`), `npm ci` and `npm run build`, `php artisan key:generate` (only
+when `APP_KEY` is empty), and `php artisan storage:link`, which serves the
+catalog images the admin uploads. The deployment rehearsal reused a development
+checkout, so it didn't run these.
 
 Serve the site over HTTPS only, and redirect HTTP to HTTPS at the web server.
 With an `https://` `APP_URL`, every generated and emailed link uses HTTPS, and
@@ -515,10 +523,11 @@ Check the production server first:
 
 ```sql
 SELECT @@global.time_zone, @@system_time_zone, TIMEDIFF(NOW(), UTC_TIMESTAMP());
-SELECT @@version, @@sql_require_primary_key;
+SELECT @@version, @@sql_require_primary_key, @@global.transaction_isolation;
 ```
 
-The second query must show 8.0.13 or later and `0` (see Local setup).
+The second query must show 8.0.13 or later, `0` and `REPEATABLE-READ` (see
+Local setup).
 
 If the offset is not `00:00:00` and the database already holds data, set
 `DB_TIMEZONE` in the deployment's environment to that offset (for example
@@ -547,7 +556,19 @@ only after a separate, reviewed conversion of the `TIMESTAMP` columns.
      which is read-only;
    - then add `--apply`, which writes one room reservation and never changes
      the booking's status or price;
-   - bookings it says to cancel and record again need staff, not the command.
+   - bookings it says to cancel and record again need staff, not the command;
+   - the report checks each booking on its own, so a room it lists as free for
+     one booking may also be listed for another at the same time. Assign one at
+     a time and run the report again after each. Where several share a time,
+     start with the largest group and take the first free room listed (the
+     smallest that fits): an assigned room can't be changed later except by
+     cancelling the booking;
+   - a booking that still shows `free rooms none` has no suitable room left at
+     its time: more bookings were confirmed then than there are rooms, or a
+     maintenance period closed one. Staff agree another time with the guest and
+     enter it (operations guide, 4.3), you give the new booking a room with this
+     command, and then staff cancel the old one. Or the owner adds a suitable
+     room at `/admin/rooms`. Then run the report again.
 5. Run `php artisan bookings:readiness` again; it must now say
    `Booking readiness: ready.`
 6. Set `BOOKING_SCHEDULING_ENABLED=true` in the deployment's environment, then

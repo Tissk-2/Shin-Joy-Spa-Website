@@ -226,6 +226,36 @@ class BookingCallbacksTest extends TestCase
         $this->assertSame(0, TelegramBookingMessage::query()->whereNotNull('message_id')->count());
     }
 
+    public function test_a_press_read_before_a_newer_render_leaves_the_row_unrecorded(): void
+    {
+        $this->staff();
+        $booking = $this->booking();
+        [$approve] = $this->render($booking);
+        DB::table('telegram_booking_messages')->update(['message_id' => null, 'state' => 'sending', 'sent_at' => null]);
+        $rendered = false;
+        // On MySQL a press reads from a snapshot, so a retried send can render new buttons between the press's reads and
+        // its early write of the row. This stands in for that send's render transaction; its post then fails.
+        DB::connection()->beforeExecuting(function (string $query) use (&$rendered): void {
+            if (! $rendered && preg_match('/\Aupdate "telegram_booking_messages"/i', $query) === 1) {
+                $rendered = true;
+                DB::table('telegram_booking_messages')->update(['render_key' => str_repeat('b', 32)]);
+                DB::table('telegram_action_tokens')->delete();
+            }
+        });
+
+        $update = $this->press($approve, 1);
+
+        $this->assertTrue($rendered);
+        $this->assertSame(['ignored', 'expired'], $this->outcome($update));
+        // Copy 123's ID would point the row at buttons it no longer carries, and the outbox would never post again.
+        $row = TelegramBookingMessage::query()->sole();
+        $this->assertNull($row->message_id);
+        $this->assertSame('sending', $row->state);
+
+        app(TelegramBookingSender::class)->send($booking->fresh());
+        Http::assertSentCount(2);
+    }
+
     public function test_used_stale_expired_and_unknown_buttons_change_nothing(): void
     {
         $this->staff();

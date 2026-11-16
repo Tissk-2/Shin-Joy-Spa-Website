@@ -61,12 +61,16 @@ final class ProcessBookingCallback
         if ($token->action !== 'decline_confirm' && $row->message_id === null   // mutation N
             && $token->consumed_at === null && $token->expires_at > $now) {   // mutations N2, N3
             // The send's response was lost, or its final save failed. Only the latest copy carries live tokens,
-            // so this press identifies it, and a retried send now finds it and posts no second copy.
-            TelegramBookingMessage::query()->whereKey($row->id)->whereNull('message_id')->update([
-                'message_id' => $p['message_id'],
-                'state' => 'sent',
-                'sent_at' => $now,
-            ]);
+            // so this press identifies it, and a retried send now finds it and posts no second copy. On MySQL
+            // (REPEATABLE-READ) the reads above share one snapshot, which may predate a retried send's render
+            // that replaced these tokens: then the render key no longer matches, and the row is left for that
+            // send to record.
+            TelegramBookingMessage::query()->whereKey($row->id)->whereNull('message_id')
+                ->where('render_key', $row->render_key)->update([   // mutation N4
+                    'message_id' => $p['message_id'],
+                    'state' => 'sent',
+                    'sent_at' => $now,
+                ]);
         }
 
         return (new StaffAccessLock(requireSchema: true))->run(
