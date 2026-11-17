@@ -34,7 +34,7 @@ The software records who made each decision. Membership of the Telegram group gi
 Do this once, in this order. For each switch, set `true` to turn it on and `false` to turn it off (`1`, `yes` and `on` also mean on; anything else means off). After changing a switch, run `php artisan config:cache` and `php artisan queue:restart`, and restart the web processes.
 
 1. **Deploy the release.** This is the one step you can't undo (section 6), so prepare first:
-   1. Take a database backup.
+   1. Take a backup (section 6.1).
    2. Do [README: Before deploying this version](../README.md#before-deploying-this-version). This version sets every MySQL session to UTC (`DB_TIMEZONE`, default `+00:00`). On a server with another offset and existing data, set `DB_TIMEZONE` **before** the code goes live, or stored times read back shifted.
    3. Deploy as [README: Deploying a release that changes notifications](../README.md#deploying-a-release-that-changes-notifications) says: run `php artisan migrate --force` before restarting any worker, then refresh the configuration and restart the web processes and the workers together.
    4. **On the site's first launch only, load the treatment menu** right after `migrate --force`: `php artisan db:seed --force`. It adds the official Nezuko and Nezuko VIP packages only when they are missing, so it never overwrites later catalog edits. Without it the site opens with no treatments. The packages are public at once, with unconfirmed pricing. Before opening the site, the owner checks their prices and confirms the pricing on each package's page under **Catalog**. Until then, customers and staff can book each package for one guest only, and `bookings:readiness` won't print ready, so room scheduling (step 6) stays off. A new server also needs the one-time install steps in [README: Local setup](../README.md#local-setup) (the deployment paragraph).
@@ -194,6 +194,30 @@ Before switching it on again, follow the README's steps 3 to 5 again. Bookings a
   - switching Telegram notifications off drops messages that are still waiting;
   - while customer emails are off, notices are dropped, not paused ([README: Retries and failures](../README.md#retries-and-failures)).
 - **Running the previous code on the new database has not been tested.** Fix forward instead.
+
+### 6.1 Taking and restoring a backup
+
+A backup is the database plus the uploaded images in `storage/app`. Also keep a copy of `.env`: a restore on another server needs the same `APP_KEY`, or links in emails already sent and waiting Telegram decline prompts stop working. Backups hold customer details, so keep them private and off the web server's folders.
+
+**Take a backup** (run in the app folder, as a user that can read the database):
+
+```bash
+mysqldump --single-transaction --routines --triggers --databases <database> | gzip > backup-db-$(date +%Y%m%d-%H%M).sql.gz
+tar -czf backup-storage-$(date +%Y%m%d-%H%M).tgz storage/app
+```
+
+`--databases` makes the backup recreate the database itself, so a restore needs no empty database first.
+
+**Restore** only onto a new server, or after the data is lost, never over newer bookings (above):
+
+1. `php artisan down`, and stop the queue worker.
+2. `gunzip -c backup-db-<time>.sql.gz | mysql`
+3. `tar -xzf backup-storage-<time>.tgz` in the app folder.
+4. `php artisan up`, and start the queue worker.
+
+- **Done when:** the site opens, **Bookings** (`/admin/bookings`) lists the bookings you expect, and an uploaded image still shows.
+
+A fresh test server ran both steps on 17 November 2026, with accounts and bookings in the database: every table came back identical.
 
 ## 7. Not in this release
 

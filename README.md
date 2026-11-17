@@ -9,7 +9,9 @@ problems: see the [booking operations guide](docs/booking-operations.md).
 
 ## Requirements
 
-- PHP ^8.3 with the `pdo_sqlite` extension
+- PHP 8.4.1 or later with the `pdo_sqlite` extension (`pdo_mysql` for MySQL).
+  The locked Symfony 8.1 packages need it. Ubuntu 24.04 ships PHP 8.3, so
+  install 8.4 from another source, such as the `ondrej/php` package archive.
 - Composer
 - Node.js 20+ and npm
 
@@ -56,8 +58,14 @@ both flows require email delivery.
 A new server also needs, once: `composer install --no-dev` (from the committed
 `composer.lock`), `npm ci` and `npm run build`, `php artisan key:generate` (only
 when `APP_KEY` is empty), and `php artisan storage:link`, which serves the
-catalog images the admin uploads. The deployment rehearsal reused a development
-checkout, so it didn't run these.
+catalog images the admin uploads. Run `composer install` before `npm run build`:
+the build imports Ziggy from `vendor/`. A fresh test server ran these steps on
+17 November 2026.
+
+Run `key:generate` and `storage:link` as the user who owns the app files, not as
+the web server user. They write to `.env` and `public/`, which the web server
+must not be able to change. The web server user needs write access to `storage/`
+and `bootstrap/cache/` only.
 
 Serve the site over HTTPS only, and redirect HTTP to HTTPS at the web server.
 With an `https://` `APP_URL`, every generated and emailed link uses HTTPS, and
@@ -77,6 +85,14 @@ sees plain HTTP, and the links in verification emails fail with "Invalid
 signature". This applies to Laravel Forge, Vapor and Cloud too: their proxies
 are no longer trusted automatically. With no proxy in front, leave it empty, so
 no `X-Forwarded-*` header is trusted.
+
+The app must see each visitor's own address: the rate limits count per address.
+Some hosts share one public IP between servers and pass HTTPS through unchanged.
+Then every request comes from the host's internal address, no proxy can add
+`X-Forwarded-For`, and `TRUSTED_PROXIES` cannot help. All visitors then share
+one limit, for example 20 registrations an hour for the whole site. Check the
+client addresses in the web server's access log. If every request shows the same
+address, use a dedicated IP or a host that passes the visitor's address on.
 
 The app sends `X-Content-Type-Options: nosniff` and its other security headers
 on every PHP response. Uploaded images under `/storage` are served by the web
