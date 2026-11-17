@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Head, Link, usePage } from "@inertiajs/vue3";
+import { MapPin } from "lucide-vue-next";
 import { computed, nextTick, onBeforeUnmount, ref } from "vue";
 import CatalogMenuFooter from "@/components/CatalogMenuFooter.vue";
 import PackageMenuCard from "@/components/PackageMenuCard.vue";
@@ -39,6 +40,16 @@ function galleryCaption(
 ): string {
   if (!image) return "";
   return language.value === "id" ? image.captionId : image.captionEn;
+}
+
+// The embed pulls about 400 KB of Google Maps scripts, so it waits for a click.
+const mapLoaded = ref(false);
+const mapFrame = ref<HTMLIFrameElement | null>(null);
+
+function loadMap(): void {
+  mapLoaded.value = true;
+  // The button disappears; keep keyboard focus where the visitor was.
+  nextTick(() => mapFrame.value?.focus());
 }
 
 const lightboxIndex = ref(-1);
@@ -154,6 +165,30 @@ onBeforeUnmount(() => {
   font-size: inherit;
   letter-spacing: inherit;
 }
+/* Same box as the map it replaces, so nothing moves when the map loads. */
+.map-placeholder {
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 1.25rem;
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  padding: 2rem;
+  border-radius: var(--r-lg);
+  background: var(--bg);
+  box-shadow: var(--shadow-card);
+  color: var(--text-muted);
+  text-align: center;
+}
+.map-placeholder__pin {
+  width: 2.5rem;
+  height: 2.5rem;
+  color: var(--gold-deep);
+  stroke-width: 1.5;
+}
+.map-placeholder p {
+  max-width: 22rem;
+}
 @media (max-width: 420px) {
   .hero__cta {
     gap: 0.75rem;
@@ -174,7 +209,11 @@ onBeforeUnmount(() => {
   <MainLayout>
     <section class="hero">
       <div class="hero__media">
-        <img src="/img/hero.jpg" :alt="tr('hero.title')" fetchpriority="high" />
+        <img
+          src="/img/hero.webp"
+          :alt="tr('hero.title')"
+          fetchpriority="high"
+        />
       </div>
       <div class="hero__scrim"></div>
       <div class="container hero__inner">
@@ -251,10 +290,10 @@ onBeforeUnmount(() => {
         <div class="split">
           <div class="split__media reveal">
             <img
-              src="/img/about.jpg"
+              src="/img/about.webp"
               :alt="tr('about.imageAlt')"
-              width="1200"
-              height="1440"
+              width="960"
+              height="1152"
               loading="lazy"
             />
           </div>
@@ -364,7 +403,11 @@ onBeforeUnmount(() => {
             :aria-label="`${tr('gallery.lbView')}: ${galleryCaption(image)}`"
             @click.prevent="openLightbox(index)"
           >
-            <img :src="image.src" :alt="galleryCaption(image)" loading="lazy" />
+            <img
+              :src="image.thumb"
+              :alt="galleryCaption(image)"
+              loading="lazy"
+            />
             <span class="gallery__caption">{{ galleryCaption(image) }}</span>
           </a>
         </div>
@@ -440,6 +483,8 @@ onBeforeUnmount(() => {
         <div class="split reverse">
           <div class="split__media reveal">
             <iframe
+              v-if="mapLoaded"
+              ref="mapFrame"
               :title="tr('loc.title')"
               :src="contactInformation.mapEmbedUrl"
               style="
@@ -452,6 +497,18 @@ onBeforeUnmount(() => {
               loading="lazy"
               referrerpolicy="no-referrer-when-downgrade"
             ></iframe>
+            <div v-else class="map-placeholder">
+              <MapPin class="map-placeholder__pin" aria-hidden="true" />
+              <p>{{ tr("loc.mapNote") }}</p>
+              <button
+                type="button"
+                class="btn btn--ghost"
+                data-map-load
+                @click="loadMap"
+              >
+                {{ tr("loc.mapShow") }}
+              </button>
+            </div>
           </div>
           <div class="split__body">
             <span class="eyebrow reveal">{{ tr("loc.eyebrow") }}</span>

@@ -30,6 +30,9 @@ async function saveContact(
 }
 
 async function expectMapQuery(page: Page, address: string): Promise<void> {
+  // The map loads on request; after a language switch it may already be open.
+  const loadMap = page.locator("#contact [data-map-load]");
+  if ((await loadMap.count()) > 0) await loadMap.click();
   const iframe = new URL(
     (await page.locator("#contact iframe").getAttribute("src")) ?? "",
   );

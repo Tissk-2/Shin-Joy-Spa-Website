@@ -154,7 +154,19 @@ describe("public contact information", () => {
     expect(normalizeContactPhone(input)).toBe(expected);
   });
 
-  it("uses CMS address and phone consistently on the homepage, catalog footer, global footer, and map destinations", () => {
+  it("loads the Google map only when the visitor asks for it", async () => {
+    const wrapper = mount(Home, { props: { categories: [] } });
+
+    expect(wrapper.find("#contact iframe").exists()).toBe(false);
+    await wrapper.get("#contact [data-map-load]").trigger("click");
+
+    expect(wrapper.find("#contact [data-map-load]").exists()).toBe(false);
+    expect(wrapper.get("#contact iframe").attributes("src")).toContain(
+      "google.com/maps",
+    );
+  });
+
+  it("uses CMS address and phone consistently on the homepage, catalog footer, global footer, and map destinations", async () => {
     const address = "Unit 3, Jalan Mawar & Melati #8, Malang";
     const phone = "+62 (812) 3456-7890";
     setContactContent({
@@ -170,6 +182,7 @@ describe("public contact information", () => {
     expect(wrapper.get(".footer-contact").text()).toContain(address);
     expect(wrapper.get(".footer-contact").text()).toContain(phone);
 
+    await wrapper.get("#contact [data-map-load]").trigger("click");
     const embed = new URL(wrapper.get("#contact iframe").attributes("src"));
     const directions = new URL(
       wrapper.get('#contact a[href*="google.com/maps"]').attributes("href"),

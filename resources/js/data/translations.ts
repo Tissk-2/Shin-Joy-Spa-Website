@@ -240,6 +240,8 @@ export default {
     "loc.phonet": "Telepon / WhatsApp",
     "loc.phone": "+62 895-3247-48530",
     "loc.directions": "Buka di peta",
+    "loc.mapNote": "Peta dimuat dari Google Maps setelah Anda memintanya.",
+    "loc.mapShow": "Tampilkan peta",
     "menu.eyebrow": "Menu resmi",
     "menu.title": "Pilihan perawatan",
     "menu.sub":
@@ -1273,6 +1275,8 @@ export default {
     "loc.phonet": "Phone / WhatsApp",
     "loc.phone": "+62 895-3247-48530",
     "loc.directions": "Open in maps",
+    "loc.mapNote": "The map loads from Google Maps once you ask for it.",
+    "loc.mapShow": "Show the map",
     "menu.eyebrow": "Official menu",
     "menu.title": "Treatment choices",
     "menu.sub":
