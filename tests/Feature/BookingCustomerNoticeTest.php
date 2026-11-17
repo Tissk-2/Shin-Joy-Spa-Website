@@ -74,6 +74,7 @@ class BookingCustomerNoticeTest extends TestCase
         );
         $this->assertStringContainsString('Pembayaran dilakukan di spa pada hari janji temu Anda.', $text);
         $this->assertStringContainsString('Halo, Ayu Lestari!', $text);
+        $this->assertStringContainsString('Hormat kami,', $text);
 
         $html = (string) $mail->getHtmlBody();
         $this->assertStringContainsString('https://spa.example.com/bookings/'.$booking->reference, $html);
