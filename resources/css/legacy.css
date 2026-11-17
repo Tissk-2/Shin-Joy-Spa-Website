@@ -1432,10 +1432,11 @@ p {
   max-width: 30ch;
   line-height: 1.7;
 }
-.footer-col h4 {
+.footer-col h2 {
   font-family: var(--font-body);
   font-size: 0.8rem;
   font-weight: 700;
+  line-height: 1.15;
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--on-plum);

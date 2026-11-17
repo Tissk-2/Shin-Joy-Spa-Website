@@ -507,6 +507,23 @@ describe("branded Laravel auth pages", () => {
     ).toBe("");
   });
 
+  it("gives every auth page the site's meta description", () => {
+    const pages: Array<[object, Record<string, unknown>]> = [
+      [Login, { canResetPassword: true }],
+      [Register, {}],
+      [ForgotPassword, {}],
+      [ResetPassword, { email: "ayu@example.com", token: "token" }],
+      [VerifyEmail, {}],
+      [ConfirmPassword, {}],
+    ];
+
+    for (const [page, props] of pages) {
+      const meta = mountPage(page, props).findAll('meta[name="description"]');
+      expect(meta).toHaveLength(1);
+      expect(meta[0].attributes("content")).toBe("Spa & Body Care in Malang");
+    }
+  });
+
   it("does not use legacy client auth or browser credential storage", () => {
     for (const name of [
       "Login.vue",

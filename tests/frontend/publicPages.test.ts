@@ -142,6 +142,19 @@ describe("Laravel-owned public pages", () => {
     );
   });
 
+  it("uses second-level footer headings, so no page skips a heading level", () => {
+    const wrapper = mount(MainLayout, {
+      slots: { default: "<h1>Page</h1><h2>Last section</h2>" },
+    });
+
+    expect(wrapper.findAll(".site-footer h3, .site-footer h4")).toHaveLength(0);
+    expect(wrapper.findAll(".footer-col h2").map((h) => h.text())).toEqual([
+      "Explore",
+      "Services",
+      "Contact",
+    ]);
+  });
+
   it("shows the administrator path only from the server-shared permission", async () => {
     const customer = mount(MainLayout, {
       slots: { default: "<p>content</p>" },

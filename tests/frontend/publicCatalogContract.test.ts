@@ -94,7 +94,7 @@ describe("public grouped catalog page", () => {
     });
 
     expect(wrapper.get("h1").text()).toBe("All treatments");
-    expect(wrapper.findAll("h2").map((heading) => heading.text())).toEqual([
+    expect(wrapper.findAll("main h2").map((heading) => heading.text())).toEqual([
       "Massage",
       "Body Care",
     ]);

@@ -530,7 +530,7 @@ onUnmounted(() => {
           </div>
 
           <div class="footer-col">
-            <h4>{{ tr("foot.explore") }}</h4>
+            <h2>{{ tr("foot.explore") }}</h2>
             <ul>
               <li>
                 <Link href="/">{{ tr("nav.home") }}</Link>
@@ -559,7 +559,7 @@ onUnmounted(() => {
           </div>
 
           <div class="footer-col">
-            <h4>{{ tr("foot.services") }}</h4>
+            <h2>{{ tr("foot.services") }}</h2>
             <ul>
               <li
                 v-for="servicePackage in catalogPackages"
@@ -580,7 +580,7 @@ onUnmounted(() => {
           </div>
 
           <div class="footer-col">
-            <h4>{{ tr("foot.contactt") }}</h4>
+            <h2>{{ tr("foot.contactt") }}</h2>
             <ul class="footer-contact">
               <li>
                 <svg

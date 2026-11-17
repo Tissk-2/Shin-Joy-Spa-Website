@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Link } from "@inertiajs/vue3";
+import { Head, Link } from "@inertiajs/vue3";
 import { onMounted, onUnmounted } from "vue";
 import BookingAuthContext from "@/components/BookingAuthContext.vue";
 import { useLanguage } from "@/composables/useLanguage";
@@ -30,6 +30,14 @@ onUnmounted(() => {
 
 <template>
   <main class="auth">
+    <!-- Same description and head-key as MainLayout, so pages never carry two. -->
+    <Head>
+      <meta
+        head-key="description"
+        name="description"
+        :content="tr('meta.tagline')"
+      />
+    </Head>
     <section class="auth__panel" :aria-labelledby="'auth-title'">
       <div class="auth-bar">
         <Link class="auth-back" href="/">
