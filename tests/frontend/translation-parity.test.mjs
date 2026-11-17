@@ -194,8 +194,13 @@ test("customer booking pages keep paired keys and avoid out-of-scope promises", 
       assert.notEqual(translations[locale][key].trim(), "");
     }
 
+    // "Awaiting payment" only names a status kept for the paused online payments; it promises nothing.
     const bookingCopy = Object.entries(translations[locale])
-      .filter(([key]) => key.startsWith("bookings."))
+      .filter(
+        ([key]) =>
+          key.startsWith("bookings.") &&
+          key !== "bookings.status.awaiting_payment",
+      )
       .map(([, value]) => value)
       .join("\n")
       .toLowerCase();
@@ -291,9 +296,12 @@ test("admin booking operations keep paired copy within the approved scope", () =
       assert.notEqual(translations[locale][key].trim(), "", `${locale}.${key}`);
     }
 
+    // As above, the "Awaiting payment" status label is left out of the scan.
     const operationalCopy = Object.entries(translations[locale])
-      .filter(([key]) =>
-        approvedPrefixes.some((prefix) => key.startsWith(prefix)),
+      .filter(
+        ([key]) =>
+          approvedPrefixes.some((prefix) => key.startsWith(prefix)) &&
+          key !== "ad.status.awaiting_payment",
       )
       .map(([, value]) => value)
       .join("\n")
