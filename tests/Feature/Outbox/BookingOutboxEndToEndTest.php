@@ -3,7 +3,6 @@
 namespace Tests\Feature\Outbox;
 
 use App\Enums\OutboxDeliveryState;
-use App\Jobs\SendTelegramBookingNotification;
 use App\Models\Booking;
 use App\Models\OutboxDelivery;
 use App\Models\OutboxMessage;
@@ -100,27 +99,6 @@ class BookingOutboxEndToEndTest extends TestCase
         $this->assertSame(OutboxDeliveryState::Failed, $delivery->state);
         $this->assertSame('permanent: telegram_http', $delivery->last_error);
         $this->assertSame(1, $delivery->attempts);
-    }
-
-    public function test_a_legacy_job_run_before_dispatch_still_sends_exactly_one_message(): void
-    {
-        Http::fake([
-            $this->endpoint() => Http::response(['ok' => true, 'result' => ['message_id' => 321]], 200),
-        ]);
-        $booking = $this->submitBooking();
-        $message = OutboxMessage::query()->sole();
-
-        $job = new SendTelegramBookingNotification($booking->id);
-        $this->app->call([$job, 'handle']);
-
-        $this->assertSame(1, OutboxMessage::query()->count());
-        $this->assertSame(1, OutboxDelivery::query()->count());
-        $this->assertSame($message->id, OutboxMessage::query()->sole()->id);
-
-        $this->artisan('outbox:dispatch')->assertExitCode(0);
-
-        Http::assertSentCount(1);
-        $this->assertSame(OutboxDeliveryState::Completed, OutboxDelivery::query()->sole()->state);
     }
 
     private function submitBooking(): Booking

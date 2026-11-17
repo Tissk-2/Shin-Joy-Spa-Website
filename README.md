@@ -233,11 +233,6 @@ again. The booking remains saved even if notification delivery fails.
 If a server was killed while `outbox:dispatch` was running, its overlap lock
 expires after 5 minutes. `php artisan schedule:clear-cache` clears it sooner.
 
-Jobs queued by the previous direct notification code are still accepted: when
-a worker processes one with notifications enabled, it records the same outbox
-intent instead of sending directly, so it cannot produce a second message for a
-booking that already has one.
-
 ### Activate on a deployment
 
 1. Create or confirm the bot with [BotFather](https://core.telegram.org/bots/features#creating-a-new-bot).
