@@ -249,7 +249,8 @@ onMounted(() => {
   window.addEventListener("scroll", handleScroll, { passive: true });
   document.addEventListener("keydown", handleKeydown);
   document.addEventListener("pointerdown", handleOutsidePointer);
-  handleScroll();
+  // After the first paint: reading scrollY now would force a full layout mid-mount.
+  requestAnimationFrame(() => requestAnimationFrame(handleScroll));
 });
 
 onUnmounted(() => {
@@ -314,6 +315,8 @@ onUnmounted(() => {
           </svg>
           <span class="wordmark">
             <b>Shin Joy</b>
+            <!-- A real space: the two lines are blocks, so it only joins the link name. -->
+            {{ " " }}
             <span>Spa &middot; Malang</span>
           </span>
         </Link>
@@ -523,6 +526,8 @@ onUnmounted(() => {
               </svg>
               <span class="wordmark">
                 <b>Shin Joy</b>
+                <!-- A real space: the two lines are blocks, so it only joins the link name. -->
+                {{ " " }}
                 <span>Spa &middot; Malang</span>
               </span>
             </Link>

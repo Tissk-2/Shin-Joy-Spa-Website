@@ -142,6 +142,49 @@ describe("Laravel-owned public pages", () => {
     );
   });
 
+  it("names both logo links with the words they show", () => {
+    const brands = mount(MainLayout, {
+      slots: { default: "<p>content</p>" },
+    }).findAll("a.brand");
+
+    expect(brands).toHaveLength(2);
+    for (const brand of brands) {
+      // Punctuation and case are ignored when matching a name to the visible text.
+      const words = brand
+        .text()
+        .replace(/[^\p{L}\p{N}\s]/gu, " ")
+        .replace(/\s+/g, " ")
+        .trim()
+        .toLowerCase();
+      expect(words).toBe("shin joy spa malang");
+      expect(brand.attributes("aria-label")?.toLowerCase()).toBe(words);
+    }
+  });
+
+  it("reads the scroll position only after the first frame, not while mounting", async () => {
+    // Reading it during mount forces the browser to lay the whole page out early.
+    const original = Object.getOwnPropertyDescriptor(window, "scrollY");
+    let reads = 0;
+    Object.defineProperty(window, "scrollY", {
+      configurable: true,
+      get: () => {
+        reads += 1;
+        return 0;
+      },
+    });
+
+    try {
+      mount(MainLayout, { slots: { default: "<p>content</p>" } });
+      expect(reads).toBe(0);
+      await new Promise((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(resolve)),
+      );
+      expect(reads).toBeGreaterThan(0);
+    } finally {
+      if (original) Object.defineProperty(window, "scrollY", original);
+    }
+  });
+
   it("uses second-level footer headings, so no page skips a heading level", () => {
     const wrapper = mount(MainLayout, {
       slots: { default: "<h1>Page</h1><h2>Last section</h2>" },

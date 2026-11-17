@@ -9,7 +9,8 @@ defineProps<Props>();
 
 <template>
   <header>
-    <h3 class="mb-0.5 text-base font-medium">{{ title }}</h3>
+    <!-- h2: the settings layout's h1 "Settings" is the only heading above it. -->
+    <h2 class="mb-0.5 text-base font-medium">{{ title }}</h2>
     <p v-if="description" class="text-sm text-muted-foreground">
       {{ description }}
     </p>

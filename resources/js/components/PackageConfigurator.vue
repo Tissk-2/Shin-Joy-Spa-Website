@@ -183,7 +183,6 @@ const labels = computed(() =>
         role="radio"
         :data-mode="mode"
         :aria-checked="selection.mode === mode"
-        :aria-pressed="selection.mode === mode"
         :tabindex="
           selection.mode === mode || (!selection.mode && index === 0) ? 0 : -1
         "
@@ -208,7 +207,6 @@ const labels = computed(() =>
         role="radio"
         :data-duration="variant.duration"
         :aria-checked="selection.duration === variant.duration"
-        :aria-pressed="selection.duration === variant.duration"
         :tabindex="
           selection.duration === variant.duration ||
           (selection.duration === null && index === 0)

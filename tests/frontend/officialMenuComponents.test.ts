@@ -155,7 +155,7 @@ describe("PackageConfigurator", () => {
       configurator()
         .get('button[data-mode="regular"]')
         .attributes("aria-pressed"),
-    ).toBe("true");
+    ).toBeUndefined(); // role="radio" takes aria-checked only
     expect(
       configurator()
         .get('button[data-mode="regular"]')
@@ -245,7 +245,7 @@ describe("PackageConfigurator", () => {
       configurator()
         .get('button[data-duration="120"]')
         .attributes("aria-pressed"),
-    ).toBe("true");
+    ).toBeUndefined();
     expect(document.activeElement).toBe(
       configurator().get('button[data-duration="120"]').element,
     );

@@ -52,7 +52,14 @@ function logout(): void {
 </script>
 
 <template>
-  <Head :title="props.title" />
+  <Head :title="props.title">
+    <!-- Same description and head-key as MainLayout and AuthLayout. -->
+    <meta
+      head-key="description"
+      name="description"
+      :content="tr('meta.tagline')"
+    />
+  </Head>
   <div class="admin-shell admin-frame">
     <a href="#main" class="admin-skip">{{ tr("ad.skip") }}</a>
     <aside class="admin-sidebar">

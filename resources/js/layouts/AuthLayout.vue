@@ -98,6 +98,8 @@ onUnmounted(() => {
           </svg>
           <span class="wordmark">
             <b>Shin Joy</b>
+            <!-- A real space: the two lines are blocks, so it only joins the link name. -->
+            {{ " " }}
             <span>Spa &middot; Malang</span>
           </span>
         </Link>

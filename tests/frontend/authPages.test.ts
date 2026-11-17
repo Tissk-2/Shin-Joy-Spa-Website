@@ -524,6 +524,19 @@ describe("branded Laravel auth pages", () => {
     }
   });
 
+  it("names the logo link with the words it shows", () => {
+    const brand = mountPage(Login, { canResetPassword: true }).get("a.brand");
+    const words = brand
+      .text()
+      .replace(/[^\p{L}\p{N}\s]/gu, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLowerCase();
+
+    expect(words).toBe("shin joy spa malang");
+    expect(brand.attributes("aria-label")?.toLowerCase()).toBe(words);
+  });
+
   it("loads the side photo as WebP, and only on screens that show it", () => {
     // The CSS hides the side panel at 880px and below; phones used to download it anyway.
     const screen = (wide: boolean) =>

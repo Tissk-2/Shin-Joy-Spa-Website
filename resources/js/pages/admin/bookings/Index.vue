@@ -392,7 +392,7 @@ function paginationLabel(label: string, index: number): string {
                     <Link
                       class="admin-record-link"
                       :href="`/admin/bookings/${encodeURIComponent(booking.reference)}`"
-                      :aria-label="`${tr('ad.booking.details')} ${booking.reference}`"
+                      :aria-label="`${tr('ad.table.open')} ${booking.reference}`"
                       >{{ tr("ad.table.open") }}</Link
                     >
                   </td>
@@ -473,7 +473,7 @@ function paginationLabel(label: string, index: number): string {
               <Link
                 class="admin-record-link"
                 :href="`/admin/bookings/${encodeURIComponent(booking.reference)}`"
-                :aria-label="`${tr('ad.booking.details')} ${booking.reference}`"
+                :aria-label="`${tr('ad.table.open')} ${booking.reference}`"
                 >{{ tr("ad.table.open") }}</Link
               >
             </li>

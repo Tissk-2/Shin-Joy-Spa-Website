@@ -243,6 +243,10 @@ describe("admin booking console", () => {
         expect(record.get("a").attributes("href")).toBe(
           `/admin/bookings/${encodeURIComponent(booking.reference)}`,
         );
+        // Voice control users say the words they see, so the name starts with them.
+        expect(record.get("a").attributes("aria-label")).toBe(
+          `${record.get("a").text()} ${booking.reference}`,
+        );
         expect(record.get(".admin-status").text().toLowerCase()).toBe(
           booking.status,
         );

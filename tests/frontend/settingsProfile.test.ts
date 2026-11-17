@@ -2,6 +2,8 @@ import { flushPromises, mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
 
 import DeleteUser from "@/components/DeleteUser.vue";
+import HeadingSmall from "@/components/HeadingSmall.vue";
+import AppLayout from "@/layouts/AppLayout.vue";
 import Profile from "@/pages/settings/Profile.vue";
 
 const inertia = vi.hoisted(() => ({
@@ -71,6 +73,26 @@ const stubs = {
   DeleteUser: true,
   TransitionRoot: true,
 };
+
+describe("settings layout", () => {
+  it("gives the settings pages the site's meta description", () => {
+    // Shallow: the sidebar itself needs a full page, and only the head matters here.
+    const meta = mount(AppLayout, { shallow: true }).findAll(
+      'meta[name="description"]',
+    );
+
+    expect(meta).toHaveLength(1);
+    expect(meta[0].attributes("content")).toMatch(/Spa/);
+  });
+
+  it("puts section headings right under the page's h1", () => {
+    // The settings layout's only heading above them is the h1 "Settings".
+    const heading = mount(HeadingSmall, { props: { title: "Profile" } });
+
+    expect(heading.get("h2").text()).toBe("Profile");
+    expect(heading.find("h3").exists()).toBe(false);
+  });
+});
 
 describe("profile settings", () => {
   it("asks for the current password only while the email changes, sends it, then clears it", async () => {

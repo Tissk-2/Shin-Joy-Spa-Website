@@ -100,6 +100,15 @@ describe("administrator layout", () => {
     );
   });
 
+  it("gives every admin page the site's meta description", () => {
+    const meta = mount(AdminLayout, { props: { title: "Bookings" } }).findAll(
+      'meta[name="description"]',
+    );
+
+    expect(meta).toHaveLength(1);
+    expect(meta[0].attributes("content")).toBe("Spa & Body Care in Malang");
+  });
+
   it("shows booking settings only for the verified owner navigation ability", async () => {
     const wrapper = mount(AdminLayout, { props: { title: "Bookings" } });
     expect(wrapper.find('a[href="/admin/settings/booking"]').exists()).toBe(
