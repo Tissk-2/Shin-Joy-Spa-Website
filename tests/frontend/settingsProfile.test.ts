@@ -1,6 +1,7 @@
-import { mount } from "@vue/test-utils";
+import { flushPromises, mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
 
+import DeleteUser from "@/components/DeleteUser.vue";
 import Profile from "@/pages/settings/Profile.vue";
 
 const inertia = vi.hoisted(() => ({
@@ -108,5 +109,18 @@ describe("profile settings", () => {
 
     await wrapper.get("#email").setValue("ayu@example.com");
     expect(wrapper.find("#current_password").exists()).toBe(false);
+  });
+
+  it("confirms account deletion with one submit button, not a button inside a button", async () => {
+    const wrapper = mount(DeleteUser, { attachTo: document.body });
+    await wrapper.get("button").trigger("click");
+    await flushPromises();
+
+    const submit = document.body.querySelector<HTMLButtonElement>(
+      'form button[type="submit"]',
+    );
+    expect(submit?.textContent?.trim()).toBe("Delete account");
+    expect(document.body.querySelectorAll("button button")).toHaveLength(0);
+    wrapper.unmount();
   });
 });

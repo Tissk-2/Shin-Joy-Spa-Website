@@ -282,6 +282,13 @@ describe("official menu homepage", () => {
 });
 
 describe("authenticated package booking", () => {
+  // The flow books 6 September 2099, which must fall inside the booking window.
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2099-09-01T00:00:00Z"));
+  });
+  afterEach(() => vi.useRealTimers());
+
   it("renders the normalized configuration, retains editable account details, and reviews without claiming persistence", async () => {
     inertia.page.props = {
       auth: {

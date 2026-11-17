@@ -201,8 +201,14 @@ class StoreBookingRequest extends FormRequest
             return;
         }
 
-        if ($date->lt(CarbonImmutable::now('Asia/Jakarta')->startOfDay()) && ! $this->hasExistingSubmission()) {
+        $today = CarbonImmutable::now('Asia/Jakarta')->startOfDay();
+
+        if ($date->lt($today) && ! $this->hasExistingSubmission()) {
             $fail(__('validation.after_or_equal', ['attribute' => $attribute, 'date' => __('validation.booking.today')]));
+        }
+
+        if ($date->gt($today->addDays(BookingSelectionLimits::ADVANCE_DAYS))) {
+            $fail(__('validation.booking.too_far', ['days' => BookingSelectionLimits::ADVANCE_DAYS]));
         }
     }
 

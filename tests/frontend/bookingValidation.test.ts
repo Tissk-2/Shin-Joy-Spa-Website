@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   jakartaTimeIso,
+  latestBookingDate,
   timeSlots,
   todayIso,
   validateBooking,
@@ -276,5 +277,33 @@ describe("booking validation helpers", () => {
         "2026-08-20",
       ),
     ).toEqual({});
+  });
+
+  it("accepts dates up to 365 days ahead and refuses later ones", () => {
+    const validSelection = {
+      name: "Nadia",
+      phone: "",
+      service: "nezuko",
+      mode: "regular" as const,
+      duration: 90,
+      extension: "",
+      time: "09:00",
+    };
+
+    expect(latestBookingDate("2026-08-20")).toBe("2027-08-20");
+    expect(
+      validateBooking(
+        { ...validSelection, date: "2027-08-20" },
+        packages,
+        "2026-08-20",
+      ),
+    ).toEqual({});
+    expect(
+      validateBooking(
+        { ...validSelection, date: "2027-08-21" },
+        packages,
+        "2026-08-20",
+      ),
+    ).toEqual({ date: "b.err.dateTooFar" });
   });
 });

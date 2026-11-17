@@ -82,6 +82,15 @@ export function todayIso(date = new Date()): string {
   return `${year}-${month}-${day}`;
 }
 
+// The furthest a booking may be made ahead; mirrors BookingSelectionLimits::ADVANCE_DAYS.
+const maxAdvanceDays = 365;
+
+export function latestBookingDate(today = todayIso()): string {
+  const date = new Date(`${today}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + maxAdvanceDays);
+  return date.toISOString().slice(0, 10);
+}
+
 export function jakartaTimeIso(date = new Date()): string {
   const { hour, minute } = jakartaParts(date);
   return `${hour}:${minute}`;
@@ -143,6 +152,8 @@ export function validateBooking(
 
   if (!isCalendarDate(form.date) || form.date < today)
     errors.date = "b.err.date";
+  else if (form.date > latestBookingDate(today))
+    errors.date = "b.err.dateTooFar";
   if (!timeSlots.includes(form.time)) errors.time = "b.err.time";
   if (form.date === today && form.time <= currentTime)
     errors.time = "b.err.time";

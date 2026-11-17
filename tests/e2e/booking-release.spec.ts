@@ -3,6 +3,7 @@ import { execFileSync } from "node:child_process";
 import { expect, test, type Page } from "@playwright/test";
 
 import { registerCustomer, verifyCustomer } from "./helpers/auth";
+import { futureDate } from "./helpers/dates";
 import {
   projectRoot,
   resetTestingDatabase,
@@ -88,7 +89,7 @@ test("a pay-at-spa request reaches staff, and every decision reaches the custome
     /make a new booking and ask us to cancel the old one|buat reservasi baru dan minta kami membatalkan reservasi lama/,
   );
 
-  const kept = await requestNezuko(customer, "2099-10-06", "10:30");
+  const kept = await requestNezuko(customer, futureDate(40), "10:30");
   await expect(customer.locator(".booking-status")).toHaveText(
     /menunggu|pending/i,
   );
@@ -97,7 +98,7 @@ test("a pay-at-spa request reaches staff, and every decision reaches the custome
   await expect(customer.locator("[data-booking-changes]")).toContainText(
     /make a new booking and ask the spa to cancel this one|buat reservasi baru dan minta spa membatalkan reservasi ini/,
   );
-  const declined = await requestNezuko(customer, "2099-10-07", "11:30");
+  const declined = await requestNezuko(customer, futureDate(41), "11:30");
 
   // The owner approves one request and declines the other from the dashboard.
   const staffContext = await browser.newContext();
@@ -158,7 +159,7 @@ test("a pay-at-spa request reaches staff, and every decision reaches the custome
   await staff.locator("#staff-phone").fill("+628111222333");
   await staff.locator('[data-mode="regular"]').click();
   await staff.locator('[data-duration="90"]').click();
-  await staff.locator("#staff-date").fill("2099-10-08");
+  await staff.locator("#staff-date").fill(futureDate(42));
   await staff.locator('#staff-time input[value="10:30"]').check();
   await staff.locator("#staff-approve").check();
   await staff.getByRole("button", { name: "Save and approve" }).click();

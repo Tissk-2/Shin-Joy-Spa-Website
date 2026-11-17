@@ -1,5 +1,5 @@
 import { flushPromises, mount } from "@vue/test-utils";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import Booking from "@/pages/Booking.vue";
 import type { PackageData } from "@/types";
@@ -215,7 +215,11 @@ beforeEach(() => {
     "fetch",
     vi.fn(async () => ok()),
   );
+  // The flows book 6 September 2099, which must fall inside the booking window.
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2099-09-01T00:00:00Z"));
 });
+afterEach(() => vi.useRealTimers());
 describe("booking page availability integration", () => {
   it("localizes the room list accessible name and explains empty starts in plain English", async () => {
     const wrapper = mountPage(true);

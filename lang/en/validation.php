@@ -37,6 +37,8 @@ return [
         'pricing_unverified' => 'This package pricing has not been verified. Choose another package or contact us.',
         'pricing_unavailable' => 'Package pricing cannot be verified right now. Please try again.',
         'guest_coverage' => 'The number of guests is outside the range allowed for this package.',
+        'too_far' => 'Choose a date within the next :days days.',
+        'single_guest_until_verified' => 'This package can be booked online for one guest until the spa confirms its group pricing. For a group, please contact us.',
         'today' => 'today',
     ],
     'custom' => [

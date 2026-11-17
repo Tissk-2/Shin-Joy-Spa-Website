@@ -1,5 +1,5 @@
 import { mount } from "@vue/test-utils";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   buildBookingSubmissionPayload,
@@ -194,12 +194,16 @@ function mountBooking(catalog: PackageData[] = packages) {
   });
 }
 
-async function completeDetails(wrapper: ReturnType<typeof mountBooking>) {
+async function completeDetails(
+  wrapper: ReturnType<typeof mountBooking>,
+  guests = "1",
+) {
   await wrapper.get<HTMLInputElement>("#f-name").setValue(" Nadia Lestari ");
   await wrapper.get<HTMLInputElement>("#f-phone").setValue("+62 812-3456-7890");
   await wrapper.get<HTMLInputElement>("#f-date").setValue("2099-09-06");
   await wrapper.get('#f-time input[value="09:00"]').setValue(true);
-  await wrapper.get<HTMLSelectElement>("#f-guests").setValue("2");
+  // Unconfirmed pricing offers one guest only; verified packages pass a group size.
+  await wrapper.get<HTMLSelectElement>("#f-guests").setValue(guests);
   await wrapper
     .get<HTMLTextAreaElement>("#f-notes")
     .setValue(" Prefer quiet room. ");
@@ -279,7 +283,11 @@ describe("reviewed booking submission", () => {
       email_verified_at: "2026-08-01",
     };
     Element.prototype.scrollIntoView = vi.fn();
+    // The flows book 6 September 2099, which must fall inside the booking window.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2099-09-01T00:00:00Z"));
   });
+  afterEach(() => vi.useRealTimers());
 
   it("prefills account identity, reviews locally first, edits without rotating the key, and confirms only the allow-listed payload", async () => {
     const wrapper = mountBooking();
@@ -304,14 +312,14 @@ describe("reviewed booking submission", () => {
     expect(wrapper.text()).toContain("Confirm booking");
     const initialRecap = wrapper.get(".booking-recap");
     expect(initialRecap.text()).toContain("Number of guests");
-    expect(initialRecap.text()).toContain("2 people");
+    expect(initialRecap.text()).toContain("1 person");
     expect(initialRecap.text()).toContain("Full name");
     expect(initialRecap.text()).toContain("Nadia Lestari");
     expect(initialRecap.text()).toContain("+62 812-3456-7890");
     expect(initialRecap.text()).toContain("Prefer quiet room.");
     expect(initialRecap.text()).toContain("Rp 340.000");
     expect(initialRecap.text()).toContain(
-      "This estimate covers the selected treatment and any extension. Guest count does not multiply it; the total for all guests has not been confirmed.",
+      "This total covers the selected treatment and any extension for one guest. This package can be booked online for one guest until the spa confirms its group pricing; for a group, please contact us.",
     );
 
     await wrapper.get("[data-booking-edit]").trigger("click");
@@ -322,7 +330,7 @@ describe("reviewed booking submission", () => {
     expect(wrapper.get<HTMLInputElement>("#f-phone").element.value).toBe(
       "+62 812-3456-7890",
     );
-    expect(wrapper.get<HTMLSelectElement>("#f-guests").element.value).toBe("2");
+    expect(wrapper.get<HTMLSelectElement>("#f-guests").element.value).toBe("1");
     expect(wrapper.get<HTMLTextAreaElement>("#f-notes").element.value).toBe(
       " Prefer quiet room. ",
     );
@@ -333,12 +341,11 @@ describe("reviewed booking submission", () => {
     const editedNotes = "Updated <img src=x onerror=alert(1)> note";
     await wrapper.get<HTMLInputElement>("#f-name").setValue(editedName);
     await wrapper.get<HTMLInputElement>("#f-phone").setValue(editedPhone);
-    await wrapper.get<HTMLSelectElement>("#f-guests").setValue("3");
     await wrapper.get<HTMLTextAreaElement>("#f-notes").setValue(editedNotes);
     await wrapper.get("form").trigger("submit");
 
     const editedRecap = wrapper.get(".booking-recap");
-    expect(editedRecap.text()).toContain("3 people");
+    expect(editedRecap.text()).toContain("1 person");
     expect(editedRecap.text()).toContain(editedName);
     expect(editedRecap.text()).toContain(editedPhone);
     expect(editedRecap.text()).toContain(editedNotes);
@@ -359,7 +366,7 @@ describe("reviewed booking submission", () => {
           extension: "nezuko-regular-extra-60",
           date: "2099-09-06",
           time: "09:00",
-          guests: 3,
+          guests: 1,
           notes: editedNotes,
           submission_key: submissionKey,
           expected_total_price_idr: 340000,
@@ -377,7 +384,7 @@ describe("reviewed booking submission", () => {
   it("multiplies verified per-person totals by guests and submits the reviewed total", async () => {
     const wrapper = mountBooking(verifiedPerPerson);
 
-    await completeDetails(wrapper);
+    await completeDetails(wrapper, "2");
     await wrapper.get("form").trigger("submit");
 
     const recap = wrapper.get(".booking-recap");
@@ -407,8 +414,7 @@ describe("reviewed booking submission", () => {
     ).toEqual(["2", "3", "4"]);
     expect(guestSelect.element.value).toBe("2");
 
-    await completeDetails(wrapper);
-    await wrapper.get<HTMLSelectElement>("#f-guests").setValue("3");
+    await completeDetails(wrapper, "3");
     await wrapper.get("form").trigger("submit");
 
     const recap = wrapper.get(".booking-recap");
@@ -428,7 +434,7 @@ describe("reviewed booking submission", () => {
     async (locale) => {
       inertia.page.props.locale = locale;
       const wrapper = mountBooking(verifiedPerPerson);
-      await completeDetails(wrapper);
+      await completeDetails(wrapper, "2");
       const expected = locale === "id" ? "Untuk 2 tamu" : "For 2 guests";
       expect(wrapper.get(".summary-total").text()).toContain(expected);
       expect(wrapper.get(".summary-total").text()).toContain("Rp 680.000");
@@ -462,7 +468,7 @@ describe("reviewed booking submission", () => {
     expect(recap.text()).toContain("Catatan (opsional)");
     expect(recap.text()).toContain("Belum ada catatan");
     expect(recap.text()).toContain(
-      "Estimasi ini mencakup perawatan yang dipilih dan tambahan apa pun. Jumlah tamu tidak mengalikan jumlah tersebut; total untuk semua tamu belum dikonfirmasi.",
+      "Total ini mencakup perawatan yang dipilih dan tambahan apa pun untuk satu tamu. Paket ini dapat dipesan online untuk satu tamu sampai spa mengonfirmasi harga rombongan; untuk rombongan, silakan hubungi kami.",
     );
   });
 
@@ -478,7 +484,7 @@ describe("reviewed booking submission", () => {
       "No notes provided",
     );
     expect(wrapper.get(".booking-recap").text()).toContain(
-      "This estimate covers the selected treatment and any extension. Guest count does not multiply it; the total for all guests has not been confirmed.",
+      "This total covers the selected treatment and any extension for one guest. This package can be booked online for one guest until the spa confirms its group pricing; for a group, please contact us.",
     );
   });
 
@@ -652,7 +658,6 @@ describe("reviewed booking submission", () => {
     await wrapper.get<HTMLInputElement>("#f-phone").setValue("  ");
     await wrapper.get<HTMLInputElement>("#f-date").setValue("2099-09-06");
     await wrapper.get('#f-time input[value="09:00"]').setValue(true);
-    await wrapper.get<HTMLSelectElement>("#f-guests").setValue("2");
 
     await wrapper.get("form").trigger("submit");
     await wrapper.get("[data-booking-confirm]").trigger("click");

@@ -3,6 +3,7 @@ import { writeFileSync } from "node:fs";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
 import { login } from "./helpers/auth";
+import { futureDate } from "./helpers/dates";
 import {
   projectRoot,
   resetTestingDatabase,
@@ -97,7 +98,7 @@ test("owner saves visible prices before attestation and customer reviews the tot
     await expect(
       customer.locator(".package-configurator__total"),
     ).toContainText("For 2 guests");
-    await customer.locator("#f-date").fill("2099-10-10");
+    await customer.locator("#f-date").fill(futureDate(40));
     await customer.locator('#f-time input[value="10:00"]').check();
     await customer
       .getByRole("button", { name: "Review booking", exact: true })

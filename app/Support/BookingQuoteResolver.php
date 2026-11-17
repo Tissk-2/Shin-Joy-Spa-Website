@@ -116,6 +116,13 @@ class BookingQuoteResolver
                 ]);
             }
         } else {
+            // Without the owner's per-person or per-booking confirmation only one guest is quoted: for one guest
+            // both bases give the same total, so the price can't be wrong. Groups wait for the confirmation.
+            if ($guests !== 1) {
+                throw ValidationException::withMessages([
+                    'guests' => __('validation.booking.single_guest_until_verified'),
+                ]);
+            }
             $totalPrice = (int) $variant->price_idr + (int) ($extension?->price_idr ?? 0);
         }
 

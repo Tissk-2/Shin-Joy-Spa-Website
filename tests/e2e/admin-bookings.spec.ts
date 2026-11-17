@@ -16,6 +16,7 @@ import {
   registerCustomer,
   verifyCustomer,
 } from "./helpers/auth";
+import { futureDate } from "./helpers/dates";
 import {
   projectRoot,
   resetTestingDatabase,
@@ -150,7 +151,9 @@ test("administrator finds and confirms a real customer booking", async ({
   const adminEmail = "admin-flow-staff@example.com";
   const customerName = "Browser Booking Customer";
   const customerPhone = "+628122223333";
-  const appointmentDate = "2099-09-06";
+  const appointmentDate = futureDate(30);
+  const dateFrom = futureDate(25);
+  const dateTo = futureDate(35);
 
   await registerCustomer(page, customerEmail);
   await verifyCustomer(page, customerEmail);
@@ -210,18 +213,18 @@ test("administrator finds and confirms a real customer booking", async ({
   await page.getByRole("button", { name: "All", exact: true }).click();
   await page.getByLabel(/search/i).fill(customerEmail);
   await page.getByLabel(/^status$/i).selectOption("pending");
-  await page.getByLabel(/from date/i).fill("2099-09-01");
-  await page.getByLabel(/to date/i).fill("2099-09-30");
+  await page.getByLabel(/from date/i).fill(dateFrom);
+  await page.getByLabel(/to date/i).fill(dateTo);
   await page.getByRole("button", { name: /apply filters/i }).click();
-  await expect(page).toHaveURL(/dateTo=2099-09-30/);
+  await expect(page).toHaveURL(new RegExp(`dateTo=${dateTo}`));
 
   const filteredUrl = new URL(page.url());
   expect(Object.fromEntries(filteredUrl.searchParams)).toEqual({
     scope: "all",
     status: "pending",
     q: customerEmail,
-    dateFrom: "2099-09-01",
-    dateTo: "2099-09-30",
+    dateFrom,
+    dateTo,
   });
   const mobileBookings = page.locator(".admin-booking-cards");
   await expect(
@@ -260,8 +263,8 @@ test("administrator finds and confirms a real customer booking", async ({
     scope: "all",
     status: "pending",
     q: customerEmail,
-    dateFrom: "2099-09-01",
-    dateTo: "2099-09-30",
+    dateFrom,
+    dateTo,
   });
   await page.screenshot({
     path: path.join(screenshotsDirectory, "admin-detail-375.png"),
@@ -394,7 +397,7 @@ test("verified customer receives no administrator booking data", async ({
   await createNezukoBooking(page, {
     name: contactCanary,
     phone: "+628199998888",
-    date: "2099-09-07",
+    date: futureDate(31),
     time: "11:30",
   });
 

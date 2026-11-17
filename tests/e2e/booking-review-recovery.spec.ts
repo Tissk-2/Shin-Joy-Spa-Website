@@ -3,6 +3,7 @@ import { mkdir } from "node:fs/promises";
 import path from "node:path";
 
 import { registerCustomer, verifyCustomer } from "./helpers/auth";
+import { futureDate } from "./helpers/dates";
 import { projectRoot, resetTestingDatabase } from "./testing-environment";
 
 test.beforeAll(resetTestingDatabase);
@@ -33,12 +34,11 @@ async function fillValidDetails(page: Page, notes: string): Promise<void> {
   await page
     .getByLabel(/nomor whatsapp|whatsapp number/i)
     .fill("+62 812-2222-3333");
-  await page.getByLabel(/^tanggal$|^date$/i).fill("2099-09-11");
+  await page.getByLabel(/^tanggal$|^date$/i).fill(futureDate(20));
   await page
     .getByRole("radiogroup", { name: /^waktu$|^time$/i })
     .getByRole("radio", { name: "10:30" })
     .check();
-  await page.getByLabel(/jumlah tamu|number of guests/i).selectOption("2");
   await page.getByLabel(/catatan|notes/i).fill(notes);
 }
 

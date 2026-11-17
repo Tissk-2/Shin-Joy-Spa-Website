@@ -94,10 +94,12 @@ const closeModal = () => {
                 </Button>
               </DialogClose>
 
-              <Button variant="destructive" :disabled="form.processing">
-                <button type="submit">
-                  {{ tr("profile.delete.confirm") }}
-                </button>
+              <Button
+                type="submit"
+                variant="destructive"
+                :disabled="form.processing"
+              >
+                {{ tr("profile.delete.confirm") }}
               </Button>
             </DialogFooter>
           </form>

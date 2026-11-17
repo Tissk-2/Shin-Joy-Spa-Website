@@ -82,7 +82,7 @@ class BookingSubmissionTest extends TestCase
         $response = $this->actingAs($user)->post('/bookings', $this->validPayload([
             'name' => '  Ayu   Lestari  ',
             'phone' => ' +62 812-3456-7890 ',
-            'guests' => '2',
+            'guests' => '1',
             'user_id' => 999,
             'customer_email' => 'attacker@example.test',
             'email' => 'attacker@example.test',
@@ -109,7 +109,7 @@ class BookingSubmissionTest extends TestCase
             'appointment_date' => '2026-09-07',
             'appointment_time' => '10:30',
             'appointment_timezone' => 'Asia/Jakarta',
-            'guests' => 2,
+            'guests' => 1,
             'notes' => 'Focus on shoulders.',
             'package_slug' => 'nezuko',
             'package_name_id' => 'Nezuko',

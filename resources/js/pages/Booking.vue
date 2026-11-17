@@ -326,7 +326,7 @@ const labels = computed(() =>
         approvalNote:
           "Setelah dikirim, reservasi Anda menunggu persetujuan staf. Belum ada yang dipesan sampai staf mengonfirmasinya.",
         estimateScope:
-          "Estimasi ini mencakup perawatan yang dipilih dan tambahan apa pun. Jumlah tamu tidak mengalikan jumlah tersebut; total untuk semua tamu belum dikonfirmasi.",
+          "Total ini mencakup perawatan yang dipilih dan tambahan apa pun untuk satu tamu. Paket ini dapat dipesan online untuk satu tamu sampai spa mengonfirmasi harga rombongan; untuk rombongan, silakan hubungi kami.",
         s1: "Paket & Perawatan",
         s1sub: "Konfigurasi jenis treatment, durasi, dan tambahan sesi Anda.",
         s2: "Jadwal Kunjungan",
@@ -362,7 +362,7 @@ const labels = computed(() =>
         approvalNote:
           "Once sent, your booking waits for staff approval. Nothing is reserved until staff confirm it.",
         estimateScope:
-          "This estimate covers the selected treatment and any extension. Guest count does not multiply it; the total for all guests has not been confirmed.",
+          "This total covers the selected treatment and any extension for one guest. This package can be booked online for one guest until the spa confirms its group pricing; for a group, please contact us.",
         s1: "Package & Treatment",
         s1sub:
           "Configure the treatment type, duration, and add-ons for your session.",

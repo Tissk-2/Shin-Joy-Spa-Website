@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from "vue";
 import { useLanguage } from "@/composables/useLanguage";
-import { todayIso } from "@/lib/booking";
+import { latestBookingDate, todayIso } from "@/lib/booking";
 
 // The booking step's date and time: a month calendar that is always open, the
 // time list beside it, and the typed date field kept as a fallback under the
@@ -47,8 +47,9 @@ const addMonths = (iso: string, months: number) => {
 const weekday = (iso: string) => (new Date(toMs(iso)).getUTCDay() + 6) % 7; // Monday = 0
 
 const today = todayIso();
+const latest = latestBookingDate(today);
 // A date already in the past (an old draft) still shows with its times; the form's
-// own validation reports it. Only new picks are kept to today and later.
+// own validation reports it. Only new picks are kept between today and the latest date.
 const chosen = computed(() => (isDate(props.date) ? props.date : ""));
 const view = ref(monthOf(chosen.value || today));
 const focusDate = ref(
@@ -94,7 +95,7 @@ const days = computed(() => {
       iso,
       number: Number(iso.slice(8)),
       inMonth: iso.slice(0, 7) === view.value.slice(0, 7),
-      past: iso < today,
+      unavailable: iso < today || iso > latest,
     };
   });
 });
@@ -106,14 +107,15 @@ const weeks = computed(() =>
 // One day in the grid takes Tab focus; the arrow keys move it (roving tabindex).
 const tabbable = computed(
   () =>
-    days.value.find((day) => day.iso === focusDate.value && !day.past)?.iso ??
-    days.value.find((day) => day.inMonth && !day.past)?.iso,
+    days.value.find((day) => day.iso === focusDate.value && !day.unavailable)
+      ?.iso ?? days.value.find((day) => day.inMonth && !day.unavailable)?.iso,
 );
 const canGoBack = computed(() => view.value > monthOf(today));
+const canGoForward = computed(() => view.value < monthOf(latest));
 
 const grid = ref<HTMLTableElement>();
 function choose(iso: string): void {
-  if (iso < today) return;
+  if (iso < today || iso > latest) return;
   focusDate.value = iso;
   view.value = monthOf(iso);
   emit("update:date", iso);
@@ -137,7 +139,7 @@ async function onKey(event: KeyboardEvent): Promise<void> {
   if (!move) return;
   event.preventDefault();
   const target = move();
-  const next = target < today ? today : target;
+  const next = target < today ? today : target > latest ? latest : target;
   focusDate.value = next;
   view.value = monthOf(next);
   await nextTick();
@@ -183,6 +185,7 @@ const summary = computed(() =>
           class="dtp__nav"
           data-picker-next
           :aria-label="tr('dtp.next')"
+          :disabled="!canGoForward"
           @click="showMonth(1)"
         >
           <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
@@ -226,7 +229,7 @@ const summary = computed(() =>
                 }"
                 :data-date="day.iso"
                 :tabindex="day.iso === tabbable ? 0 : -1"
-                :disabled="day.past"
+                :disabled="day.unavailable"
                 :aria-label="longDate(day.iso)"
                 :aria-current="day.iso === today ? 'date' : undefined"
                 @click="choose(day.iso)"
@@ -244,6 +247,7 @@ const summary = computed(() =>
           type="date"
           :value="date"
           :min="today"
+          :max="latest"
           :aria-invalid="dateInvalid ? 'true' : undefined"
           :aria-describedby="dateDescribedBy || undefined"
           @input="typed"

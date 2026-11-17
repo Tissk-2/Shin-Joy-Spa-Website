@@ -56,19 +56,41 @@ class BookingSubmissionSafeguardsTest extends TestCase
         $this->assertSame(340000, Booking::query()->sole()->total_price_idr);
     }
 
-    public function test_multiple_guests_do_not_multiply_the_server_quote(): void
+    // Without the owner's confirmation the basis is unknown; for one guest both bases give the same total.
+    public function test_unconfirmed_pricing_books_one_guest_and_refuses_a_group(): void
     {
         $user = User::factory()->create();
-        $payload = [...$this->payload(), 'guests' => 3];
 
-        $this->actingAs($user)->post('/bookings', $payload)->assertStatus(303);
+        $this->actingAs($user)
+            ->from('/booking')
+            ->post('/bookings', [...$this->payload(), 'guests' => 3])
+            ->assertRedirect('/booking')
+            ->assertSessionHasErrors('guests');
+        $this->assertDatabaseCount('bookings', 0);
+
+        $this->actingAs($user)->post('/bookings', $this->payload())->assertStatus(303);
 
         $booking = Booking::query()->sole();
-        $this->assertSame(3, $booking->guests);
+        $this->assertSame(1, $booking->guests);
         $this->assertSame('Ayu Lestari', $booking->customer_name);
         $this->assertSame('+6281234567890', $booking->customer_phone);
         $this->assertSame('Focus on shoulders.', $booking->notes);
         $this->assertSame(340000, $booking->total_price_idr);
+    }
+
+    public function test_a_date_more_than_365_days_ahead_is_refused(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->from('/booking')
+            ->post('/bookings', [...$this->payload(), 'date' => '2027-09-07'])
+            ->assertRedirect('/booking')
+            ->assertSessionHasErrors(['date' => 'Pilih tanggal dalam 365 hari ke depan.']);
+        $this->assertDatabaseCount('bookings', 0);
+
+        $this->actingAs($user)->post('/bookings', [...$this->payload(), 'date' => '2027-09-06'])->assertStatus(303);
+        $this->assertSame('2027-09-06', Booking::query()->sole()->appointment_date->format('Y-m-d'));
     }
 
     public function test_missing_reviewed_price_is_rejected(): void

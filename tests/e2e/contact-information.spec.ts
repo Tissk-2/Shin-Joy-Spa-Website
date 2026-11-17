@@ -3,6 +3,7 @@ import { mkdir } from "node:fs/promises";
 import path from "node:path";
 
 import { registerVerifiedAdmin } from "./helpers/admin";
+import { futureDate } from "./helpers/dates";
 import { projectRoot, resetTestingDatabase } from "./testing-environment";
 
 test.beforeAll(resetTestingDatabase);
@@ -124,7 +125,7 @@ test("CMS contact edits reach public links, booking action, and the downloaded b
   await page
     .getByLabel(/nomor whatsapp|whatsapp number/i)
     .fill("+62 821-0000-1111");
-  await page.getByLabel(/^tanggal$|^date$/i).fill("2099-09-11");
+  await page.getByLabel(/^tanggal$|^date$/i).fill(futureDate(20));
   await page
     .getByRole("radiogroup", { name: /^waktu$|^time$/i })
     .getByRole("radio", { name: "10:30" })

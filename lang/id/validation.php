@@ -37,6 +37,8 @@ return [
         'pricing_unverified' => 'Harga paket ini belum diverifikasi. Pilih paket lain atau hubungi kami.',
         'pricing_unavailable' => 'Harga paket belum dapat diverifikasi saat ini. Silakan coba lagi.',
         'guest_coverage' => 'Jumlah tamu di luar rentang yang diizinkan untuk paket ini.',
+        'too_far' => 'Pilih tanggal dalam :days hari ke depan.',
+        'single_guest_until_verified' => 'Paket ini dapat dipesan online untuk satu tamu sampai spa mengonfirmasi harga rombongan. Untuk rombongan, silakan hubungi kami.',
         'today' => 'hari ini',
     ],
     'custom' => [

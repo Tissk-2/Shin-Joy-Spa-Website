@@ -33,7 +33,7 @@ class BookingQuoteTest extends TestCase
         $input = $this->validPayload([
             'name' => '  Ayu   Lestari  ',
             'phone' => ' +62 812-3456-7890 ',
-            'guests' => '2',
+            'guests' => '1',
         ]);
         $original = $input;
 
@@ -77,7 +77,7 @@ class BookingQuoteTest extends TestCase
             'appointment_date' => '2026-09-06',
             'appointment_time' => '10:30',
             'appointment_timezone' => 'Asia/Jakarta',
-            'guests' => 2,
+            'guests' => 1,
             'notes' => 'Focus on shoulders.',
             'package_slug' => 'nezuko',
             'package_name_id' => 'Nezuko',
@@ -146,17 +146,18 @@ class BookingQuoteTest extends TestCase
     }
 
     // Production break caught: scheduling activation must not quote packages whose pricing was never attested.
-    public function test_unverified_pricing_is_rejected_when_scheduling_is_enabled_but_stays_legacy_off(): void
+    public function test_unverified_pricing_is_rejected_when_scheduling_is_enabled_and_limited_to_one_guest_when_off(): void
     {
         $this->seed(ServiceCatalogSeeder::class);
         $user = User::factory()->create();
-        $data = StoreBookingRequest::validatedBookingDataFrom($this->validPayload(['guests' => 3]));
+        $data = StoreBookingRequest::validatedBookingDataFrom($this->validPayload(['guests' => 1]));
 
         config(['booking.scheduling_enabled' => false]);
         $this->assertSame(340000, app(BookingQuoteResolver::class)->resolve($user, $data)->bookingAttributes()['total_price_idr']);
+        $this->assertQuoteFails(['guests' => 3], $user, 'guests');
 
         config(['booking.scheduling_enabled' => true]);
-        $this->assertQuoteFails(['guests' => 3], $user, 'service');
+        $this->assertQuoteFails(['guests' => 1], $user, 'service');
     }
 
     // Production break caught: the contact resolver must use the same trusted catalog calculation without a session user.

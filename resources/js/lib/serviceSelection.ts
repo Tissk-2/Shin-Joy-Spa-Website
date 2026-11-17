@@ -20,7 +20,8 @@ export interface GuestCoverage {
 const guestBounds = { min: 1, max: 4 } as const;
 
 export function guestCoverage(servicePackage: PackageData): GuestCoverage {
-  if (!servicePackage.pricingVerified) return { ...guestBounds };
+  // Unconfirmed pricing is quoted for one guest only, as on the server.
+  if (!servicePackage.pricingVerified) return { min: 1, max: 1 };
 
   const min = Math.min(
     guestBounds.max,

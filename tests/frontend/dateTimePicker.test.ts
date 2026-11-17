@@ -181,6 +181,20 @@ describe("date and time picker", () => {
     wrapper.unmount();
   });
 
+  it("stops at the last bookable day, 365 days ahead", async () => {
+    const wrapper = render({ date: "2027-11-01" });
+    expect(wrapper.get("#f-date").attributes("max")).toBe("2027-11-12");
+    expect(wrapper.text()).toContain("November 2027");
+    expect(day(wrapper, "2027-11-12").attributes("disabled")).toBeUndefined();
+    expect(day(wrapper, "2027-11-13").attributes("disabled")).toBeDefined();
+    expect(
+      wrapper.get("[data-picker-next]").attributes("disabled"),
+    ).toBeDefined();
+    await day(wrapper, "2027-11-13").trigger("click");
+    expect(wrapper.emitted("update:date")).toBeUndefined();
+    wrapper.unmount();
+  });
+
   it("speaks Indonesian", () => {
     state.page.props.locale = "id";
     const wrapper = render({ date: "2026-11-20", time: "09:00" });

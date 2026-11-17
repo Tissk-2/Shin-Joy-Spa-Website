@@ -3,6 +3,7 @@ import { mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
 
 import { registerCustomer, verifyCustomer } from "./helpers/auth";
+import { futureDate } from "./helpers/dates";
 import { projectRoot, resetTestingDatabase } from "./testing-environment";
 
 test.beforeAll(resetTestingDatabase);
@@ -44,12 +45,15 @@ async function fillBookingDetails(page: Page): Promise<void> {
     .getByLabel(/nomor whatsapp|whatsapp number/i)
     .fill("+62 812-2222-3333");
   // Keep this flow's date separate from the admin booking fixture.
-  await page.getByLabel(/^tanggal$|^date$/i).fill("2099-09-11");
+  await page.getByLabel(/^tanggal$|^date$/i).fill(futureDate(20));
   await page
     .getByRole("radiogroup", { name: /^waktu$|^time$/i })
     .getByRole("radio", { name: "10:30" })
     .check();
-  await page.getByLabel(/jumlah tamu|number of guests/i).selectOption("2");
+  // Unconfirmed package pricing books one guest only.
+  await expect(page.getByLabel(/jumlah tamu|number of guests/i)).toHaveValue(
+    "1",
+  );
   await page
     .getByLabel(/catatan|notes/i)
     .fill(longBookingNotes);
@@ -306,7 +310,7 @@ test("verified customers persist one booking and cannot view another customer's 
     ),
   ).toBeVisible();
   const initialRecap = page.locator(".booking-recap");
-  await expect(initialRecap).toContainText("2 orang");
+  await expect(initialRecap).toContainText("1 orang");
   await expect(initialRecap).toContainText("Ayu Lestari Flow");
   await expect(initialRecap).toContainText("+62 812-2222-3333");
   expect(
@@ -314,7 +318,7 @@ test("verified customers persist one booking and cannot view another customer's 
   ).toContain(longBookingNotes);
   await expect(initialRecap).toContainText("Rp 340.000");
   await expect(initialRecap).toContainText(
-    "Estimasi ini mencakup perawatan yang dipilih dan tambahan apa pun. Jumlah tamu tidak mengalikan jumlah tersebut; total untuk semua tamu belum dikonfirmasi.",
+    "Total ini mencakup perawatan yang dipilih dan tambahan apa pun untuk satu tamu. Paket ini dapat dipesan online untuk satu tamu sampai spa mengonfirmasi harga rombongan; untuk rombongan, silakan hubungi kami.",
   );
   expect(bookingPostRequestsOnly(bookingPostRequests)).toHaveLength(0);
   await captureBookingReview(page, "entry", false);
@@ -323,7 +327,7 @@ test("verified customers persist one booking and cannot view another customer's 
   await expect(initialRecap).toContainText("Number of guests");
   await expect(initialRecap).toContainText("Focus on shoulders and upper back, please.");
   await expect(initialRecap).toContainText(
-    "This estimate covers the selected treatment and any extension. Guest count does not multiply it; the total for all guests has not been confirmed.",
+    "This total covers the selected treatment and any extension for one guest. This package can be booked online for one guest until the spa confirms its group pricing; for a group, please contact us.",
   );
 
   const editButton = page.getByRole("button", { name: /edit details|ubah detail/i });
@@ -334,7 +338,7 @@ test("verified customers persist one booking and cannot view another customer's 
   await expect(page.getByLabel(/nomor whatsapp|whatsapp number/i)).toHaveValue(
     "+62 812-2222-3333",
   );
-  await expect(page.getByLabel(/jumlah tamu|number of guests/i)).toHaveValue("2");
+  await expect(page.getByLabel(/jumlah tamu|number of guests/i)).toHaveValue("1");
   await expect(page.getByLabel(/catatan|notes/i)).toHaveValue(
     longBookingNotes,
   );
@@ -343,7 +347,6 @@ test("verified customers persist one booking and cannot view another customer's 
     "Ayu Lestari Flow updated for a deliberately long mobile booking review 1234567890";
   const editedNotes = "";
   await page.getByLabel(/nama lengkap|full name/i).fill(editedName);
-  await page.getByLabel(/jumlah tamu|number of guests/i).selectOption("3");
   await page.getByLabel(/catatan|notes/i).fill(editedNotes);
   await page.keyboard.press("Tab");
   await expect
@@ -352,7 +355,7 @@ test("verified customers persist one booking and cannot view another customer's 
   await page.keyboard.press("Enter");
   const editedRecap = page.locator(".booking-recap");
   await expectFocusVisibleBelowHeader(page, ".form-success h2");
-  await expect(editedRecap).toContainText("3 people");
+  await expect(editedRecap).toContainText("1 person");
   await expect(editedRecap).toContainText(editedName);
   await expect(editedRecap).toContainText("+62 812-2222-3333");
   await expect(editedRecap).toContainText("No notes provided");
@@ -360,7 +363,7 @@ test("verified customers persist one booking and cannot view another customer's 
     "Rp 340.000",
   );
   await expect(editedRecap).toContainText(
-    "This estimate covers the selected treatment and any extension. Guest count does not multiply it; the total for all guests has not been confirmed.",
+    "This total covers the selected treatment and any extension for one guest. This package can be booked online for one guest until the spa confirms its group pricing; for a group, please contact us.",
   );
   expect(bookingPostRequestsOnly(bookingPostRequests)).toHaveLength(0);
   await captureBookingReview(page, "complete", true);
@@ -396,7 +399,7 @@ test("verified customers persist one booking and cannot view another customer's 
   ).toMatchObject({
     name: editedName,
     phone: "+62 812-2222-3333",
-    guests: 3,
+    guests: 1,
     notes: editedNotes,
     expected_total_price_idr: 340000,
   });

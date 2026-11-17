@@ -138,7 +138,7 @@ describe("service selection", () => {
     expect(guestCoverage(verified)).toEqual({ min: 2, max: 4 });
   });
 
-  it("keeps legacy packages on the unit total and the full guest range", () => {
+  it("keeps unconfirmed packages on the unit total for one guest only", () => {
     const selected = normalizeSelection(nezuko, {
       service: "nezuko",
       mode: "regular",
@@ -155,7 +155,7 @@ describe("service selection", () => {
 
     expect(selectionTotal(nezuko, selected, 3).price).toBe(340000);
     expect(selectionTotal(basisOnly, selected, 3).price).toBe(340000);
-    expect(guestCoverage(nezuko)).toEqual({ min: 1, max: 4 });
-    expect(guestCoverage(basisOnly)).toEqual({ min: 1, max: 4 });
+    expect(guestCoverage(nezuko)).toEqual({ min: 1, max: 1 });
+    expect(guestCoverage(basisOnly)).toEqual({ min: 1, max: 1 });
   });
 });

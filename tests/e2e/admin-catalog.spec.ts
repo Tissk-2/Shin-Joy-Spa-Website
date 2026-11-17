@@ -3,6 +3,7 @@ import path from "node:path";
 
 import { registerVerifiedAdmin } from "./helpers/admin";
 import { registerCustomer, verifyCustomer } from "./helpers/auth";
+import { futureDate } from "./helpers/dates";
 import { projectRoot, resetTestingDatabase } from "./testing-environment";
 
 test.beforeAll(resetTestingDatabase);
@@ -132,7 +133,7 @@ async function submitHiddenPackageQuote(
       extension: servicePackage.extensionCode,
       expected_total_price_idr:
         servicePackage.basePrice + servicePackage.extensionPrice,
-      date: "2099-10-10",
+      date: futureDate(40),
       time: "10:30",
       guests: 1,
       notes: "E2E catalog visibility boundary",
@@ -249,7 +250,7 @@ async function createBookingWithPublishedPrice(page: Page): Promise<void> {
     `/booking?service=${servicePackage.slug}&mode=regular&duration=60&extension=${servicePackage.extensionCode}`,
   );
   await expect(page.getByText(bookingTotal, { exact: true })).toBeVisible();
-  await page.getByLabel(/^tanggal$|^date$/i).fill("2099-10-10");
+  await page.getByLabel(/^tanggal$|^date$/i).fill(futureDate(40));
   await page
     .getByRole("radiogroup", { name: /^waktu$|^time$/i })
     .getByRole("radio", { name: "10:30" })

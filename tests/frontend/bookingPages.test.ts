@@ -462,9 +462,11 @@ describe("customer booking navigation and profile handoff", () => {
     expect(accountLinks.map((link) => link.text())).toEqual([
       "My Bookings",
       "Profile",
+      "Account settings",
     ]);
     expect(accountLinks[0].attributes("href")).toBe("/bookings");
     expect(accountLinks[0].attributes("aria-current")).toBe("page");
+    expect(accountLinks[2].attributes("href")).toBe("/settings/profile");
 
     accountLinks[0].element.addEventListener("click", (event) =>
       event.preventDefault(),
@@ -478,7 +480,7 @@ describe("customer booking navigation and profile handoff", () => {
     await wrapper.get(".account-toggle").trigger("click");
     expect(
       wrapper.findAll("#account-menu a").map((link) => link.text()),
-    ).toEqual(["Reservasi Saya", "Profil"]);
+    ).toEqual(["Reservasi Saya", "Profil", "Pengaturan akun"]);
   });
 
   it("keeps Profile focused on account settings and points booking history to My Bookings", async () => {

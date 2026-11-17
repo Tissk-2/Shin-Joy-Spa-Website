@@ -393,6 +393,12 @@ onUnmounted(() => {
               <Link href="/profile" @click="setAccountMenu(false, false)">
                 {{ tr("nav.profile") }}
               </Link>
+              <Link
+                href="/settings/profile"
+                @click="setAccountMenu(false, false)"
+              >
+                {{ tr("nav.settings") }}
+              </Link>
               <button
                 type="button"
                 class="account-menu__logout"
