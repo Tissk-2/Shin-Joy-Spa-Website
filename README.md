@@ -59,8 +59,17 @@ A new server also needs, once: `composer install --no-dev` (from the committed
 `composer.lock`), `npm ci` and `npm run build`, `php artisan key:generate` (only
 when `APP_KEY` is empty), and `php artisan storage:link`, which serves the
 catalog images the admin uploads. Run `composer install` before `npm run build`:
-the build imports Ziggy from `vendor/`. A fresh test server ran these steps on
+the build imports Ziggy from `vendor/`. Build with the deployment's `.env` in
+place, or with `VITE_APP_NAME` set: the build copies the name into the page
+titles, which otherwise end in "Laravel". A fresh test server ran these steps on
 17 November 2026.
+
+Have the web server compress CSS, JavaScript, JSON and SVG: Ubuntu's nginx
+compresses only HTML by default. Cache `/build/` for a year, since every build
+gives its files new names, and `/img/` and `/fonts/` for 30 days; a replaced
+image then needs a new file name. Send these cache headers only with successful
+responses, so a missing file is not remembered. On the test server these
+settings raised the mobile PageSpeed score from 74 to 81.
 
 Run `key:generate` and `storage:link` as the user who owns the app files, not as
 the web server user. They write to `.env` and `public/`, which the web server
