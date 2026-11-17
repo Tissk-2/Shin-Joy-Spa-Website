@@ -174,7 +174,7 @@ class DispatchOutboxCommandTest extends TestCase
         $this->assertCount(0, Queue::pushed(DeliverOutboxMessage::class));
     }
 
-    public function test_the_schedule_registers_one_overlap_guarded_ten_second_command(): void
+    public function test_the_schedule_registers_one_overlap_guarded_two_second_command(): void
     {
         $this->app->make(ConsoleKernel::class)->bootstrap();
 
@@ -183,8 +183,11 @@ class DispatchOutboxCommandTest extends TestCase
 
         $this->assertCount(1, $events);
         $this->assertSame('* * * * *', $events->first()->expression);
-        $this->assertSame(10, $events->first()->repeatSeconds);
-        // A 10-second task keeps schedule:run looping all minute; without this it reads the
+        // A button press needs two dispatch runs before its answer reaches Telegram, which
+        // refuses answers after about 15 seconds. Every 10 seconds took 20-23 s on the test
+        // server (every answer refused); every 2 seconds took 6-9 s.
+        $this->assertSame(2, $events->first()->repeatSeconds);
+        // A sub-minute task keeps schedule:run looping all minute; without this it reads the
         // pause and interrupt flags from the cache store every 100 ms.
         $this->assertFalse(Schedule::$pausable);
         $this->assertFalse(Schedule::$interruptible);

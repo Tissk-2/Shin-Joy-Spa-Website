@@ -175,7 +175,7 @@ An expired request can't be reopened. Ask the customer to request again, or ente
 
 ### 5.3 A Telegram button seemed to do nothing
 
-An answer takes 10 to 25 seconds, and Telegram drops an answer that arrives too late. The press was still handled: check the message or the dashboard.
+An answer takes 5 to 10 seconds, and Telegram drops an answer that arrives too late (after about 15 seconds), for example when the scheduler or the worker is slow or stopped. The press was still handled: check the message or the dashboard.
 
 If the message shows an old status, it is an older copy of the same message. Use the newest copy or the dashboard, and delete the old copy from the chat.
 

@@ -10,8 +10,9 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
-// Every 10 seconds, so bot replies and booking notifications go out within seconds.
-Schedule::command('outbox:dispatch --limit=100')->everyTenSeconds()->withoutOverlapping(5);
+// Every 2 seconds: a Telegram button's answer needs two runs, and Telegram refuses answers
+// after about 15 seconds. Each run costs about 0.3 s of CPU (about 13% of one core in all).
+Schedule::command('outbox:dispatch --limit=100')->everyTwoSeconds()->withoutOverlapping(5);
 // That keeps schedule:run looping for the whole minute. Stop it reading the pause and interrupt
 // flags from the cache store (the database by default) every 100 ms; schedule:pause and
 // schedule:interrupt are not used here.

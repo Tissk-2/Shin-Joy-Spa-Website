@@ -139,7 +139,7 @@ Delivery then needs three things on the same release and database:
    ```
 
 2. **The scheduler.** `routes/console.php` runs `outbox:dispatch --limit=100`
-   every 10 seconds (with a 5-minute overlap lock). It claims up to 100 due
+   every 2 seconds (with a 5-minute overlap lock). It claims up to 100 due
    deliveries under a 5-minute lease and queues one job per delivery. Run
    Laravel's scheduler from cron:
 
@@ -150,7 +150,7 @@ Delivery then needs three things on the same release and database:
    or keep `php artisan schedule:work` running under a process manager.
 
    Each `schedule:run` stays alive for its whole minute so it can repeat the
-   10-second task. If your host stops cron jobs that run that long, use
+   2-second task. If your host stops cron jobs that run that long, use
    `schedule:work` instead. After a deploy, the previous release's scheduler
    can keep running until the end of that minute. The scheduler does not poll
    for `schedule:pause` or `schedule:interrupt` (`routes/console.php` turns
@@ -159,7 +159,7 @@ Delivery then needs three things on the same release and database:
 3. **A queue worker** for the queued delivery jobs:
 
    ```bash
-   php artisan queue:work database --queue=default --sleep=3 --timeout=60
+   php artisan queue:work database --queue=default --sleep=1 --timeout=60
    ```
 
    Run it under a process manager that restarts it if it exits, and set
@@ -167,6 +167,14 @@ Delivery then needs three things on the same release and database:
    queue (`DB_QUEUE`, `default` unless changed); keep `--queue` in step with it.
    The worker timeout is shorter than the database queue's default
    `retry_after` of 90 seconds.
+
+   Keep the 2-second dispatch and `--sleep=1`: the answer to a Telegram
+   button press passes through two dispatch runs and the worker, and
+   Telegram refuses answers after about 15 seconds. With every 10 seconds and
+   `--sleep=3`, a one-core test server sent every answer 20 to 23 seconds
+   after the press, and Telegram refused all of them. With these settings it
+   took 6 to 9 seconds. The faster dispatch raised that server's CPU use from
+   8% to 21%.
 
 Set the `TELEGRAM_*` values in the deployment environment. Keep the bot token
 and staff chat ID out of Git and logs.
@@ -338,7 +346,7 @@ release stores updates but never processes them.
    this on a machine you trust.
 
 5. Check with a test staff account: create a link, open it, and confirm that
-   the reply arrives within about 20 seconds, that its four digits match the
+   the reply arrives within about 10 seconds, that its four digits match the
    staff page, and that activation works.
 
 ### How the endpoint answers
@@ -365,11 +373,11 @@ again with it. To stop receiving updates, call `deleteWebhook`.
 ### Processing, replies and recovery
 
 Each update is stored once per bot and `update_id`. The outbox then processes
-it like a booking notification: `outbox:dispatch` runs every 10 seconds, the
+it like a booking notification: `outbox:dispatch` runs every 2 seconds, the
 worker runs the `telegram.update.received` delivery, and a second delivery
 sends the result: the bot's reply (`telegram.reply`) or, for a button press,
 its answer (`telegram.callback.answer`) and, after Decline, the prompt
-(`telegram.decline.prompt`). It normally arrives within about 20 seconds.
+(`telegram.decline.prompt`). It normally arrives within about 10 seconds.
 
 Processing is safe to repeat. A claim and its outcome are saved together, and
 an update that already has an outcome is never processed again. Replies are
@@ -418,7 +426,7 @@ since the message was posted. A refused press changes nothing and tells the
 staff member why. After any decision, from Telegram or from the dashboard, the
 recorded message is edited to the new status and its buttons are removed.
 
-The answer to a press normally appears within 10 to 25 seconds, because it
+The answer to a press normally appears within 5 to 10 seconds, because it
 passes through two `outbox:dispatch` runs and the queue worker. Telegram drops
 an answer that arrives too late: the press was still handled, but nothing pops
 up, so check the message or the dashboard. One exception: presses beyond 20 a

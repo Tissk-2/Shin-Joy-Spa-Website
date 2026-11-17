@@ -332,7 +332,7 @@ class BookingReleaseAcceptanceTest extends TestCase
     }
 
     /**
-     * Runs `outbox:dispatch` until nothing is due, as the scheduler would every 10 seconds. With $workerEvents, the
+     * Runs `outbox:dispatch` until nothing is due, as the scheduler would every 2 seconds. With $workerEvents, the
      * worker runs that older subscription map instead of the current one.
      *
      * @param  array<string, array<string, string>>|null  $workerEvents
