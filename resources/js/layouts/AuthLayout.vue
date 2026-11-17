@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Head, Link } from "@inertiajs/vue3";
+import { useMediaQuery } from "@vueuse/core";
 import { onMounted, onUnmounted } from "vue";
 import BookingAuthContext from "@/components/BookingAuthContext.vue";
 import { useLanguage } from "@/composables/useLanguage";
@@ -16,6 +17,8 @@ withDefaults(defineProps<{
 });
 
 const { language, setLanguage, tr } = useLanguage();
+// legacy.css hides the aside at 880px and below; a hidden <img> still downloads.
+const showsAside = useMediaQuery("(min-width: 881px)");
 
 onMounted(() => {
   document.documentElement.classList.add("auth-page");
@@ -115,7 +118,7 @@ onUnmounted(() => {
     </section>
 
     <aside class="auth__aside" aria-hidden="true">
-      <img src="/img/stilllife.jpg" :alt="tr('auth.demo.asideAlt')" />
+      <img v-if="showsAside" src="/img/stilllife.webp" :alt="tr('auth.demo.asideAlt')" />
       <div class="auth__aside-inner">
         <blockquote>{{ tr("auth.demo.asideQuote") }}</blockquote>
         <span class="auth-aside-brand">

@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 import { mount } from "@vue/test-utils";
@@ -522,6 +522,35 @@ describe("branded Laravel auth pages", () => {
       expect(meta).toHaveLength(1);
       expect(meta[0].attributes("content")).toBe("Spa & Body Care in Malang");
     }
+  });
+
+  it("loads the side photo as WebP, and only on screens that show it", () => {
+    // The CSS hides the side panel at 880px and below; phones used to download it anyway.
+    const screen = (wide: boolean) =>
+      vi.stubGlobal("matchMedia", (query: string) => ({
+        matches: wide && query === "(min-width: 881px)",
+        media: query,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      }));
+
+    try {
+      screen(true);
+      expect(
+        mountPage(Register).get(".auth__aside img").attributes("src"),
+      ).toBe("/img/stilllife.webp");
+
+      screen(false);
+      expect(mountPage(Register).find(".auth__aside img").exists()).toBe(false);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+
+    expect(
+      existsSync(
+        resolve(authPageRoot, "../../../../public/img/stilllife.webp"),
+      ),
+    ).toBe(true);
   });
 
   it("does not use legacy client auth or browser credential storage", () => {

@@ -209,8 +209,13 @@ onBeforeUnmount(() => {
   <MainLayout>
     <section class="hero">
       <div class="hero__media">
+        <!-- Same srcset and sizes as the preload in app.blade.php. The photo
+             covers the hero (2000x1180, at most 880px tall), so it is drawn
+             at the wider of 100vw and 156vh. -->
         <img
           src="/img/hero.webp"
+          srcset="/img/hero-1600.webp 1600w, /img/hero.webp 2000w"
+          sizes="(min-aspect-ratio: 39/23) 100vw, 156vh"
           :alt="tr('hero.title')"
           fetchpriority="high"
         />
@@ -291,6 +296,12 @@ onBeforeUnmount(() => {
           <div class="split__media reveal">
             <img
               src="/img/about.webp"
+              srcset="
+                /img/about-560.webp 560w,
+                /img/about-720.webp 720w,
+                /img/about.webp     960w
+              "
+              sizes="(min-width: 1024px) 540px, 92vw"
               :alt="tr('about.imageAlt')"
               width="960"
               height="1152"
@@ -405,6 +416,12 @@ onBeforeUnmount(() => {
           >
             <img
               :src="image.thumb"
+              :srcset="`${image.small} 320w, ${image.thumb} 640w`"
+              :sizes="
+                gallerySpans[index % gallerySpans.length] === 'wide'
+                  ? '(min-width: 1024px) 475px, 92vw'
+                  : '(min-width: 1024px) 233px, 45vw'
+              "
               :alt="galleryCaption(image)"
               loading="lazy"
             />
