@@ -8,6 +8,46 @@ const props = defineProps<{
   section: "treatments" | "blocks";
 }>();
 const { language, tr } = useLanguage();
+// One line per package and treatment type, so a room with six durations reads
+// as two short lines instead of six stacked boxes.
+const treatmentGroups = computed(() => {
+  const groups = new Map<
+    string,
+    {
+      key: string;
+      name: string;
+      doubleTherapist: boolean;
+      durations: number[];
+      inactive: boolean;
+    }
+  >();
+  for (const variant of props.room.compatibleVariants) {
+    const key = `${variant.serviceNameId}\u0000${variant.serviceNameEn}\u0000${variant.treatmentMode}`;
+    let group = groups.get(key);
+    if (!group) {
+      group = {
+        key,
+        name:
+          language.value === "id"
+            ? variant.serviceNameId
+            : variant.serviceNameEn,
+        doubleTherapist: variant.treatmentMode !== "regular",
+        durations: [],
+        inactive: false,
+      };
+      groups.set(key, group);
+    }
+    if (!group.durations.includes(variant.durationMinutes))
+      group.durations.push(variant.durationMinutes);
+    group.inactive ||= [
+      variant.variantStatus,
+      variant.serviceStatus,
+      variant.categoryStatus,
+    ].some((status) => status !== "published");
+  }
+  for (const group of groups.values()) group.durations.sort((a, b) => a - b);
+  return [...groups.values()];
+});
 const omitted = computed(() =>
   Math.max(
     0,
@@ -29,51 +69,34 @@ const dateTime = (value: string) =>
 </script>
 
 <template>
-  <div v-if="section === 'treatments'" class="space-y-1 text-xs">
+  <div v-if="section === 'treatments'" class="admin-room-details">
     <p
       v-if="room.compatibleVariants.length === 0"
-      class="text-[var(--admin-muted)]"
+      class="admin-record-secondary"
     >
       {{ tr("ad.rooms.noTreatments") }}
     </p>
-    <ul v-else class="space-y-1.5" role="list">
-      <li
-        v-for="variant in room.compatibleVariants"
-        :key="variant.id"
-        class="rounded border border-[var(--admin-line)] bg-[var(--admin-canvas)] px-2 py-1"
-      >
-        <p class="font-semibold">
-          {{
-            language === "id" ? variant.serviceNameId : variant.serviceNameEn
-          }}
-        </p>
-        <p>
-          {{ variant.durationMinutes }} {{ tr("ad.rooms.minutes") }} ·
-          {{
+    <ul v-else role="list" class="admin-room-treatments">
+      <li v-for="group in treatmentGroups" :key="group.key">
+        <span class="admin-room-treatments__name">{{ group.name }}</span>
+        <span class="admin-record-secondary"
+          >{{
             tr(
-              variant.treatmentMode === "regular"
-                ? "ad.rooms.regular"
-                : "ad.rooms.doubleTherapist",
+              group.doubleTherapist
+                ? "ad.rooms.doubleTherapist"
+                : "ad.rooms.regular",
             )
           }}
-        </p>
-        <p class="text-[var(--admin-muted)]">{{ variant.code }}</p>
-        <span
-          v-if="
-            [
-              variant.variantStatus,
-              variant.serviceStatus,
-              variant.categoryStatus,
-            ].some((status) => status !== 'published')
-          "
-          class="text-[var(--admin-warning)]"
-          >{{ tr("ad.rooms.inactiveCatalog") }}</span
+          · {{ group.durations.join(" · ") }} {{ tr("ad.rooms.minutes") }}</span
         >
+        <span v-if="group.inactive" class="admin-room-treatments__warning">{{
+          tr("ad.rooms.inactiveCatalog")
+        }}</span>
       </li>
     </ul>
   </div>
-  <div v-else class="space-y-2 text-xs">
-    <p class="font-semibold">
+  <div v-else class="admin-room-details">
+    <p class="admin-room-details__count">
       {{
         tr("ad.rooms.blockCounts", {
           current: room.currentBlockCount,
@@ -83,17 +106,13 @@ const dateTime = (value: string) =>
     </p>
     <p
       v-if="room.currentBlockCount + room.upcomingBlockCount === 0"
-      class="text-[var(--admin-muted)]"
+      class="admin-record-secondary"
     >
       {{ tr("ad.rooms.noBlocks") }}
     </p>
-    <ul v-else class="space-y-2" role="list">
-      <li
-        v-for="block in room.blocks"
-        :key="block.id"
-        class="rounded border border-[var(--admin-line)] bg-[var(--admin-canvas)] px-2 py-1.5"
-      >
-        <p class="font-semibold text-[var(--admin-plum)]">
+    <ul v-else role="list" class="admin-room-blocks">
+      <li v-for="block in room.blocks" :key="block.id">
+        <p class="admin-room-blocks__when">
           {{
             tr(
               Date.parse(block.startsAt) <= Date.parse(generatedAt)
@@ -102,16 +121,15 @@ const dateTime = (value: string) =>
             )
           }}
         </p>
-        <p>
+        <p class="admin-record-secondary">
           <time :datetime="block.startsAt">{{ dateTime(block.startsAt) }}</time>
+          –
+          <time :datetime="block.endsAt">{{ dateTime(block.endsAt) }}</time>
         </p>
-        <p>
-          – <time :datetime="block.endsAt">{{ dateTime(block.endsAt) }}</time>
-        </p>
-        <p class="whitespace-pre-wrap break-words">{{ block.reason }}</p>
+        <p class="admin-room-blocks__reason">{{ block.reason }}</p>
       </li>
     </ul>
-    <p v-if="omitted > 0" class="text-[var(--admin-muted)]">
+    <p v-if="omitted > 0" class="admin-record-secondary">
       {{ tr("ad.rooms.omittedBlocks", { count: omitted }) }}
     </p>
   </div>

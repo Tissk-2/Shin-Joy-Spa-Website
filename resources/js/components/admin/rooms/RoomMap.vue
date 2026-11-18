@@ -260,8 +260,9 @@ const href = (room: AdminRoom) =>
   background: var(--ink);
 }
 .room-map__title {
-  font-family: var(--font-display);
-  font-size: 1.375rem;
+  font-family: var(--font-body);
+  font-size: 1.125rem;
+  font-weight: 700;
   line-height: 1.2;
 }
 .room-map__room {
@@ -354,8 +355,9 @@ const href = (room: AdminRoom) =>
   transform: rotate(-90deg);
 }
 .room-map__name {
-  font-family: var(--font-display);
-  font-size: 1rem;
+  font-family: var(--font-body);
+  font-size: 0.9375rem;
+  font-weight: 700;
   line-height: 1.15;
 }
 .room-map__code {
@@ -438,9 +440,9 @@ const href = (room: AdminRoom) =>
   place-items: center;
   background: var(--floor);
   color: var(--admin-muted);
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: 0.75rem;
-  letter-spacing: 0.08em;
+  font-weight: 600;
 }
 .room-map__corridor span {
   writing-mode: vertical-rl;
@@ -464,8 +466,9 @@ const href = (room: AdminRoom) =>
   min-height: 4.5rem;
   background: var(--floor);
   color: var(--admin-muted);
-  font-family: var(--font-display);
-  font-size: 0.875rem;
+  font-family: var(--font-body);
+  font-size: 0.8125rem;
+  font-weight: 600;
 }
 .room-map__desk {
   width: 2.75rem;
@@ -542,8 +545,9 @@ const href = (room: AdminRoom) =>
   border-style: dashed;
 }
 .room-map__count {
-  font-family: var(--font-display);
-  font-size: 1rem;
+  font-family: var(--font-body);
+  font-size: 0.9375rem;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: var(--admin-plum);
 }

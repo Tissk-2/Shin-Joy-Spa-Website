@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from "vue";
 import { router, usePage } from "@inertiajs/vue3";
+import { ChevronLeft } from "lucide-vue-next";
 import AdminLayout from "@/layouts/admin/AdminLayout.vue";
 import BlockHistory from "@/components/admin/rooms/BlockHistory.vue";
 import { useLanguage } from "@/composables/useLanguage";
@@ -136,9 +137,9 @@ function submit() {
       :subtitle="tr('ad.blocks.subtitle')"
     >
       <div class="admin-content max-w-4xl space-y-5">
-        <a href="/admin/room-blocks" class="admin-button">{{
-          tr("ad.blocks.back")
-        }}</a>
+        <a href="/admin/room-blocks" class="admin-back-link"
+          ><ChevronLeft aria-hidden="true" />{{ tr("ad.blocks.back") }}</a
+        >
         <p v-if="flash" role="status" class="admin-filter-panel">{{ flash }}</p>
         <p
           v-if="!blockManagement.ready || !blockManagement.canManageBlocks"

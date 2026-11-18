@@ -589,4 +589,6 @@ export interface AdminScheduleData {
   readonly schedulingEnabled: boolean;
   readonly rooms: readonly AdminScheduleRoom[];
   readonly unassigned: readonly AdminScheduleUnassigned[];
+  /** Every appointment of the day except cancelled ones, in time order. */
+  readonly agenda: readonly AdminScheduleUnassigned[];
 }

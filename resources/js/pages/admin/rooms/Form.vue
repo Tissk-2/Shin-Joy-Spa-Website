@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { router, usePage } from "@inertiajs/vue3";
+import { ChevronLeft } from "lucide-vue-next";
 import { computed, ref } from "vue";
 import { useLanguage } from "@/composables/useLanguage";
 import AdminLayout from "@/layouts/admin/AdminLayout.vue";
@@ -70,6 +71,38 @@ function submit() {
   if (roomId.value) router.patch(`/admin/rooms/${roomId.value}`, data, options);
   else router.post("/admin/rooms", data, options);
 }
+// Options listed under their package, in catalog order.
+const variantGroups = computed(() => {
+  const groups = new Map<
+    string,
+    { key: string; name: string; variants: AdminRoomVariant[] }
+  >();
+  for (const variant of props.variants) {
+    const key = `${variant.serviceNameId}\u0000${variant.serviceNameEn}`;
+    const group = groups.get(key) ?? {
+      key,
+      name:
+        language.value === "id" ? variant.serviceNameId : variant.serviceNameEn,
+      variants: [],
+    };
+    group.variants.push(variant);
+    groups.set(key, group);
+  }
+  return [...groups.values()];
+});
+// Only what is not published needs saying; published is the normal case.
+function catalogNotes(variant: AdminRoomVariant): string {
+  return (
+    [
+      ["ad.rooms.variantLabel", variant.variantStatus],
+      ["ad.rooms.serviceLabel", variant.serviceStatus],
+      ["ad.rooms.categoryLabel", variant.categoryStatus],
+    ] as const
+  )
+    .filter(([, status]) => status !== "published")
+    .map(([label, status]) => `${tr(label)}: ${tr(`ad.rooms.${status}`)}`)
+    .join(" · ");
+}
 function selectVariant(id: number, checked: boolean) {
   values.value = {
     ...values.value,
@@ -84,10 +117,8 @@ function selectVariant(id: number, checked: boolean) {
   <div class="admin-shell">
     <AdminLayout :title="title" :subtitle="tr('ad.rooms.formSubtitle')">
       <div class="admin-content room-form-content">
-        <a
-          href="/admin/rooms"
-          class="w-fit text-sm font-semibold text-[var(--admin-plum)] underline"
-          >{{ tr("ad.rooms.back") }}</a
+        <a href="/admin/rooms" class="admin-back-link"
+          ><ChevronLeft aria-hidden="true" />{{ tr("ad.rooms.back") }}</a
         >
         <p
           v-if="flash"
@@ -229,14 +260,11 @@ function selectVariant(id: number, checked: boolean) {
               </div>
             </div>
             <div>
-              <label
-                class="flex w-fit items-center gap-3 text-sm font-semibold"
-                for="isActive"
+              <label class="admin-check w-fit" for="isActive"
                 ><input
                   id="isActive"
                   v-model="values.isActive"
                   type="checkbox"
-                  class="h-4 w-4 rounded"
                 />{{ tr("ad.rooms.enableRoom") }}</label
               >
               <p class="mt-1 text-xs text-[var(--admin-muted)]">
@@ -282,53 +310,56 @@ function selectVariant(id: number, checked: boolean) {
             >
               {{ tr("ad.rooms.noCatalogChoices") }}
             </p>
-            <label
-              v-for="variant in variants"
-              :key="variant.id"
-              class="flex min-w-0 cursor-pointer gap-3 rounded-md border border-[var(--admin-line)] p-3"
+            <div
+              v-for="(group, index) in variantGroups"
+              :key="group.key"
+              class="admin-variant-group"
+              role="group"
+              :aria-labelledby="`variant-group-${index}`"
             >
-              <input
-                type="checkbox"
-                :value="variant.id"
-                :checked="values.compatibleVariantIds.includes(variant.id)"
-                class="mt-1 h-4 w-4 shrink-0 rounded"
-                @change="
-                  selectVariant(
-                    variant.id,
-                    ($event.target as HTMLInputElement).checked,
-                  )
-                "
-              />
-              <span class="min-w-0 space-y-1 break-words text-sm">
-                <span class="block font-semibold"
-                  >{{
-                    language === "id"
-                      ? variant.serviceNameId
-                      : variant.serviceNameEn
-                  }}
-                  · {{ variant.code }}</span
+              <p
+                :id="`variant-group-${index}`"
+                class="admin-variant-group__name"
+              >
+                {{ group.name }}
+              </p>
+              <div class="admin-variant-group__options">
+                <label
+                  v-for="variant in group.variants"
+                  :key="variant.id"
+                  class="admin-variant-option"
+                  :title="variant.code"
                 >
-                <span class="block text-xs text-[var(--admin-muted)]"
-                  >{{
-                    tr(
-                      variant.treatmentMode === "regular"
-                        ? "ad.rooms.regular"
-                        : "ad.rooms.doubleTherapist",
-                    )
-                  }}
-                  · {{ variant.durationMinutes }}
-                  {{ tr("ad.rooms.minutes") }}</span
-                >
-                <span class="block text-xs text-[var(--admin-muted)]"
-                  >{{ tr("ad.rooms.variantLabel") }}:
-                  {{ tr(`ad.rooms.${variant.variantStatus}`) }} ·
-                  {{ tr("ad.rooms.serviceLabel") }}:
-                  {{ tr(`ad.rooms.${variant.serviceStatus}`) }} ·
-                  {{ tr("ad.rooms.categoryLabel") }}:
-                  {{ tr(`ad.rooms.${variant.categoryStatus}`) }}</span
-                >
-              </span>
-            </label>
+                  <input
+                    type="checkbox"
+                    :value="variant.id"
+                    :checked="values.compatibleVariantIds.includes(variant.id)"
+                    @change="
+                      selectVariant(
+                        variant.id,
+                        ($event.target as HTMLInputElement).checked,
+                      )
+                    "
+                  />
+                  <span
+                    >{{
+                      tr(
+                        variant.treatmentMode === "regular"
+                          ? "ad.rooms.regular"
+                          : "ad.rooms.doubleTherapist",
+                      )
+                    }}
+                    · {{ variant.durationMinutes }}
+                    {{ tr("ad.rooms.minutes") }}
+                    <span
+                      v-if="catalogNotes(variant)"
+                      class="admin-variant-option__status"
+                      >{{ catalogNotes(variant) }}</span
+                    ></span
+                  >
+                </label>
+              </div>
+            </div>
           </fieldset>
           <div class="flex flex-wrap items-center gap-4 pb-6">
             <button
@@ -338,11 +369,9 @@ function selectVariant(id: number, checked: boolean) {
             >
               {{ tr(processing ? "ad.rooms.saving" : "ad.rooms.save") }}
             </button>
-            <a
-              href="/admin/rooms"
-              class="text-sm font-semibold text-[var(--admin-muted)] underline"
-              >{{ tr("ad.rooms.cancel") }}</a
-            >
+            <a href="/admin/rooms" class="admin-button">{{
+              tr("ad.rooms.cancel")
+            }}</a>
           </div>
         </form>
       </div>

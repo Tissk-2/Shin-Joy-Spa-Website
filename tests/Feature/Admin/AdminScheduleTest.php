@@ -155,6 +155,32 @@ class AdminScheduleTest extends TestCase
         ], $schedule['unassigned'][1]);
     }
 
+    // Production break caught: with room scheduling off no booking holds a room, so the day view
+    // must still list every appointment of that day (done ones too), in time order, without cancelled ones.
+    public function test_the_agenda_lists_every_appointment_of_the_day_but_cancelled_ones(): void
+    {
+        $room = $this->room('A');
+        $this->booking('SJ-LATE', BookingStatus::Pending, '2026-12-01', '16:00');
+        $this->booking('SJ-DONE', BookingStatus::Completed, '2026-12-01', '09:00', ['customer_name' => 'Ayu']);
+        $held = $this->booking('SJ-HELD', BookingStatus::Confirmed, '2026-12-01', '12:00');
+        $this->reserve($room, $held, '2026-12-01 05:00:00', '2026-12-01 06:30:00', '2026-12-01 06:45:00');
+        $this->booking('SJ-NOSHOW', BookingStatus::NoShow, '2026-12-01', '10:00');
+        $this->booking('SJ-CANCELLED', BookingStatus::Cancelled, '2026-12-01', '11:00');
+        $this->booking('SJ-OTHER-DAY', BookingStatus::Confirmed, '2026-12-02', '09:00');
+
+        $schedule = $this->actingAs(User::factory()->admin()->create())
+            ->get('/admin/schedule?date=2026-12-01')->inertiaProps()['schedule'];
+
+        $this->assertSame(
+            ['SJ-DONE', 'SJ-NOSHOW', 'SJ-HELD', 'SJ-LATE'],
+            array_column($schedule['agenda'], 'reference'),
+        );
+        $this->assertSame([
+            'reference' => 'SJ-DONE', 'status' => 'completed', 'customerName' => 'Ayu', 'guests' => 1,
+            'packageNameId' => 'Nezuko', 'packageNameEn' => 'Nezuko', 'time' => '09:00', 'durationMinutes' => 90,
+        ], $schedule['agenda'][0]);
+    }
+
     public function test_schedule_access_and_malformed_dates(): void
     {
         $this->get('/admin/schedule')->assertRedirect();

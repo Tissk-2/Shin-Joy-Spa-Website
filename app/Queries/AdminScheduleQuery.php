@@ -2,6 +2,7 @@
 
 namespace App\Queries;
 
+use App\Enums\BookingStatus;
 use App\Models\Booking;
 use App\Models\Room;
 use App\Models\RoomBlock;
@@ -70,21 +71,30 @@ final class AdminScheduleQuery
                 ];
             })->all();
 
+        $row = fn (Booking $booking): array => [
+            'reference' => $booking->reference,
+            'status' => $booking->status->value,
+            'customerName' => $booking->customer_name,
+            'guests' => $booking->guests,
+            'packageNameId' => $booking->package_name_id,
+            'packageNameEn' => $booking->package_name_en,
+            'time' => $booking->appointment_time,
+            'durationMinutes' => $booking->total_duration_minutes,
+        ];
+
         $unassigned = Booking::query()
             ->whereIn('status', self::WITHOUT_ROOM)
             ->whereDate('appointment_date', $day->toDateString())
             ->whereNotIn('id', RoomReservation::query()->whereNull('released_at')->select('booking_id'))
             ->orderBy('appointment_time')->orderBy('id')->get()
-            ->map(fn (Booking $booking): array => [
-                'reference' => $booking->reference,
-                'status' => $booking->status->value,
-                'customerName' => $booking->customer_name,
-                'guests' => $booking->guests,
-                'packageNameId' => $booking->package_name_id,
-                'packageNameEn' => $booking->package_name_en,
-                'time' => $booking->appointment_time,
-                'durationMinutes' => $booking->total_duration_minutes,
-            ])->all();
+            ->map($row)->all();
+
+        // Every appointment of the day, room or not: the day view while room scheduling is off.
+        $agenda = Booking::query()
+            ->whereDate('appointment_date', $day->toDateString())
+            ->where('status', '!=', BookingStatus::Cancelled->value)
+            ->orderBy('appointment_time')->orderBy('id')->get()
+            ->map($row)->all();
 
         return [
             'date' => $day->toDateString(),
@@ -94,6 +104,7 @@ final class AdminScheduleQuery
             'schedulingEnabled' => config('booking.scheduling_enabled') === true,
             'rooms' => $rooms,
             'unassigned' => $unassigned,
+            'agenda' => $agenda,
         ];
     }
 }

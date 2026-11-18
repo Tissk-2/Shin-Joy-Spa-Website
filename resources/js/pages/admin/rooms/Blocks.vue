@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { usePage } from "@inertiajs/vue3";
+import { ChevronLeft, Plus } from "lucide-vue-next";
 import AdminLayout from "@/layouts/admin/AdminLayout.vue";
 import BlockHistory from "@/components/admin/rooms/BlockHistory.vue";
 import { useLanguage } from "@/composables/useLanguage";
@@ -24,39 +25,41 @@ const display = (value: string) =>
       :title="tr('ad.blocks.title')"
       :subtitle="tr('ad.blocks.subtitle')"
     >
+      <template
+        v-if="
+          schedule.blockManagement.canManageBlocks &&
+          schedule.blockManagement.ready
+        "
+        #actions
+      >
+        <a
+          href="/admin/room-blocks/create"
+          class="admin-button admin-button--primary"
+          ><Plus aria-hidden="true" />{{ tr("ad.blocks.create") }}</a
+        >
+      </template>
       <div class="admin-content space-y-5">
-        <div class="flex flex-wrap gap-3">
-          <a href="/admin/rooms" class="admin-button">{{
-            tr("ad.rooms.back")
-          }}</a>
+        <a href="/admin/rooms" class="admin-back-link"
+          ><ChevronLeft aria-hidden="true" />{{ tr("ad.rooms.back") }}</a
+        >
+        <p v-if="flash" role="status" class="admin-flash">{{ flash }}</p>
+        <nav class="admin-tabs" :aria-label="tr('ad.blocks.views')">
           <a
-            v-if="
-              schedule.blockManagement.canManageBlocks &&
-              schedule.blockManagement.ready
+            v-for="view in ['active', 'history'] as const"
+            :key="view"
+            :href="`/admin/room-blocks?${schedule.roomId ? `roomId=${schedule.roomId}&` : ''}view=${view}`"
+            :aria-current="
+              (schedule.view ?? 'active') === view ? 'page' : undefined
             "
-            href="/admin/room-blocks/create"
-            class="admin-button admin-button--primary"
-            >{{ tr("ad.blocks.create") }}</a
+            class="admin-tab"
+            >{{ tr(`ad.blocks.view_${view}`) }}</a
           >
-        </div>
-        <p v-if="flash" role="status" class="admin-filter-panel">{{ flash }}</p>
-        <div class="admin-filter-panel space-y-3">
-          <nav class="flex flex-wrap gap-3" :aria-label="tr('ad.blocks.views')">
-            <a
-              v-for="view in ['active', 'history'] as const"
-              :key="view"
-              :href="`/admin/room-blocks?${schedule.roomId ? `roomId=${schedule.roomId}&` : ''}view=${view}`"
-              :aria-current="
-                (schedule.view ?? 'active') === view ? 'page' : undefined
-              "
-              class="admin-button"
-              >{{ tr(`ad.blocks.view_${view}`) }}</a
-            >
-          </nav>
+        </nav>
+        <div class="admin-notes">
           <p>{{ tr("ad.blocks.staffOnly") }}</p>
-          <p class="text-sm text-[var(--admin-muted)]">
-            {{ tr("ad.blocks.limits") }}
-          </p>
+          <p>{{ tr("ad.blocks.limits") }}</p>
+        </div>
+        <div class="admin-filter-panel space-y-3">
           <form
             action="/admin/room-blocks"
             method="get"

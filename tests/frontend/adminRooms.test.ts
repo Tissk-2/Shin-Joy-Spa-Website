@@ -16,7 +16,8 @@ vi.mock("@inertiajs/vue3", () => ({
 vi.mock("@/layouts/admin/AdminLayout.vue", () => ({
   default: {
     props: ["title", "subtitle"],
-    template: "<main><h1>{{ title }}</h1><slot /></main>",
+    template:
+      "<main><h1>{{ title }}</h1><div data-actions><slot name='actions' /></div><slot /></main>",
   },
 }));
 

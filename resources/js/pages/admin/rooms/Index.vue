@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { usePoll } from "@inertiajs/vue3";
-import { DoorClosed, Search } from "lucide-vue-next";
+import { DoorClosed, Plus, RefreshCw, Search } from "lucide-vue-next";
 import { useLanguage } from "@/composables/useLanguage";
 import AdminLayout from "@/layouts/admin/AdminLayout.vue";
 import RoomDetails from "@/components/admin/rooms/RoomDetails.vue";
@@ -81,46 +81,38 @@ const observation = computed(
       :title="tr('ad.rooms.title')"
       :subtitle="tr('ad.rooms.subtitle')"
     >
+      <template #actions>
+        <a href="/admin/room-blocks" class="admin-button">{{
+          tr("ad.blocks.title")
+        }}</a>
+        <a
+          v-if="blockManagement?.canManageBlocks && blockManagement.ready"
+          href="/admin/room-blocks/create"
+          class="admin-button"
+          >{{ tr("ad.blocks.create") }}</a
+        >
+        <a
+          v-if="management?.isOwner && management.ready"
+          href="/admin/rooms/create"
+          class="admin-button admin-button--primary"
+          ><Plus aria-hidden="true" />{{ tr("ad.rooms.create") }}</a
+        >
+      </template>
       <div class="admin-content">
-        <div class="admin-filter-panel space-y-2 text-sm">
-          <div class="flex flex-wrap gap-3">
-            <a href="/admin/room-blocks" class="admin-button">{{
-              tr("ad.blocks.title")
-            }}</a>
-            <a
-              v-if="blockManagement?.canManageBlocks && blockManagement.ready"
-              href="/admin/room-blocks/create"
-              class="admin-button"
-              >{{ tr("ad.blocks.create") }}</a
-            >
-          </div>
+        <div class="admin-notes">
           <p v-if="!management?.ready">{{ tr("ad.rooms.readOnly") }}</p>
-          <a
-            v-if="management?.isOwner && management.ready"
-            href="/admin/rooms/create"
-            class="admin-button admin-button--primary w-fit"
-            >{{ tr("ad.rooms.create") }}</a
+          <p
+            v-if="management?.isOwner && !management.ready"
+            class="admin-callout admin-callout--warning"
+            role="status"
           >
-          <p v-if="management?.isOwner && !management.ready" role="status">
             {{ tr("ad.rooms.writeUnavailable") }}
           </p>
-          <p class="text-[var(--admin-muted)]">
+          <p>
             {{ tr("ad.rooms.availabilityNote") }}
-          </p>
-          <div class="flex flex-wrap items-center justify-between gap-2">
-            <p>
-              {{ tr("ad.rooms.observed") }}
-              <time :datetime="inventory.generatedAt">{{ observation }}</time>
-            </p>
-            <a href="/admin/rooms" class="admin-button">{{
-              tr("ad.rooms.refresh")
-            }}</a>
-          </div>
-          <p
-            v-if="!inventory.schedulingEnabled"
-            class="text-[var(--admin-muted)]"
-          >
-            {{ tr("ad.rooms.schedulingOff") }}
+            <template v-if="!inventory.schedulingEnabled">
+              {{ tr("ad.rooms.schedulingOff") }}</template
+            >
           </p>
         </div>
         <p
@@ -131,27 +123,24 @@ const observation = computed(
           {{ tr("ad.rooms.unavailable") }}
         </p>
         <template v-else>
-          <dl class="admin-count-grid">
-            <div class="admin-count admin-count--today">
+          <dl class="admin-summary">
+            <div>
               <dt>{{ tr("ad.rooms.totalRooms") }}</dt>
               <dd>{{ stats.total }}</dd>
             </div>
-            <div class="admin-count admin-count--confirmed">
+            <div>
               <dt>{{ tr("ad.rooms.enabledRooms") }}</dt>
-              <dd class="text-[var(--admin-success)]">{{ stats.enabled }}</dd>
+              <dd>{{ stats.enabled }}</dd>
             </div>
-            <div class="admin-count admin-count--pending">
+            <div>
               <dt>{{ tr("ad.rooms.blockedRooms") }}</dt>
-              <dd class="text-[var(--admin-warning)]">{{ stats.blocked }}</dd>
-            </div>
-            <div class="admin-count">
-              <dt>{{ tr("ad.rooms.enabledCapacity") }}</dt>
-              <dd>
-                {{ stats.capacity }}
-                <span class="text-sm font-normal text-[var(--admin-muted)]">{{
-                  tr("ad.rooms.guests")
-                }}</span>
+              <dd :class="{ 'admin-summary__alert': stats.blocked > 0 }">
+                {{ stats.blocked }}
               </dd>
+            </div>
+            <div>
+              <dt>{{ tr("ad.rooms.enabledCapacity") }}</dt>
+              <dd>{{ stats.capacity }} {{ tr("ad.rooms.guests") }}</dd>
             </div>
           </dl>
           <p
@@ -162,83 +151,72 @@ const observation = computed(
             {{ tr("ad.rooms.emptyInventory") }}
           </p>
           <template v-else>
+            <div class="admin-observed">
+              <p>
+                {{ tr("ad.rooms.observed") }}
+                <time :datetime="inventory.generatedAt">{{ observation }}</time>
+              </p>
+              <a href="/admin/rooms" class="admin-button admin-button--compact"
+                ><RefreshCw aria-hidden="true" />{{ tr("ad.rooms.refresh") }}</a
+              >
+            </div>
             <RoomMap
               :rooms="inventory.rooms"
               :generated-at="inventory.generatedAt"
               :scheduling-enabled="inventory.schedulingEnabled"
               :can-edit="!!(management?.isOwner && management.ready)"
             />
-            <div class="admin-filter-panel">
-              <div class="flex flex-1 flex-wrap items-end gap-3">
-                <div class="min-w-0 flex-1 basis-60">
-                  <label
-                    for="room-search"
-                    class="mb-1 block text-xs font-semibold"
-                    >{{ tr("ad.rooms.search") }}</label
-                  >
-                  <div class="relative">
-                    <Search
-                      aria-hidden="true"
-                      class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--admin-input)]"
-                    />
-                    <input
-                      id="room-search"
-                      v-model="searchQuery"
-                      type="search"
-                      class="admin-control pl-10"
-                      :placeholder="tr('ad.rooms.searchPlaceholder')"
-                    />
-                  </div>
-                </div>
-                <div class="w-full sm:w-auto">
-                  <label
-                    for="room-status"
-                    class="mb-1 block text-xs font-semibold"
-                    >{{ tr("ad.rooms.status") }}</label
-                  >
-                  <select
-                    id="room-status"
-                    v-model="statusFilter"
+            <div class="admin-filter-bar admin-filter-bar--rooms">
+              <div class="admin-filter-search">
+                <label for="room-search">{{ tr("ad.rooms.search") }}</label>
+                <div class="admin-search-field">
+                  <Search aria-hidden="true" />
+                  <input
+                    id="room-search"
+                    v-model="searchQuery"
+                    type="search"
                     class="admin-control"
-                  >
-                    <option value="all">{{ tr("ad.rooms.filterAll") }}</option>
-                    <option value="enabled">
-                      {{ tr("ad.rooms.enabled") }}
-                    </option>
-                    <option value="blocked">
-                      {{ tr("ad.rooms.blocked") }}
-                    </option>
-                    <option value="disabled">
-                      {{ tr("ad.rooms.disabled") }}
-                    </option>
-                  </select>
-                </div>
-                <div class="w-full sm:w-auto">
-                  <label
-                    for="room-type"
-                    class="mb-1 block text-xs font-semibold"
-                    >{{ tr("ad.rooms.type") }}</label
-                  >
-                  <select
-                    id="room-type"
-                    v-model="typeFilter"
-                    class="admin-control"
-                  >
-                    <option value="all">{{ tr("ad.rooms.typeAll") }}</option>
-                    <option
-                      v-for="choice in typeChoices"
-                      :key="choice.value"
-                      :value="choice.value"
-                    >
-                      {{ choice.label }}
-                    </option>
-                  </select>
+                    :placeholder="tr('ad.rooms.searchPlaceholder')"
+                  />
                 </div>
               </div>
+              <div>
+                <label for="room-status">{{ tr("ad.rooms.status") }}</label>
+                <select
+                  id="room-status"
+                  v-model="statusFilter"
+                  class="admin-control"
+                >
+                  <option value="all">{{ tr("ad.rooms.filterAll") }}</option>
+                  <option value="enabled">
+                    {{ tr("ad.rooms.enabled") }}
+                  </option>
+                  <option value="blocked">
+                    {{ tr("ad.rooms.blocked") }}
+                  </option>
+                  <option value="disabled">
+                    {{ tr("ad.rooms.disabled") }}
+                  </option>
+                </select>
+              </div>
+              <div>
+                <label for="room-type">{{ tr("ad.rooms.type") }}</label>
+                <select
+                  id="room-type"
+                  v-model="typeFilter"
+                  class="admin-control"
+                >
+                  <option value="all">{{ tr("ad.rooms.typeAll") }}</option>
+                  <option
+                    v-for="choice in typeChoices"
+                    :key="choice.value"
+                    :value="choice.value"
+                  >
+                    {{ choice.label }}
+                  </option>
+                </select>
+              </div>
             </div>
-            <p class="text-xs text-[var(--admin-muted)]">
-              {{ tr("ad.rooms.blockWindow") }}
-            </p>
             <p
               v-if="filteredRooms.length === 0"
               class="admin-empty"
@@ -247,7 +225,7 @@ const observation = computed(
               {{ tr("ad.rooms.empty") }}
             </p>
             <div v-else class="admin-booking-table-wrap">
-              <table class="admin-booking-table admin-rooms-table w-full">
+              <table class="admin-booking-table admin-rooms-table">
                 <caption class="sr-only">
                   {{
                     tr("ad.rooms.title")
@@ -270,41 +248,37 @@ const observation = computed(
                     v-for="room in filteredRooms"
                     :key="room.id"
                     :data-room-id="room.id"
-                    class="transition-colors hover:bg-[var(--admin-canvas)]"
                   >
                     <td>
-                      <div class="flex items-center gap-2.5">
-                        <span
-                          class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-[var(--admin-selected)] text-[var(--admin-plum)]"
-                          ><DoorClosed aria-hidden="true" class="h-4 w-4"
+                      <div class="admin-room-cell">
+                        <span class="admin-room-cell__icon"
+                          ><DoorClosed aria-hidden="true"
                         /></span>
-                        <div class="min-w-0 break-words">
-                          <p class="font-bold text-[var(--admin-plum)]">
-                            {{ room.name }}
+                        <div class="admin-room-cell__text">
+                          <p class="admin-row-link__name">{{ room.name }}</p>
+                          <p class="admin-room-cell__meta">
+                            <span class="admin-code">{{ room.code }}</span>
+                            <span class="admin-room-cell__type">{{
+                              room.type ?? tr("ad.rooms.unsetType")
+                            }}</span>
                           </p>
-                          <p class="admin-record-secondary font-mono">
-                            {{ room.code }}
+                          <p class="admin-room-cell__links">
+                            <a :href="`/admin/room-blocks?roomId=${room.id}`">{{
+                              tr("ad.blocks.title")
+                            }}</a>
                             <a
-                              :href="`/admin/room-blocks?roomId=${room.id}`"
-                              class="block text-xs underline"
-                              >{{ tr("ad.blocks.title") }}</a
+                              v-if="management?.isOwner && management.ready"
+                              :href="`/admin/rooms/${room.id}/edit`"
+                              >{{ tr("ad.rooms.edit") }}</a
                             >
                           </p>
-                          <a
-                            v-if="management?.isOwner && management.ready"
-                            :href="`/admin/rooms/${room.id}/edit`"
-                            class="block text-xs font-semibold underline"
-                            >{{ tr("ad.rooms.edit") }}</a
-                          >
-                          <span
-                            class="rounded bg-[var(--admin-line)] px-2 py-0.5 text-xs text-[var(--admin-muted)]"
-                            >{{ room.type ?? tr("ad.rooms.unsetType") }}</span
-                          >
                         </div>
                       </div>
                     </td>
-                    <td>{{ room.capacity }} {{ tr("ad.rooms.guests") }}</td>
-                    <td>
+                    <td class="admin-nowrap">
+                      {{ room.capacity }} {{ tr("ad.rooms.guests") }}
+                    </td>
+                    <td class="admin-nowrap">
                       {{ room.cleaningMinutes }} {{ tr("ad.rooms.minutes") }}
                     </td>
                     <td>
@@ -331,51 +305,27 @@ const observation = computed(
                 v-for="room in filteredRooms"
                 :key="room.id"
                 :data-room-card="room.id"
-                class="space-y-3"
+                class="admin-room-card"
               >
-                <div class="space-y-2">
-                  <h2 class="break-words font-bold text-[var(--admin-plum)]">
-                    {{ room.name }}
-                  </h2>
-                  <p
-                    class="break-words font-mono text-xs text-[var(--admin-muted)]"
-                  >
-                    {{ room.code }} ·
-                    {{ room.type ?? tr("ad.rooms.unsetType") }}
-                  </p>
+                <div class="admin-room-card__top">
+                  <div class="admin-room-cell__text">
+                    <h2 class="admin-row-link__name">{{ room.name }}</h2>
+                    <p class="admin-room-cell__meta">
+                      <span class="admin-code">{{ room.code }}</span>
+                      <span class="admin-room-cell__type">{{
+                        room.type ?? tr("ad.rooms.unsetType")
+                      }}</span>
+                    </p>
+                  </div>
                   <RoomStatusBadges :room="room" />
-                  <a
-                    :href="`/admin/room-blocks?roomId=${room.id}`"
-                    class="block text-sm underline"
-                    >{{ tr("ad.blocks.title") }}</a
-                  >
-                  <a
-                    v-if="management?.isOwner && management.ready"
-                    :href="`/admin/rooms/${room.id}/edit`"
-                    class="block text-sm font-semibold underline"
-                    >{{ tr("ad.rooms.edit") }}</a
-                  >
                 </div>
-                <dl class="grid grid-cols-2 gap-2 text-xs">
-                  <div>
-                    <dt class="text-[var(--admin-muted)]">
-                      {{ tr("ad.rooms.capacity") }}
-                    </dt>
-                    <dd class="font-semibold">
-                      {{ room.capacity }} {{ tr("ad.rooms.guests") }}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt class="text-[var(--admin-muted)]">
-                      {{ tr("ad.rooms.cleaning") }}
-                    </dt>
-                    <dd class="font-semibold">
-                      {{ room.cleaningMinutes }} {{ tr("ad.rooms.minutes") }}
-                    </dd>
-                  </div>
-                </dl>
+                <p class="admin-booking-list__meta">
+                  {{ room.capacity }} {{ tr("ad.rooms.guests") }} ·
+                  {{ tr("ad.rooms.cleaning") }} {{ room.cleaningMinutes }}
+                  {{ tr("ad.rooms.minutes") }}
+                </p>
                 <section>
-                  <h3 class="mb-1 text-xs font-semibold">
+                  <h3 class="admin-room-card__label">
                     {{ tr("ad.rooms.treatments") }}
                   </h3>
                   <RoomDetails
@@ -385,7 +335,7 @@ const observation = computed(
                   />
                 </section>
                 <section>
-                  <h3 class="mb-1 text-xs font-semibold">
+                  <h3 class="admin-room-card__label">
                     {{ tr("ad.rooms.blocks") }}
                   </h3>
                   <RoomDetails
@@ -394,45 +344,22 @@ const observation = computed(
                     section="blocks"
                   />
                 </section>
+                <p class="admin-room-cell__links">
+                  <a :href="`/admin/room-blocks?roomId=${room.id}`">{{
+                    tr("ad.blocks.title")
+                  }}</a>
+                  <a
+                    v-if="management?.isOwner && management.ready"
+                    :href="`/admin/rooms/${room.id}/edit`"
+                    >{{ tr("ad.rooms.edit") }}</a
+                  >
+                </p>
               </li>
             </ul>
+            <p class="admin-loading">{{ tr("ad.rooms.blockWindow") }}</p>
           </template>
         </template>
       </div>
     </AdminLayout>
   </div>
 </template>
-
-<style scoped>
-#room-search {
-  padding-left: 2.5rem;
-}
-.admin-rooms-table :is(th, td) {
-  vertical-align: middle;
-}
-.admin-rooms-table td:nth-child(2),
-.admin-rooms-table td:nth-child(3),
-.admin-rooms-table td:nth-child(4) {
-  min-width: 0 !important;
-  max-width: none !important;
-}
-.admin-rooms-table :is(th, td):nth-child(2) {
-  width: 7rem;
-  white-space: nowrap;
-}
-.admin-rooms-table :is(th, td):nth-child(3) {
-  width: 7.5rem;
-  white-space: nowrap;
-}
-.admin-rooms-table :is(th, td):nth-child(5) {
-  width: 8rem;
-}
-.admin-rooms-table :is(th, td):last-child {
-  width: 19rem;
-  min-width: 14rem;
-  white-space: normal;
-}
-.admin-rooms-table td {
-  overflow-wrap: anywhere;
-}
-</style>
