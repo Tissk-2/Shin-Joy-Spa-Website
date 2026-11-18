@@ -383,6 +383,8 @@ test.describe.serial("administrator catalog publishing", () => {
     await expectNoHorizontalPageOverflow(stalePage);
     await stalePage.close();
 
+    // At phone width the account actions live in the menu drawer.
+    await page.getByRole("button", { name: /^menu$/i }).click();
     await page.locator("[data-admin-logout]").click();
     await expect(page).toHaveURL("/");
     await registerCustomer(page, customerEmail);

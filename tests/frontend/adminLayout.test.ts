@@ -1,7 +1,8 @@
 import { mount } from "@vue/test-utils";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { nextTick } from "vue";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import AdminLayout from "@/layouts/admin/AdminLayout.vue";
 import type { Locale } from "@/types";
@@ -285,6 +286,182 @@ describe("administrator layout", () => {
     expect(styles).toMatch(
       /\.admin-shell :is\(a, button, input, select\):focus-visible\s*\{[^}]*outline:/,
     );
+  });
+
+  it("groups the navigation as daily work, then management, then owner tools", async () => {
+    const wrapper = mount(AdminLayout, { props: { title: "Bookings" } });
+    const hrefs = () =>
+      wrapper
+        .get("aside nav")
+        .findAll("a")
+        .map((a) => a.attributes("href"));
+
+    expect(hrefs()).toEqual([
+      "/admin",
+      "/admin/bookings",
+      "/admin/schedule",
+      "/admin/rooms",
+      "/admin/catalog",
+      "/admin/content",
+    ]);
+
+    inertia.page.props.auth.isOwner = true;
+    await wrapper.vm.$nextTick();
+    expect(hrefs()).toEqual([
+      "/admin",
+      "/admin/bookings",
+      "/admin/schedule",
+      "/admin/rooms",
+      "/admin/catalog",
+      "/admin/content",
+      "/admin/staff",
+      "/admin/settings/booking",
+    ]);
+    expect(
+      wrapper.findAll(".admin-nav-group__label").map((label) => label.text()),
+    ).toEqual(["Daily", "Manage", "Owner"]);
+  });
+
+  it("shows the signed-in staff member once, with the account actions beside them", () => {
+    const wrapper = mount(AdminLayout, { props: { title: "Bookings" } });
+
+    expect(wrapper.findAll("[data-admin-identity]")).toHaveLength(1);
+    expect(wrapper.text().split("Rani Kusuma")).toHaveLength(2);
+    expect(wrapper.get("aside").find('a[href="/"]').exists()).toBe(true);
+    expect(wrapper.get("aside").find("[data-admin-logout]").exists()).toBe(
+      true,
+    );
+  });
+
+  it("keeps the page header to the title, the subtitle and the page's actions", () => {
+    const wrapper = mount(AdminLayout, {
+      props: { title: "Bookings", subtitle: "Review guest reservations." },
+      slots: {
+        actions: '<a href="/admin/bookings/create" data-page-action>New</a>',
+      },
+    });
+    const header = wrapper.get(".admin-page-heading");
+
+    expect(header.text()).not.toContain("Admin Panel");
+    expect(header.get("h1").text()).toBe("Bookings");
+    expect(header.find("[data-page-action]").exists()).toBe(true);
+  });
+
+  describe("on phones and tablets", () => {
+    const mobileQuery = "(max-width: 1023px)";
+
+    beforeEach(() => {
+      vi.stubGlobal("matchMedia", (query: string) => ({
+        matches: query === mobileQuery,
+        media: query,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      }));
+    });
+    afterEach(() => vi.unstubAllGlobals());
+
+    it("opens the navigation from the bottom bar and closes it with Escape", async () => {
+      const wrapper = mount(AdminLayout, {
+        props: { title: "Bookings" },
+        attachTo: document.body,
+      });
+      const aside = wrapper.get("aside");
+      const toggle = wrapper.get('button[aria-controls="admin-sidebar"]');
+
+      expect(aside.attributes("id")).toBe("admin-sidebar");
+      expect(toggle.attributes("aria-expanded")).toBe("false");
+      expect(aside.attributes("inert")).toBeDefined();
+
+      await toggle.trigger("click");
+      await nextTick();
+      expect(toggle.attributes("aria-expanded")).toBe("true");
+      expect(aside.attributes("inert")).toBeUndefined();
+      expect(aside.element.contains(document.activeElement)).toBe(true);
+      // Everything behind the open drawer is out of reach.
+      for (const behind of [
+        ".admin-mobilebar",
+        ".admin-frame__body",
+        ".admin-tabbar",
+      ]) {
+        expect(wrapper.get(behind).attributes("inert")).toBeDefined();
+      }
+
+      await aside.trigger("keydown", { key: "Escape" });
+      await nextTick();
+      expect(toggle.attributes("aria-expanded")).toBe("false");
+      expect(document.activeElement).toBe(toggle.element);
+
+      wrapper.unmount();
+    });
+
+    it("closes the navigation after moving to another page", async () => {
+      const wrapper = mount(AdminLayout, { props: { title: "Bookings" } });
+      const toggle = wrapper.get('button[aria-controls="admin-sidebar"]');
+
+      await toggle.trigger("click");
+      inertia.page.url = "/admin/schedule";
+      await nextTick();
+
+      expect(toggle.attributes("aria-expanded")).toBe("false");
+    });
+
+    it("keeps the daily pages in the bottom bar and one language switch on screen", () => {
+      inertia.page.url = "/admin/schedule";
+      const wrapper = mount(AdminLayout, { props: { title: "Schedule" } });
+      const quick = wrapper.get("nav.admin-tabbar");
+
+      expect(quick.findAll("a").map((a) => a.attributes("href"))).toEqual([
+        "/admin",
+        "/admin/bookings",
+        "/admin/schedule",
+      ]);
+      expect(
+        quick.get('a[href="/admin/schedule"]').attributes("aria-current"),
+      ).toBe("page");
+      expect(wrapper.findAll('[data-admin-locale="id"]')).toHaveLength(1);
+      expect(
+        wrapper
+          .get(".admin-mobilebar")
+          .find('[data-admin-locale="id"]')
+          .exists(),
+      ).toBe(true);
+    });
+  });
+
+  it("sets admin text in the UI font and keeps short values on one line", () => {
+    const css = ["resources/css/admin.css", "resources/css/admin-catalog.css"]
+      .map((file) => readFileSync(file, "utf8"))
+      .join("\n");
+    const displayFontRules = [
+      ...css.matchAll(/([^{}]+)\{[^}]*var\(--font-display\)/g),
+    ].map((match) => match[1].trim().split("\n").pop());
+
+    // The serif is the wordmark only; everything else uses the UI font.
+    expect(displayFontRules).toEqual([".admin-brand-name"]);
+    expect(css).toMatch(
+      /\.admin-shell :is\(h1, h2, h3, h4, h5, h6\)\s*\{[^}]*font-family:\s*var\(--font-body\)/,
+    );
+    for (const selector of [
+      ".admin-status",
+      ".admin-price",
+      ".admin-record-link",
+    ]) {
+      expect(css).toMatch(
+        new RegExp(`\\n\\${selector}\\s*\\{[^}]*white-space:\\s*nowrap`),
+      );
+    }
+    for (const status of [
+      "pending",
+      "confirmed",
+      "awaiting_payment",
+      "completed",
+      "cancelled",
+      "no_show",
+    ]) {
+      expect(css).toContain(`.admin-status--${status}`);
+    }
+    // No coloured stripes on one side of a box.
+    expect(css).not.toMatch(/border-(left|right|top|bottom):\s*[2-9]px solid/);
   });
 
   it("keeps client routing and browser auth storage out of the layout", () => {

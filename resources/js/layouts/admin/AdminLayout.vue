@@ -1,15 +1,19 @@
 <script setup lang="ts">
 import { Head, Link, router, usePage } from "@inertiajs/vue3";
+import { useMediaQuery } from "@vueuse/core";
 import {
   BookOpen,
   CalendarClock,
   CalendarDays,
   DoorOpen,
+  FileText,
   LayoutDashboard,
+  Menu,
   Settings,
   Users,
+  X,
 } from "lucide-vue-next";
-import { computed, ref } from "vue";
+import { computed, nextTick, ref, watch, type Component } from "vue";
 import { useLanguage } from "@/composables/useLanguage";
 import type { AppPageProps } from "@/types";
 
@@ -22,7 +26,78 @@ const accountInitial = computed(() =>
   (currentUser.value?.name ?? "?").trim().charAt(0).toUpperCase(),
 );
 
-function isActiveAdminLink(href: string): boolean {
+// Below the desktop breakpoint the sidebar becomes a drawer opened from the
+// bottom bar. Keep in step with the 1024px breakpoint in admin.css.
+const isMobile = useMediaQuery("(max-width: 1023px)");
+const menuOpen = ref(false);
+const menuToggle = ref<HTMLButtonElement | null>(null);
+const sidebar = ref<HTMLElement | null>(null);
+const drawerOpen = computed(() => isMobile.value && menuOpen.value);
+
+interface NavItem {
+  href: string;
+  label: string;
+  icon: Component;
+}
+
+const navGroups = computed(() => {
+  const groups: Array<{ id: string; label: string; items: NavItem[] }> = [
+    {
+      id: "daily",
+      label: tr("ad.nav.groupDaily"),
+      items: [
+        {
+          href: "/admin",
+          label: tr("ad.nav.dashboard"),
+          icon: LayoutDashboard,
+        },
+        {
+          href: "/admin/bookings",
+          label: tr("ad.nav.bookings"),
+          icon: CalendarDays,
+        },
+        {
+          href: "/admin/schedule",
+          label: tr("ad.nav.schedule"),
+          icon: CalendarClock,
+        },
+      ],
+    },
+    {
+      id: "manage",
+      label: tr("ad.nav.groupManage"),
+      items: [
+        { href: "/admin/rooms", label: tr("ad.nav.rooms"), icon: DoorOpen },
+        { href: "/admin/catalog", label: tr("ad.nav.catalog"), icon: BookOpen },
+        { href: "/admin/content", label: tr("ad.nav.content"), icon: FileText },
+      ],
+    },
+  ];
+  if (page.props.auth.isOwner) {
+    groups.push({
+      id: "owner",
+      label: tr("ad.nav.groupOwner"),
+      items: [
+        { href: "/admin/staff", label: tr("ad.staff.title"), icon: Users },
+        {
+          href: "/admin/settings/booking",
+          label: tr("ad.settings.title"),
+          icon: Settings,
+        },
+      ],
+    });
+  }
+  return groups;
+});
+
+const quickItems = computed(() => navGroups.value[0].items);
+
+function isCurrent(href: string): boolean {
+  // The dashboard lives at the parent path, so it only counts when it is the
+  // current path itself, never as a prefix of every other admin page.
+  if (href === "/admin") {
+    return page.url === "/admin" || page.url.startsWith("/admin?");
+  }
   return (
     page.url === href ||
     page.url.startsWith(`${href}?`) ||
@@ -30,11 +105,33 @@ function isActiveAdminLink(href: string): boolean {
   );
 }
 
-// The dashboard lives at the parent path, so it only counts when it is the
-// current path itself, never as a prefix of every other admin page.
-const isActiveDashboard = computed(
-  () => page.url === "/admin" || page.url.startsWith("/admin?"),
+function openMenu(): void {
+  menuOpen.value = true;
+  nextTick(() =>
+    sidebar.value?.querySelector<HTMLElement>("a, button")?.focus(),
+  );
+}
+
+function closeMenu(restoreFocus = true): void {
+  if (!menuOpen.value) return;
+  menuOpen.value = false;
+  if (restoreFocus) nextTick(() => menuToggle.value?.focus());
+}
+
+function onSidebarKeydown(event: KeyboardEvent): void {
+  if (event.key === "Escape" && drawerOpen.value) {
+    event.preventDefault();
+    closeMenu();
+  }
+}
+
+watch(
+  () => page.url,
+  () => closeMenu(false),
 );
+watch(isMobile, (mobile) => {
+  if (!mobile) menuOpen.value = false;
+});
 
 function logout(): void {
   if (loggingOut.value) return;
@@ -60,9 +157,53 @@ function logout(): void {
       :content="tr('meta.tagline')"
     />
   </Head>
-  <div class="admin-shell admin-frame">
+  <div
+    class="admin-shell admin-frame"
+    :class="{ 'is-drawer-open': drawerOpen }"
+  >
     <a href="#main" class="admin-skip">{{ tr("ad.skip") }}</a>
-    <aside class="admin-sidebar">
+
+    <div
+      v-if="isMobile"
+      class="admin-mobilebar"
+      :inert="drawerOpen || undefined"
+    >
+      <Link href="/admin" class="admin-brand admin-brand--compact">
+        <span class="admin-brand-mark" aria-hidden="true">SJ</span>
+        <span class="admin-brand-name">Shin Joy</span>
+      </Link>
+      <div
+        class="admin-language"
+        role="group"
+        :aria-label="tr('auth.language')"
+      >
+        <button
+          v-for="locale in ['id', 'en'] as const"
+          :key="locale"
+          type="button"
+          :aria-pressed="language === locale"
+          :data-admin-locale="locale"
+          @click="setLanguage(locale)"
+        >
+          {{ locale }}
+        </button>
+      </div>
+    </div>
+
+    <div
+      v-if="drawerOpen"
+      class="admin-backdrop"
+      aria-hidden="true"
+      @click="closeMenu()"
+    />
+
+    <aside
+      id="admin-sidebar"
+      ref="sidebar"
+      class="admin-sidebar"
+      :inert="(isMobile && !menuOpen) || undefined"
+      @keydown="onSidebarKeydown"
+    >
       <div class="admin-brand-row">
         <Link href="/admin" class="admin-brand">
           <span class="admin-brand-mark" aria-hidden="true">SJ</span>
@@ -71,76 +212,48 @@ function logout(): void {
             <span class="admin-brand-caption">{{ tr("ad.panel") }}</span>
           </span>
         </Link>
+        <button
+          v-if="isMobile"
+          type="button"
+          class="admin-icon-button"
+          :aria-label="tr('ad.nav.close')"
+          @click="closeMenu()"
+        >
+          <X aria-hidden="true" />
+        </button>
       </div>
+
       <nav class="admin-navigation" :aria-label="tr('ad.panel')">
-        <Link
-          v-if="page.props.auth.isOwner"
-          href="/admin/staff"
-          class="admin-nav-link"
-          :aria-current="isActiveAdminLink('/admin/staff') ? 'page' : undefined"
-        >
-          <Users aria-hidden="true" />{{ tr("ad.staff.title") }}
-        </Link>
-        <Link
-          v-if="page.props.auth.isOwner"
-          href="/admin/settings/booking"
-          class="admin-nav-link"
-          :aria-current="
-            isActiveAdminLink('/admin/settings/booking') ? 'page' : undefined
-          "
-        >
-          <Settings aria-hidden="true" />{{ tr("ad.settings.title") }}
-        </Link>
-        <Link
-          href="/admin"
-          class="admin-nav-link"
-          :aria-current="isActiveDashboard ? 'page' : undefined"
-        >
-          <LayoutDashboard aria-hidden="true" />{{ tr("ad.nav.dashboard") }}
-        </Link>
-        <Link
-          href="/admin/catalog"
-          class="admin-nav-link"
-          :aria-current="
-            isActiveAdminLink('/admin/catalog') ? 'page' : undefined
-          "
-        >
-          <BookOpen aria-hidden="true" />{{ tr("ad.nav.catalog") }}
-        </Link>
-        <Link
-          href="/admin/bookings"
-          class="admin-nav-link"
-          :aria-current="
-            isActiveAdminLink('/admin/bookings') ? 'page' : undefined
-          "
-        >
-          <CalendarDays aria-hidden="true" />{{ tr("ad.nav.bookings") }}
-        </Link>
-        <Link
-          href="/admin/schedule"
-          class="admin-nav-link"
-          :aria-current="
-            isActiveAdminLink('/admin/schedule') ? 'page' : undefined
-          "
-        >
-          <CalendarClock aria-hidden="true" />{{ tr("ad.nav.schedule") }}
-        </Link>
-        <Link
-          href="/admin/rooms"
-          class="admin-nav-link"
-          :aria-current="isActiveAdminLink('/admin/rooms') ? 'page' : undefined"
-        >
-          <DoorOpen aria-hidden="true" />{{ tr("ad.nav.rooms") }}
-        </Link>
+        <div v-for="group in navGroups" :key="group.id" class="admin-nav-group">
+          <p :id="`admin-nav-${group.id}`" class="admin-nav-group__label">
+            {{ group.label }}
+          </p>
+          <ul :aria-labelledby="`admin-nav-${group.id}`">
+            <li v-for="item in group.items" :key="item.href">
+              <Link
+                :href="item.href"
+                class="admin-nav-link"
+                :aria-current="isCurrent(item.href) ? 'page' : undefined"
+              >
+                <component :is="item.icon" aria-hidden="true" />{{ item.label }}
+              </Link>
+            </li>
+          </ul>
+        </div>
       </nav>
+
       <div class="admin-sidebar-footer">
         <div data-admin-identity class="admin-identity">
+          <span class="admin-avatar" aria-hidden="true">{{
+            accountInitial
+          }}</span>
           <div>
-            <p class="font-semibold">{{ currentUser?.name }}</p>
-            <p>{{ currentUser?.email }}</p>
+            <p class="admin-identity__name">{{ currentUser?.name }}</p>
+            <p class="admin-identity__email">{{ currentUser?.email }}</p>
           </div>
         </div>
         <div
+          v-if="!isMobile"
           class="admin-language"
           role="group"
           :aria-label="tr('auth.language')"
@@ -156,38 +269,62 @@ function logout(): void {
             {{ locale }}
           </button>
         </div>
-        <button
-          type="button"
-          data-admin-logout
-          class="admin-button admin-logout"
-          :disabled="loggingOut"
-          :aria-busy="loggingOut"
-          @click="logout"
-        >
-          {{ tr("ad.logout") }}
-        </button>
+        <div class="admin-account-actions">
+          <a href="/" class="admin-button">{{ tr("ad.viewsite") }}</a>
+          <button
+            type="button"
+            data-admin-logout
+            class="admin-button admin-logout"
+            :disabled="loggingOut"
+            :aria-busy="loggingOut"
+            @click="logout"
+          >
+            {{ tr("ad.logout") }}
+          </button>
+        </div>
       </div>
     </aside>
-    <div class="admin-frame__body">
-      <header class="admin-topbar admin-page-heading">
+
+    <div class="admin-frame__body" :inert="drawerOpen || undefined">
+      <header class="admin-page-heading">
         <div class="admin-page-heading__text">
-          <p>{{ tr("ad.panel") }}</p>
           <h1>{{ props.title }}</h1>
           <p v-if="props.subtitle">{{ props.subtitle }}</p>
         </div>
-        <div class="admin-topbar__actions">
-          <a href="/" class="admin-topbar__site">
-            {{ tr("ad.viewsite") }}
-          </a>
-          <span class="admin-topbar__user">
-            <span class="admin-topbar__avatar" aria-hidden="true">{{
-              accountInitial
-            }}</span>
-            <span class="admin-topbar__name">{{ currentUser?.name }}</span>
-          </span>
+        <div v-if="$slots.actions" class="admin-page-heading__actions">
+          <slot name="actions" />
         </div>
       </header>
       <main id="main" tabindex="-1" class="admin-main"><slot /></main>
     </div>
+
+    <nav
+      v-if="isMobile"
+      class="admin-tabbar"
+      :aria-label="tr('ad.nav.quick')"
+      :inert="drawerOpen || undefined"
+    >
+      <Link
+        v-for="item in quickItems"
+        :key="item.href"
+        :href="item.href"
+        class="admin-tabbar__item"
+        :aria-current="isCurrent(item.href) ? 'page' : undefined"
+      >
+        <component :is="item.icon" aria-hidden="true" />
+        <span>{{ item.label }}</span>
+      </Link>
+      <button
+        ref="menuToggle"
+        type="button"
+        class="admin-tabbar__item"
+        aria-controls="admin-sidebar"
+        :aria-expanded="menuOpen"
+        @click="menuOpen ? closeMenu() : openMenu()"
+      >
+        <Menu aria-hidden="true" />
+        <span>{{ tr("ad.nav.menu") }}</span>
+      </button>
+    </nav>
   </div>
 </template>

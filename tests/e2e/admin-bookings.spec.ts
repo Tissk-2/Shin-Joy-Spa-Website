@@ -372,6 +372,8 @@ test("administrator finds and confirms a real customer booking", async ({
   await expect(completedTrigger).toBeFocused();
   await zoomPage.close();
 
+  // At phone width the account actions live in the menu drawer.
+  await page.getByRole("button", { name: /^menu$/i }).click();
   await page.locator("[data-admin-logout]").click();
   await expect(page).toHaveURL("/");
   await login(page, customerEmail, customerPassword);
