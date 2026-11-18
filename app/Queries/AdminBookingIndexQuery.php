@@ -80,8 +80,10 @@ final class AdminBookingIndexQuery
             return;
         }
 
+        // Like the Today page: the day's appointments, without the cancelled ones.
         if ($scope === 'today') {
-            $query->whereDate('appointment_date', $now->toDateString());
+            $query->whereDate('appointment_date', $now->toDateString())
+                ->where('status', '!=', BookingStatus::Cancelled->value);
 
             return;
         }

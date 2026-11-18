@@ -187,7 +187,7 @@ class AdminBookingIndexTest extends TestCase
     }
 
     // Production break caught: the response queue must list every waiting request, oldest request first,
-    // and Today only today's appointments in time order, whatever their status.
+    // and Today only today's appointments in time order, without cancelled ones, like the Today page.
     public function test_pending_scope_is_oldest_request_first_and_today_scope_is_by_time(): void
     {
         $newest = $this->requestedAt('SJ-NEWEST-REQUEST', '2026-09-07 04:00:00', '2026-09-08', '09:00');
@@ -205,6 +205,12 @@ class AdminBookingIndexTest extends TestCase
             'appointment_date' => '2026-09-07',
             'appointment_time' => '16:00',
         ]);
+        Booking::factory()->create([
+            'reference' => 'SJ-CANCELLED-TODAY',
+            'status' => BookingStatus::Cancelled,
+            'appointment_date' => '2026-09-07',
+            'appointment_time' => '10:00',
+        ]);
 
         $pending = $this->actingAs($this->admin)->get('/admin/bookings?scope=pending');
         $this->assertSame(
@@ -217,6 +223,9 @@ class AdminBookingIndexTest extends TestCase
             [$earlyToday->reference, $middle->reference, $lateToday->reference],
             array_column($today->inertiaProps('bookings.data'), 'reference'),
         );
+        // The tab count matches the list, and the Today page agrees with both.
+        $this->assertSame(3, $today->inertiaProps('counts.today'));
+        $this->assertSame(3, count($this->get('/admin')->inertiaProps('today')));
     }
 
     // Production break caught: filters must compose while dashboard counts remain independent of them.
