@@ -32,12 +32,14 @@ function futureDate(days: number): string {
 async function createBooking(
   page: Page,
   details: { name: string; date: string },
-): Promise<void> {
+): Promise<string> {
   await page.goto(
     "/booking?service=nezuko&mode=regular&duration=90&extension=nezuko-regular-extra-60",
   );
   await page.getByLabel(/nama lengkap|full name/i).fill(details.name);
-  await page.getByLabel(/nomor whatsapp|whatsapp number/i).fill("+628122223333");
+  await page
+    .getByLabel(/nomor whatsapp|whatsapp number/i)
+    .fill("+628122223333");
   await page.getByLabel(/^tanggal$|^date$/i).fill(details.date);
   await page
     .getByRole("radiogroup", { name: /^waktu$|^time$/i })
@@ -51,6 +53,8 @@ async function createBooking(
     .click();
   await expect(page).toHaveURL(/\/bookings\/SJ-/);
   await expect(page.getByText(details.name, { exact: true })).toBeVisible();
+
+  return new URL(page.url()).pathname.split("/").at(-1) ?? "";
 }
 
 async function logout(page: Page): Promise<void> {
@@ -63,24 +67,24 @@ test.beforeAll(() => {
   mkdirSync(screenshotDirectory, { recursive: true });
 });
 
-test("dashboard upcoming panel shows a future customer booking", async ({
+test("Today opens on a waiting request that staff approve from the queue", async ({
   page,
 }) => {
-  const customerEmail = "dashboard-upcoming-customer@example.com";
-  const adminEmail = "dashboard-upcoming-admin@example.com";
-  const customerName = "Dashboard Upcoming Customer";
+  const customerEmail = "today-queue-customer@example.com";
+  const ownerEmail = "today-queue-owner@example.com";
+  const customerName = "Today Queue Customer";
 
   await registerCustomer(page, customerEmail);
   await verifyCustomer(page, customerEmail);
-  await createBooking(page, {
+  const reference = await createBooking(page, {
     name: customerName,
     date: futureDate(3),
   });
   await logout(page);
 
-  await registerCustomer(page, adminEmail);
-  await verifyCustomer(page, adminEmail);
-  execFileSync("php", ["artisan", "admin:grant", adminEmail, "--yes"], {
+  await registerCustomer(page, ownerEmail);
+  await verifyCustomer(page, ownerEmail);
+  execFileSync("php", ["artisan", "owner:grant", ownerEmail, "--yes"], {
     cwd: projectRoot,
     env: { ...process.env, ...testingEnvironment },
     stdio: "pipe",
@@ -88,19 +92,55 @@ test("dashboard upcoming panel shows a future customer booking", async ({
   await logout(page);
 
   await page.goto("/admin/login");
-  await expect(page).toHaveURL("/login");
-  await page.getByLabel(/^email$/i).fill(adminEmail);
+  await page.getByLabel(/^email$/i).fill(ownerEmail);
   await page.getByLabel(/^kata sandi$|^password$/i).fill(customerPassword);
   await page.getByRole("button", { name: /^masuk$|^log in$/i }).click();
-  await expect(page).toHaveURL("/admin/bookings");
+  await expect(page).toHaveURL(/\/admin/);
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/admin");
 
-  const upcoming = page.locator('[data-dash-panel="upcoming"]');
-  await expect(upcoming.getByRole("heading", { name: /reservasi mendatang|upcoming bookings/i })).toBeVisible();
-  await expect(upcoming.getByText(customerName, { exact: true })).toBeVisible();
-  await expect(upcoming.getByText("Nezuko", { exact: true })).toBeVisible();
-  await upcoming.screenshot({
-    path: path.join(screenshotDirectory, "admin-dashboard-upcoming.png"),
+  await expect(
+    page.getByRole("heading", { level: 1, name: /^hari ini$|^today$/i }),
+  ).toBeVisible();
+  // The waiting request is counted on the Bookings link of every admin page.
+  await expect(
+    page.locator('aside a[href="/admin/bookings"] .admin-nav-badge'),
+  ).toHaveText(/^[1-9]\d*$/);
+
+  const queue = page.locator("[data-queue]");
+  const row = queue.locator(`[data-booking-row="${reference}"]`);
+  await expect(row).toContainText(customerName);
+  await expect(row).toContainText(/diminta|requested/i);
+  await queue.screenshot({
+    path: path.join(screenshotDirectory, "admin-today-queue.png"),
   });
+
+  await row.locator('[data-answer="confirmed"]').click();
+  const dialog = page.getByRole("alertdialog");
+  await expect(
+    dialog.getByRole("heading", {
+      name: /setujui reservasi ini\?|approve this booking\?/i,
+    }),
+  ).toBeFocused();
+  await expect(dialog).toContainText(customerName);
+  const consent = dialog.locator('input[name="operationalConfirmed"]');
+  if (await consent.count()) await consent.check();
+  const patch = page.waitForResponse(
+    (response) =>
+      response.request().method() === "PATCH" &&
+      new URL(response.url()).pathname.endsWith("/status"),
+  );
+  await dialog.locator('button[type="submit"]').click();
+  expect((await patch).status()).toBe(303);
+
+  // Staff stay on Today, the request leaves the queue, and the change is announced.
+  await expect(dialog).toBeHidden();
+  await expect(page).toHaveURL("/admin");
+  await expect(row).toHaveCount(0);
+  await expect(
+    page.getByRole("status").filter({ hasText: /berhasil|updated/i }),
+  ).toBeVisible();
+
+  await page.goto(`/admin/bookings/${reference}`);
+  await expect(page.locator(".admin-status--confirmed")).toBeVisible();
 });

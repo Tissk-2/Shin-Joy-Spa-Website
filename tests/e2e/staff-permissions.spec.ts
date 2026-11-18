@@ -95,14 +95,15 @@ test("owner grant and revoke immediately govern a separate retained staff sessio
     );
     await staff
       .getByRole("alertdialog")
-      .getByRole("button", { name: "Confirm change" })
+      .getByRole("button", { name: /^approve$|^setujui$/i })
       .click();
     expect((await deniedResponse).status()).toBe(403);
     await staff.reload();
     await expect(staff.locator("[data-next-status]")).toHaveCount(0);
-    await expect(
-      staff.getByRole("heading", { name: data.reference }),
-    ).toBeVisible();
+    // Still readable: the page title is the guest, the reference is in the guest card.
+    await expect(staff.locator("[data-booking-reference]")).toHaveText(
+      data.reference,
+    );
     await capture(staff, "revoked-staff-en");
     const facts = fixture(["facts"]);
     expect(facts).toEqual({

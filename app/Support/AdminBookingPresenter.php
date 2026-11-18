@@ -44,6 +44,7 @@ final class AdminBookingPresenter
                 fn (BookingStatus $status): string => $status->value,
                 $booking->status->allowedTransitions(),
             ) : [],
+            'requestedAt' => $booking->created_at?->toISOString(),
         ];
     }
 

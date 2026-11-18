@@ -339,6 +339,63 @@ class AdminBookingStatusTest extends TestCase
         ]);
     }
 
+    // Production break caught: an answer given from the bookings list or the Today page must land back
+    // there, on a server-built address, never on one the client chose.
+    public function test_return_to_sends_the_admin_back_to_the_saved_list_or_today(): void
+    {
+        $admin = User::factory()->bookingStaff()->create();
+        $listed = Booking::factory()->create(['status' => BookingStatus::Pending]);
+        $fromToday = Booking::factory()->create(['status' => BookingStatus::Pending]);
+
+        $this->actingAs($admin)
+            ->withSession(['admin.bookings.index_url' => '/admin/bookings?scope=pending'])
+            ->patch(route('admin.bookings.status.update', $listed), [
+                'currentStatus' => 'pending',
+                'nextStatus' => 'confirmed',
+                'returnTo' => 'bookings',
+            ])->assertRedirect('/admin/bookings?scope=pending')
+            ->assertStatus(303)
+            ->assertSessionHas('status', 'Status reservasi berhasil diperbarui.');
+
+        $this->patch(route('admin.bookings.status.update', $fromToday), [
+            'currentStatus' => 'pending',
+            'nextStatus' => 'cancelled',
+            'returnTo' => 'today',
+        ])->assertRedirect('/admin')->assertStatus(303);
+
+        $this->assertSame(BookingStatus::Confirmed, $listed->fresh()->status);
+        $this->assertSame(BookingStatus::Cancelled, $fromToday->fresh()->status);
+    }
+
+    public function test_return_to_the_list_without_a_saved_list_opens_the_default_list(): void
+    {
+        $admin = User::factory()->bookingStaff()->create();
+        $booking = Booking::factory()->create(['status' => BookingStatus::Pending]);
+
+        $this->actingAs($admin)->patch(route('admin.bookings.status.update', $booking), [
+            'currentStatus' => 'pending',
+            'nextStatus' => 'confirmed',
+            'returnTo' => 'bookings',
+        ])->assertRedirect('/admin/bookings')->assertStatus(303);
+    }
+
+    public function test_an_unknown_return_target_is_rejected_without_a_change(): void
+    {
+        $admin = User::factory()->bookingStaff()->create();
+        $booking = Booking::factory()->create(['status' => BookingStatus::Pending]);
+
+        $this->actingAs($admin)
+            ->patchJson(route('admin.bookings.status.update', $booking), [
+                ...$this->validHttpPayload(),
+                'returnTo' => 'https://attacker.example/after',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('returnTo');
+
+        $this->assertSame(BookingStatus::Pending, $booking->fresh()->status);
+        $this->assertDatabaseCount('booking_status_changes', 0);
+    }
+
     public function test_unknown_top_level_fields_are_rejected_without_changing_booking_or_audit_data(): void
     {
         $admin = User::factory()->bookingStaff()->create();

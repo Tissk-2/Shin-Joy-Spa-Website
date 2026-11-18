@@ -1,15 +1,28 @@
 <script setup lang="ts">
 import { Link, router, usePage } from "@inertiajs/vue3";
-import { computed, ref, watch } from "vue";
+import { useDebounceFn } from "@vueuse/core";
+import { Plus } from "lucide-vue-next";
+import { computed, nextTick, ref, watch } from "vue";
 
+import BookingStatusDialog from "@/components/admin/BookingStatusDialog.vue";
 import { useLanguage } from "@/composables/useLanguage";
 import AdminLayout from "@/layouts/admin/AdminLayout.vue";
+import {
+  formatDay,
+  formatPrice,
+  packageName,
+  shortReference,
+  timeAgo,
+  timezoneLabel,
+} from "@/lib/adminBooking";
 import type {
   AdminBookingCounts,
   AdminBookingFilters,
   AdminBookingPagination,
+  AdminBookingScope,
   AdminBookingSummaryData,
   AppPageProps,
+  BookingStatus,
 } from "@/types";
 
 const props = defineProps<{
@@ -17,6 +30,7 @@ const props = defineProps<{
   filters: AdminBookingFilters;
   bookings: AdminBookingPagination;
   canCreate?: boolean;
+  roomSchedulingEnabled?: boolean;
 }>();
 
 const { language, tr } = useLanguage();
@@ -27,7 +41,13 @@ const filterForm = ref({
   status: props.filters.status ?? "",
 });
 const loading = ref(false);
-const scopes = ["upcoming", "past", "all"] as const;
+const scopes: readonly AdminBookingScope[] = [
+  "upcoming",
+  "pending",
+  "today",
+  "past",
+  "all",
+];
 const statuses = [
   "pending",
   "confirmed",
@@ -36,7 +56,6 @@ const statuses = [
   "cancelled",
   "no_show",
 ] as const;
-const countKeys = ["today", "pending", "confirmed", "completed"] as const;
 const hasOptionalFilters = computed(() =>
   Boolean(
     props.filters.q.trim() ||
@@ -48,26 +67,50 @@ const hasOptionalFilters = computed(() =>
 const canClear = computed(
   () =>
     hasOptionalFilters.value ||
-    props.filters.scope !== "upcoming" ||
     Boolean(
       filterForm.value.q.trim() ||
       filterForm.value.status ||
       filterForm.value.dateFrom ||
-      filterForm.value.dateTo ||
-      filterForm.value.scope !== "upcoming",
+      filterForm.value.dateTo,
     ),
 );
 
+// The row whose request is being answered, and the button that opened the dialog.
+const answering = ref<{
+  booking: AdminBookingSummaryData;
+  next: BookingStatus;
+} | null>(null);
+const answerTrigger = ref<HTMLElement | null>(null);
+const listHeading = ref<HTMLElement | null>(null);
+
+function queryFor(
+  values: typeof filterForm.value | AdminBookingFilters,
+): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries({ ...values, q: values.q.trim() }).filter(
+      (entry): entry is [string, string] =>
+        entry[1] !== "" && entry[1] !== null,
+    ),
+  );
+}
+
+// The last query sent or received, so one change never sends two requests.
+let lastQuery = JSON.stringify(queryFor(props.filters));
+
+// A reply to the latest request keeps whatever staff typed since it left;
+// anything else (a link, Back, a rejected filter) resets the controls.
 watch(
   () => props.filters,
   (filters) => {
+    const received = JSON.stringify(queryFor(filters));
+    if (received === lastQuery) return;
+    lastQuery = received;
     filterForm.value = { ...filters, status: filters.status ?? "" };
   },
 );
 
 function visit(query: Record<string, string>): void {
-  if (loading.value) return;
-  loading.value = true;
+  lastQuery = JSON.stringify(query);
   router.get("/admin/bookings", query, {
     preserveState: true,
     preserveScroll: true,
@@ -81,52 +124,70 @@ function visit(query: Record<string, string>): void {
   });
 }
 
-function submitFilters(): void {
-  const query = Object.fromEntries(
-    Object.entries({
-      ...filterForm.value,
-      q: filterForm.value.q.trim(),
-    }).filter(
-      (entry): entry is [string, string] =>
-        entry[1] !== "" && entry[1] !== null,
-    ),
-  );
-  visit(query);
+// Filters apply as they change; the search waits for a pause in typing.
+function applyIfChanged(): void {
+  const query = queryFor(filterForm.value);
+  if (JSON.stringify(query) !== lastQuery) visit(query);
 }
+const applySearch = useDebounceFn(applyIfChanged, 350);
+watch(() => filterForm.value.q, applySearch);
+watch(
+  [
+    () => filterForm.value.status,
+    () => filterForm.value.dateFrom,
+    () => filterForm.value.dateTo,
+  ],
+  applyIfChanged,
+);
 
-function selectScope(scope: AdminBookingFilters["scope"]): void {
-  if (loading.value) return;
+function selectScope(scope: AdminBookingScope): void {
   filterForm.value = { ...filterForm.value, scope };
-  submitFilters();
+  applyIfChanged();
 }
 
 function clearFilters(): void {
-  visit({ scope: "upcoming" });
+  filterForm.value = {
+    ...filterForm.value,
+    q: "",
+    status: "",
+    dateFrom: null,
+    dateTo: null,
+  };
+  applyIfChanged();
 }
 
-function packageName(booking: AdminBookingSummaryData): string {
-  return language.value === "id"
-    ? booking.package.nameId
-    : booking.package.nameEn;
+function canAnswer(booking: AdminBookingSummaryData): boolean {
+  return (
+    (booking.status === "pending" || booking.status === "awaiting_payment") &&
+    booking.allowedTransitions.includes("confirmed")
+  );
 }
 
-function formatDate(date: string): string {
-  const [year, month, day] = date.split("-").map(Number);
-  return new Intl.DateTimeFormat(language.value === "id" ? "id-ID" : "en-GB", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-    timeZone: "UTC",
-  }).format(new Date(Date.UTC(year, month - 1, day)));
+function answer(
+  booking: AdminBookingSummaryData,
+  next: BookingStatus,
+  event: MouseEvent,
+): void {
+  answerTrigger.value = event.currentTarget as HTMLElement;
+  answering.value = { booking, next };
+}
+
+function answered(): void {
+  answering.value = null;
+  void nextTick(() => {
+    const target = answerTrigger.value;
+    if (target?.isConnected) target.focus();
+    else listHeading.value?.focus();
+  });
+}
+
+function bookingHref(booking: AdminBookingSummaryData): string {
+  return `/admin/bookings/${encodeURIComponent(booking.reference)}`;
 }
 
 function appointmentTime(booking: AdminBookingSummaryData): string {
   const { time, timezone } = booking.appointment;
-  return `${time} ${timezone === "Asia/Jakarta" ? "WIB" : timezone}`;
-}
-
-function formatPrice(amount: number): string {
-  return `Rp ${new Intl.NumberFormat("id-ID").format(amount)}`;
+  return `${time} ${timezoneLabel(timezone)}`;
 }
 
 function paginationLabel(label: string, index: number): string {
@@ -143,178 +204,174 @@ function paginationLabel(label: string, index: number): string {
       :title="tr('ad.booking.title')"
       :subtitle="tr('ad.booking.subtitle')"
     >
-      <div class="admin-content">
+      <template v-if="canCreate" #actions>
         <Link
-          v-if="canCreate"
           href="/admin/bookings/create"
-          class="admin-button w-fit"
+          class="admin-button admin-button--primary"
           data-new-booking
         >
-          {{ tr("ad.manual.new") }}
+          <Plus aria-hidden="true" />{{ tr("ad.manual.new") }}
         </Link>
-        <dl class="admin-count-grid">
-          <div
-            v-for="key in countKeys"
-            :key="key"
-            class="admin-count"
-            :class="`admin-count--${key}`"
+      </template>
+      <div class="admin-content">
+        <p
+          v-if="page.props.flash.status"
+          class="admin-flash"
+          role="status"
+          aria-live="polite"
+        >
+          {{ page.props.flash.status }}
+        </p>
+        <div
+          class="admin-tabs"
+          role="group"
+          :aria-label="tr('ad.booking.title')"
+        >
+          <button
+            v-for="scope in scopes"
+            :key="scope"
+            class="admin-tab"
+            type="button"
+            :data-scope="scope"
+            :aria-pressed="filterForm.scope === scope"
+            @click="selectScope(scope)"
           >
-            <dt>{{ tr(`ad.count.${key}`) }}</dt>
-            <dd>{{ props.counts[key] }}</dd>
-          </div>
-        </dl>
+            {{ tr(`ad.scope.${scope}`) }}
+            <span
+              class="admin-tab__count"
+              :class="{
+                'admin-tab__count--alert':
+                  scope === 'pending' && props.counts.pending > 0,
+              }"
+              >{{ props.counts[scope] }}</span
+            >
+          </button>
+        </div>
 
         <form
-          class="admin-filter-panel"
+          class="admin-filter-bar"
           data-admin-filters
           method="get"
           action="/admin/bookings"
           :aria-busy="loading"
-          @submit.prevent="submitFilters"
+          @submit.prevent="applyIfChanged"
         >
-          <div class="admin-scopes">
-            <button
-              v-for="scope in scopes"
-              :key="scope"
-              class="admin-button admin-scope"
-              type="button"
-              :data-scope="scope"
-              :aria-pressed="filterForm.scope === scope"
-              :disabled="loading"
-              @click="selectScope(scope)"
+          <div class="admin-filter-search">
+            <label for="admin-search">{{ tr("ad.filter.search") }}</label>
+            <input
+              id="admin-search"
+              v-model="filterForm.q"
+              class="admin-control"
+              type="search"
+              name="q"
+              :aria-invalid="Boolean(errors.q)"
+              :aria-describedby="errors.q ? 'admin-search-error' : undefined"
+              maxlength="100"
+            />
+            <p
+              v-if="errors.q"
+              id="admin-search-error"
+              class="admin-filter-error"
+              role="alert"
             >
-              {{ tr(`ad.scope.${scope}`) }}
-            </button>
+              {{ errors.q }}
+            </p>
           </div>
-          <div class="admin-filter-fields">
-            <div class="admin-filter-search">
-              <label for="admin-search">{{ tr("ad.filter.search") }}</label>
-              <input
-                id="admin-search"
-                v-model="filterForm.q"
-                class="admin-control"
-                type="search"
-                name="q"
-                :aria-invalid="Boolean(errors.q)"
-                :aria-describedby="errors.q ? 'admin-search-error' : undefined"
-                maxlength="100"
-                :disabled="loading"
-              />
-              <p
-                v-if="errors.q"
-                id="admin-search-error"
-                class="admin-filter-error"
-                role="alert"
-              >
-                {{ errors.q }}
-              </p>
-            </div>
-            <div>
-              <label for="admin-status">{{ tr("ad.filter.status") }}</label>
-              <select
-                id="admin-status"
-                v-model="filterForm.status"
-                class="admin-control"
-                name="status"
-                :aria-invalid="Boolean(errors.status)"
-                :aria-describedby="
-                  errors.status ? 'admin-status-error' : undefined
-                "
-                :disabled="loading"
-              >
-                <option value="">{{ tr("ad.scope.all") }}</option>
-                <option
-                  v-for="status in statuses"
-                  :key="status"
-                  :value="status"
-                >
-                  {{ tr(`ad.status.${status}`) }}
-                </option>
-              </select>
-              <p
-                v-if="errors.status"
-                id="admin-status-error"
-                class="admin-filter-error"
-                role="alert"
-              >
-                {{ errors.status }}
-              </p>
-            </div>
-            <div>
-              <label for="admin-date-from">{{
-                tr("ad.filter.dateFrom")
-              }}</label>
-              <input
-                id="admin-date-from"
-                v-model="filterForm.dateFrom"
-                class="admin-control"
-                type="date"
-                name="dateFrom"
-                :aria-invalid="Boolean(errors.dateFrom)"
-                :aria-describedby="
-                  errors.dateFrom ? 'admin-date-from-error' : undefined
-                "
-                :disabled="loading"
-              />
-              <p
-                v-if="errors.dateFrom"
-                id="admin-date-from-error"
-                class="admin-filter-error"
-                role="alert"
-              >
-                {{ errors.dateFrom }}
-              </p>
-            </div>
-            <div>
-              <label for="admin-date-to">{{ tr("ad.filter.dateTo") }}</label>
-              <input
-                id="admin-date-to"
-                v-model="filterForm.dateTo"
-                class="admin-control"
-                type="date"
-                name="dateTo"
-                :aria-invalid="Boolean(errors.dateTo)"
-                :aria-describedby="
-                  errors.dateTo ? 'admin-date-to-error' : undefined
-                "
-                :min="filterForm.dateFrom || undefined"
-                :disabled="loading"
-              />
-              <p
-                v-if="errors.dateTo"
-                id="admin-date-to-error"
-                class="admin-filter-error"
-                role="alert"
-              >
-                {{ errors.dateTo }}
-              </p>
-            </div>
-          </div>
-          <div class="admin-filter-actions">
-            <button
-              class="admin-button admin-button--primary"
-              type="submit"
-              :disabled="loading"
+          <div>
+            <label for="admin-status">{{ tr("ad.filter.status") }}</label>
+            <select
+              id="admin-status"
+              v-model="filterForm.status"
+              class="admin-control"
+              name="status"
+              :aria-invalid="Boolean(errors.status)"
+              :aria-describedby="
+                errors.status ? 'admin-status-error' : undefined
+              "
             >
-              {{ tr("ad.filter.apply") }}
-            </button>
-            <button
-              v-if="canClear"
-              class="admin-button"
-              type="button"
-              data-clear-filters
-              :disabled="loading"
-              @click="clearFilters"
+              <option value="">{{ tr("ad.scope.all") }}</option>
+              <option v-for="status in statuses" :key="status" :value="status">
+                {{ tr(`ad.status.${status}`) }}
+              </option>
+            </select>
+            <p
+              v-if="errors.status"
+              id="admin-status-error"
+              class="admin-filter-error"
+              role="alert"
             >
-              {{ tr("ad.filter.clear") }}
-            </button>
+              {{ errors.status }}
+            </p>
           </div>
+          <div>
+            <label for="admin-date-from">{{ tr("ad.filter.dateFrom") }}</label>
+            <input
+              id="admin-date-from"
+              v-model="filterForm.dateFrom"
+              class="admin-control"
+              type="date"
+              name="dateFrom"
+              :aria-invalid="Boolean(errors.dateFrom)"
+              :aria-describedby="
+                errors.dateFrom ? 'admin-date-from-error' : undefined
+              "
+            />
+            <p
+              v-if="errors.dateFrom"
+              id="admin-date-from-error"
+              class="admin-filter-error"
+              role="alert"
+            >
+              {{ errors.dateFrom }}
+            </p>
+          </div>
+          <div>
+            <label for="admin-date-to">{{ tr("ad.filter.dateTo") }}</label>
+            <input
+              id="admin-date-to"
+              v-model="filterForm.dateTo"
+              class="admin-control"
+              type="date"
+              name="dateTo"
+              :aria-invalid="Boolean(errors.dateTo)"
+              :aria-describedby="
+                errors.dateTo ? 'admin-date-to-error' : undefined
+              "
+              :min="filterForm.dateFrom || undefined"
+            />
+            <p
+              v-if="errors.dateTo"
+              id="admin-date-to-error"
+              class="admin-filter-error"
+              role="alert"
+            >
+              {{ errors.dateTo }}
+            </p>
+          </div>
+          <button
+            v-if="canClear"
+            class="admin-button admin-filter-clear"
+            type="button"
+            data-clear-filters
+            @click="clearFilters"
+          >
+            {{ tr("ad.filter.clear") }}
+          </button>
         </form>
 
-        <p v-if="loading" data-admin-loading role="status" aria-live="polite">
+        <p
+          v-if="loading"
+          class="admin-loading"
+          data-admin-loading
+          role="status"
+          aria-live="polite"
+        >
           {{ tr("ad.filter.loading") }}
         </p>
 
+        <h2 ref="listHeading" class="sr-only" tabindex="-1">
+          {{ tr(`ad.scope.${props.filters.scope}`) }}
+        </h2>
         <div
           v-if="!props.bookings.data.length"
           class="admin-empty"
@@ -324,7 +381,7 @@ function paginationLabel(label: string, index: number): string {
           {{ tr(hasOptionalFilters ? "ad.empty.filtered" : "ad.empty.all") }}
         </div>
         <template v-else>
-          <div class="admin-booking-table-wrap">
+          <div class="admin-booking-table-wrap admin-bookings-table">
             <table class="admin-booking-table">
               <caption class="sr-only">
                 {{
@@ -333,52 +390,62 @@ function paginationLabel(label: string, index: number): string {
               </caption>
               <thead>
                 <tr>
-                  <th scope="col">{{ tr("ad.booking.reference") }}</th>
                   <th scope="col">{{ tr("ad.table.customer") }}</th>
                   <th scope="col">{{ tr("ad.table.treatment") }}</th>
                   <th scope="col">{{ tr("ad.table.schedule") }}</th>
-                  <th scope="col">{{ tr("ad.table.guests") }}</th>
-                  <th scope="col">{{ tr("bookings.totalPrice") }}</th>
+                  <th scope="col" class="admin-num">
+                    {{ tr("bookings.totalPrice") }}
+                  </th>
                   <th scope="col">{{ tr("ad.table.status") }}</th>
-                  <th scope="col">{{ tr("ad.table.action") }}</th>
+                  <th scope="col">
+                    <span class="sr-only">{{ tr("ad.table.action") }}</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 <tr
                   v-for="booking in props.bookings.data"
                   :key="booking.reference"
+                  :data-booking-row="booking.reference"
                 >
-                  <th scope="row">{{ booking.reference }}</th>
+                  <th scope="row">
+                    <Link
+                      class="admin-row-link"
+                      :href="bookingHref(booking)"
+                      :title="booking.reference"
+                      ><span class="admin-row-link__name">{{
+                        booking.customer.name
+                      }}</span>
+                      <span class="admin-code">{{
+                        shortReference(booking.reference)
+                      }}</span></Link
+                    >
+                  </th>
                   <td>
-                    <strong>{{ booking.customer.name }}</strong>
-                    <span class="admin-record-secondary">{{
-                      booking.customer.email
-                    }}</span>
-                    <span class="admin-record-secondary">{{
-                      booking.customer.phone
-                    }}</span>
-                  </td>
-                  <td>
-                    <strong>{{ packageName(booking) }}</strong>
-                    <span v-if="booking.package.isVip" class="admin-vip">{{
-                      tr("bookings.vip")
-                    }}</span>
-                    <span class="admin-record-secondary">{{
-                      tr(`bookings.treatmentMode.${booking.treatmentMode}`)
-                    }}</span>
+                    <span class="admin-cell-main"
+                      >{{ packageName(booking, language)
+                      }}<span v-if="booking.package.isVip" class="admin-vip">{{
+                        tr("bookings.vip")
+                      }}</span></span
+                    >
                     <span class="admin-record-secondary"
-                      >{{ booking.totalDurationMinutes }}
-                      {{ tr("bookings.minutes") }}</span
+                      >{{
+                        tr(`bookings.treatmentMode.${booking.treatmentMode}`)
+                      }}
+                      · {{ booking.totalDurationMinutes }}
+                      {{ tr("bookings.minutes") }} ·
+                      {{ tr("ad.list.guests", { n: booking.guests }) }}</span
                     >
                   </td>
-                  <td>
-                    <span>{{ formatDate(booking.appointment.date) }}</span>
+                  <td class="admin-nowrap">
+                    <span class="admin-cell-main">{{
+                      formatDay(booking.appointment.date, language, "short")
+                    }}</span>
                     <span class="admin-record-secondary">{{
                       appointmentTime(booking)
                     }}</span>
                   </td>
-                  <td>{{ booking.guests }}</td>
-                  <td class="admin-price">
+                  <td class="admin-num admin-price">
                     {{ formatPrice(booking.totalPriceIdr) }}
                   </td>
                   <td>
@@ -387,14 +454,37 @@ function paginationLabel(label: string, index: number): string {
                       :class="`admin-status--${booking.status}`"
                       >{{ tr(`ad.status.${booking.status}`) }}</span
                     >
-                  </td>
-                  <td>
-                    <Link
-                      class="admin-record-link"
-                      :href="`/admin/bookings/${encodeURIComponent(booking.reference)}`"
-                      :aria-label="`${tr('ad.table.open')} ${booking.reference}`"
-                      >{{ tr("ad.table.open") }}</Link
+                    <span
+                      v-if="booking.status === 'pending' && booking.requestedAt"
+                      class="admin-record-secondary admin-nowrap"
+                      >{{
+                        tr("ad.list.requested", {
+                          when: timeAgo(booking.requestedAt, language),
+                        })
+                      }}</span
                     >
+                  </td>
+                  <td class="admin-row-actions">
+                    <template v-if="canAnswer(booking)">
+                      <button
+                        type="button"
+                        class="admin-button admin-button--danger admin-button--compact"
+                        data-answer="cancelled"
+                        :aria-label="`${tr(`ad.action.${booking.status}.cancelled`)} ${booking.customer.name}`"
+                        @click="answer(booking, 'cancelled', $event)"
+                      >
+                        {{ tr(`ad.action.${booking.status}.cancelled`) }}
+                      </button>
+                      <button
+                        type="button"
+                        class="admin-button admin-button--primary admin-button--compact"
+                        data-answer="confirmed"
+                        :aria-label="`${tr(`ad.action.${booking.status}.confirmed`)} ${booking.customer.name}`"
+                        @click="answer(booking, 'confirmed', $event)"
+                      >
+                        {{ tr(`ad.action.${booking.status}.confirmed`) }}
+                      </button>
+                    </template>
                   </td>
                 </tr>
               </tbody>
@@ -402,86 +492,74 @@ function paginationLabel(label: string, index: number): string {
           </div>
 
           <ul
-            class="admin-booking-cards"
+            class="admin-booking-list"
             role="list"
             :aria-label="tr('ad.booking.title')"
           >
-            <li v-for="booking in props.bookings.data" :key="booking.reference">
-              <dl>
-                <div>
-                  <dt>{{ tr("ad.booking.reference") }}</dt>
-                  <dd class="admin-card-reference">{{ booking.reference }}</dd>
-                </div>
-                <div>
-                  <dt>{{ tr("ad.table.customer") }}</dt>
-                  <dd>
-                    <strong>{{ booking.customer.name }}</strong
-                    ><span class="admin-record-secondary">{{
-                      booking.customer.email
-                    }}</span
-                    ><span class="admin-record-secondary">{{
-                      booking.customer.phone
-                    }}</span>
-                  </dd>
-                </div>
-                <div>
-                  <dt>{{ tr("ad.table.treatment") }}</dt>
-                  <dd>
-                    <strong>{{ packageName(booking) }}</strong
-                    ><span v-if="booking.package.isVip" class="admin-vip">{{
-                      tr("bookings.vip")
-                    }}</span
-                    ><span class="admin-record-secondary">{{
-                      tr(`bookings.treatmentMode.${booking.treatmentMode}`)
-                    }}</span
-                    ><span class="admin-record-secondary"
-                      >{{ booking.totalDurationMinutes }}
-                      {{ tr("bookings.minutes") }}</span
-                    >
-                  </dd>
-                </div>
-                <div>
-                  <dt>{{ tr("ad.table.schedule") }}</dt>
-                  <dd>
-                    {{ formatDate(booking.appointment.date)
-                    }}<span class="admin-record-secondary">{{
-                      appointmentTime(booking)
-                    }}</span>
-                  </dd>
-                </div>
-                <div>
-                  <dt>{{ tr("ad.table.guests") }}</dt>
-                  <dd>{{ booking.guests }}</dd>
-                </div>
-                <div>
-                  <dt>{{ tr("bookings.totalPrice") }}</dt>
-                  <dd class="admin-price">
-                    {{ formatPrice(booking.totalPriceIdr) }}
-                  </dd>
-                </div>
-                <div>
-                  <dt>{{ tr("ad.table.status") }}</dt>
-                  <dd>
-                    <span
-                      class="admin-status"
-                      :class="`admin-status--${booking.status}`"
-                      >{{ tr(`ad.status.${booking.status}`) }}</span
-                    >
-                  </dd>
-                </div>
-              </dl>
-              <Link
-                class="admin-record-link"
-                :href="`/admin/bookings/${encodeURIComponent(booking.reference)}`"
-                :aria-label="`${tr('ad.table.open')} ${booking.reference}`"
-                >{{ tr("ad.table.open") }}</Link
+            <li
+              v-for="booking in props.bookings.data"
+              :key="booking.reference"
+              :data-booking-row="booking.reference"
+            >
+              <div class="admin-booking-list__top">
+                <Link
+                  class="admin-row-link"
+                  :href="bookingHref(booking)"
+                  :title="booking.reference"
+                  ><span class="admin-row-link__name">{{
+                    booking.customer.name
+                  }}</span>
+                  <span class="admin-code">{{
+                    shortReference(booking.reference)
+                  }}</span></Link
+                >
+                <span
+                  class="admin-status"
+                  :class="`admin-status--${booking.status}`"
+                  >{{ tr(`ad.status.${booking.status}`) }}</span
+                >
+              </div>
+              <p class="admin-booking-list__meta">
+                <span>{{
+                  formatDay(booking.appointment.date, language, "short")
+                }}</span>
+                · <span>{{ appointmentTime(booking) }}</span> ·
+                <span>{{ packageName(booking, language) }}</span>
+                · <span>{{ tr("ad.list.guests", { n: booking.guests }) }}</span>
+                ·
+                <span class="admin-price">{{
+                  formatPrice(booking.totalPriceIdr)
+                }}</span>
+              </p>
+              <div
+                v-if="canAnswer(booking)"
+                class="admin-booking-list__actions"
               >
+                <button
+                  type="button"
+                  class="admin-button admin-button--danger"
+                  data-answer="cancelled"
+                  :aria-label="`${tr(`ad.action.${booking.status}.cancelled`)} ${booking.customer.name}`"
+                  @click="answer(booking, 'cancelled', $event)"
+                >
+                  {{ tr(`ad.action.${booking.status}.cancelled`) }}
+                </button>
+                <button
+                  type="button"
+                  class="admin-button admin-button--primary"
+                  data-answer="confirmed"
+                  :aria-label="`${tr(`ad.action.${booking.status}.confirmed`)} ${booking.customer.name}`"
+                  @click="answer(booking, 'confirmed', $event)"
+                >
+                  {{ tr(`ad.action.${booking.status}.confirmed`) }}
+                </button>
+              </div>
             </li>
           </ul>
         </template>
 
         <nav
-          v-if="props.bookings.links.length"
+          v-if="props.bookings.lastPage > 1"
           class="admin-pagination"
           :aria-label="tr('ad.booking.title')"
         >
@@ -502,5 +580,12 @@ function paginationLabel(label: string, index: number): string {
         </nav>
       </div>
     </AdminLayout>
+    <BookingStatusDialog
+      :booking="answering?.booking ?? null"
+      :next-status="answering?.next ?? null"
+      :room-scheduling-enabled="roomSchedulingEnabled === true"
+      return-to="bookings"
+      @close="answered"
+    />
   </div>
 </template>

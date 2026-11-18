@@ -19,7 +19,7 @@ final class AdminBookingIndexRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'scope' => ['sometimes', Rule::in(['upcoming', 'past', 'all'])],
+            'scope' => ['sometimes', Rule::in(['upcoming', 'pending', 'today', 'past', 'all'])],
             'status' => ['sometimes', 'nullable', Rule::enum(BookingStatus::class)],
             'q' => ['sometimes', 'nullable', 'string', 'max:100'],
             'dateFrom' => ['sometimes', 'nullable', 'date_format:Y-m-d'],

@@ -1,11 +1,17 @@
 <script setup lang="ts">
-import { Link, useForm, usePage } from "@inertiajs/vue3";
-import { DialogContent, DialogOverlay, DialogPortal } from "radix-vue";
+import { Link, usePage } from "@inertiajs/vue3";
+import { Check, ChevronLeft, Copy } from "lucide-vue-next";
 import { computed, nextTick, ref } from "vue";
 
-import { Dialog, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import BookingStatusDialog from "@/components/admin/BookingStatusDialog.vue";
 import { useLanguage } from "@/composables/useLanguage";
 import AdminLayout from "@/layouts/admin/AdminLayout.vue";
+import {
+  formatAppointment,
+  formatPrice,
+  packageName as bookingPackageName,
+  timeAgo,
+} from "@/lib/adminBooking";
 import type {
   AdminBookingDetailData,
   AdminBookingNotification,
@@ -21,37 +27,15 @@ const { language, tr } = useLanguage();
 const page = usePage<AppPageProps>();
 const selectedNextStatus = ref<BookingStatus | null>(null);
 const trigger = ref<HTMLButtonElement | null>(null);
-const heading = ref<HTMLElement | null>(null);
-const feedback = ref<HTMLElement | null>(null);
 const statusSummary = ref<HTMLElement | null>(null);
-const form = useForm({
-  currentStatus: props.booking.status,
-  nextStatus: "" as BookingStatus | "",
-  reason: "",
-  operationalConfirmed: false,
-});
-const requiresOperational = computed(
-  () =>
-    props.booking.roomSchedulingEnabled &&
-    props.booking.status === "pending" &&
-    selectedNextStatus.value === "confirmed",
-);
-const formErrors = computed(() =>
-  Object.entries(form.errors)
-    .filter(([key]) => !["currentStatus", "nextStatus", "reason"].includes(key))
-    .map(([, value]) => value),
-);
+const copied = ref(false);
+
 const packageName = computed(() =>
-  language.value === "id"
-    ? props.booking.package.nameId
-    : props.booking.package.nameEn,
+  bookingPackageName(props.booking, language.value),
 );
-const reason = computed({
-  get: () => form.reason,
-  set: (value: string) => {
-    form.reason = value.slice(0, 500);
-  },
-});
+const appointment = computed(() =>
+  formatAppointment(props.booking.appointment, language.value),
+);
 
 const notifications = computed(() => props.booking.notifications ?? []);
 // A guest without an email can't get status emails, so staff must tell them another way.
@@ -97,10 +81,6 @@ function noticeDetail(notice: AdminBookingNotification): string | null {
     : null;
 }
 
-function formatPrice(amount: number): string {
-  return `Rp ${new Intl.NumberFormat("id-ID").format(amount)}`;
-}
-
 function formatDate(value: string, includeTime = false): string {
   return new Intl.DateTimeFormat(language.value === "id" ? "id-ID" : "en-GB", {
     day: "numeric",
@@ -116,28 +96,22 @@ function formatDate(value: string, includeTime = false): string {
   }).format(new Date(includeTime ? value : `${value}T00:00:00Z`));
 }
 
+function actionClass(next: BookingStatus): string {
+  if (next === "cancelled") return "admin-button admin-button--danger";
+  if (next === "confirmed" || next === "completed")
+    return "admin-button admin-button--primary";
+  return "admin-button";
+}
+
 function openConfirmation(nextStatus: BookingStatus, event: MouseEvent): void {
-  if (form.processing || !props.booking.allowedTransitions.includes(nextStatus))
-    return;
+  if (!props.booking.allowedTransitions.includes(nextStatus)) return;
   trigger.value = event.currentTarget as HTMLButtonElement;
-  form.currentStatus = props.booking.status;
-  form.nextStatus = nextStatus;
-  form.reason = "";
-  form.operationalConfirmed = false;
-  form.clearErrors();
   selectedNextStatus.value = nextStatus;
 }
 
-function closeConfirmation(open = false): void {
-  if (!open && !form.processing) selectedNextStatus.value = null;
-}
-
-function restoreFocus(event: Event): void {
-  event.preventDefault();
-  focusStatus();
-}
-
-function focusStatus(): void {
+// Back to the button that opened the dialog, or to the status when that button is gone.
+function closeConfirmation(): void {
+  selectedNextStatus.value = null;
   void nextTick(() => {
     const target = trigger.value;
     if (target?.isConnected && !target.disabled) target.focus();
@@ -145,46 +119,24 @@ function focusStatus(): void {
   });
 }
 
-function confirmTransition(): void {
-  if (form.processing || selectedNextStatus.value === null) return;
-  form
-    .transform(() => ({
-      currentStatus: form.currentStatus,
-      nextStatus: selectedNextStatus.value,
-      reason: form.reason.trim() || null,
-      ...(requiresOperational.value
-        ? { operationalConfirmed: form.operationalConfirmed }
-        : {}),
-    }))
-    .patch(
-      `/admin/bookings/${encodeURIComponent(props.booking.reference)}/status`,
-      {
-        preserveScroll: true,
-        onSuccess: () => {
-          selectedNextStatus.value = null;
-        },
-        onError: () => {
-          void nextTick(() => feedback.value?.focus());
-        },
-        onFinish: () => {
-          form.transform((data) => data);
-          if (selectedNextStatus.value === null) focusStatus();
-        },
-      },
-    );
+async function copyReference(): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(props.booking.reference);
+    copied.value = true;
+    window.setTimeout(() => (copied.value = false), 2000);
+  } catch {
+    copied.value = false;
+  }
 }
 </script>
 
 <template>
   <div class="admin-shell">
-    <AdminLayout
-      :title="booking.reference"
-      :subtitle="tr('ad.booking.details')"
-    >
+    <AdminLayout :title="booking.customer.name" :subtitle="appointment">
       <div class="admin-content">
-        <Link class="admin-record-link" data-back-bookings :href="backUrl">{{
-          tr("ad.detail.back")
-        }}</Link>
+        <Link class="admin-back-link" data-back-bookings :href="backUrl"
+          ><ChevronLeft aria-hidden="true" />{{ tr("ad.detail.back") }}</Link
+        >
         <section
           ref="statusSummary"
           class="admin-status-actions"
@@ -199,29 +151,54 @@ function confirmTransition(): void {
               class="admin-status"
               :class="`admin-status--${booking.status}`"
               >{{ tr(`ad.status.${booking.status}`) }}</strong
+            ><span
+              v-if="booking.requestedAt"
+              class="admin-record-secondary admin-requested"
+              >{{
+                tr("ad.list.requested", {
+                  when: timeAgo(booking.requestedAt, language),
+                })
+              }}</span
             >
           </p>
           <div
             v-if="booking.allowedTransitions.length"
             role="group"
-            :aria-label="tr('ad.confirm.title')"
+            :aria-label="tr('ad.table.action')"
           >
             <button
               v-for="status in booking.allowedTransitions"
               :key="status"
-              class="admin-button"
+              :class="actionClass(status)"
               type="button"
               :data-next-status="status"
-              :disabled="form.processing"
+              :disabled="selectedNextStatus !== null"
               @click="openConfirmation(status, $event)"
             >
-              {{ tr(`ad.status.${status}`) }}
+              {{ tr(`ad.action.${booking.status}.${status}`) }}
             </button>
           </div>
         </section>
-        <p v-if="page.props.flash.status" role="status" aria-live="polite">
+        <p
+          v-if="page.props.flash.status"
+          class="admin-flash"
+          role="status"
+          aria-live="polite"
+        >
           {{ page.props.flash.status }}
         </p>
+        <section
+          class="admin-guest-note"
+          :class="{ 'admin-guest-note--empty': !booking.notes?.trim() }"
+          aria-labelledby="admin-notes-title"
+        >
+          <h2 id="admin-notes-title">{{ tr("ad.detail.notes") }}</h2>
+          <p data-booking-notes>
+            {{
+              booking.notes?.trim() ? booking.notes : tr("ad.detail.noNotes")
+            }}
+          </p>
+        </section>
         <div class="admin-detail-grid">
           <section
             class="admin-detail-card"
@@ -265,29 +242,31 @@ function confirmTransition(): void {
                 tr("bookings.vip")
               }}</span>
             </p>
-            <p class="admin-record-secondary">
-              {{ tr(`bookings.treatmentMode.${booking.treatmentMode}`) }}
-            </p>
             <dl>
               <div>
                 <dt>{{ tr("bookings.baseTreatment") }}</dt>
                 <dd>
-                  {{ booking.base.choiceCode
-                  }}<span class="admin-record-secondary"
-                    >{{ booking.base.durationMinutes }}
-                    {{ tr("bookings.minutes") }} ·
-                    {{ formatPrice(booking.base.priceIdr) }}</span
+                  {{ tr(`bookings.treatmentMode.${booking.treatmentMode}`) }} ·
+                  {{ booking.base.durationMinutes }}
+                  {{ tr("bookings.minutes") }}
+                  <span class="admin-record-secondary"
+                    >{{ formatPrice(booking.base.priceIdr) }} ·
+                    <span class="admin-code">{{
+                      booking.base.choiceCode
+                    }}</span></span
                   >
                 </dd>
               </div>
               <div>
                 <dt>{{ tr("bookings.extension") }}</dt>
                 <dd v-if="booking.extension">
-                  {{ booking.extension.choiceCode
-                  }}<span class="admin-record-secondary"
-                    >{{ booking.extension.durationMinutes }}
-                    {{ tr("bookings.minutes") }} ·
-                    {{ formatPrice(booking.extension.priceIdr) }}</span
+                  {{ booking.extension.durationMinutes }}
+                  {{ tr("bookings.minutes") }}
+                  <span class="admin-record-secondary"
+                    >{{ formatPrice(booking.extension.priceIdr) }} ·
+                    <span class="admin-code">{{
+                      booking.extension.choiceCode
+                    }}</span></span
                   >
                 </dd>
                 <dd v-else>{{ tr("ad.detail.noExtension") }}</dd>
@@ -348,18 +327,33 @@ function confirmTransition(): void {
                   </template>
                 </dd>
               </div>
+              <div>
+                <dt>{{ tr("ad.booking.reference") }}</dt>
+                <dd class="admin-reference">
+                  <span class="admin-code" data-booking-reference>{{
+                    booking.reference
+                  }}</span>
+                  <button
+                    type="button"
+                    class="admin-icon-button admin-icon-button--small"
+                    :aria-label="tr('ad.detail.copy')"
+                    :title="tr('ad.detail.copy')"
+                    @click="copyReference"
+                  >
+                    <Check v-if="copied" aria-hidden="true" />
+                    <Copy v-else aria-hidden="true" />
+                  </button>
+                  <span v-if="copied" class="sr-only" role="status">{{
+                    tr("ad.detail.copied")
+                  }}</span>
+                </dd>
+              </div>
             </dl>
-            <h2>{{ tr("ad.detail.notes") }}</h2>
-            <p data-booking-notes>
-              {{
-                booking.notes?.trim() ? booking.notes : tr("ad.detail.noNotes")
-              }}
-            </p>
           </section>
         </div>
         <section
           v-if="booking.assignedRoom"
-          class="admin-detail-card"
+          class="admin-detail-card admin-panel"
           data-assigned-room
         >
           <h2>{{ tr("ad.room.title") }}</h2>
@@ -386,265 +380,106 @@ function confirmTransition(): void {
             {{ tr("ad.room.retained") }}
           </p>
         </section>
-        <section
-          class="admin-history"
-          aria-labelledby="admin-notify-title"
-          data-notifications
-        >
-          <h2 id="admin-notify-title">{{ tr("ad.notify.title") }}</h2>
-          <p data-telegram-message>
-            <strong>{{ tr("ad.notify.channel.telegram") }}:</strong>
-            {{ tr(telegramMessageKey) }}
-          </p>
-          <p v-if="needsContact" data-contact-task>
-            {{ tr("ad.notify.contact") }}
-          </p>
-          <p v-if="!notifications.length">{{ tr("ad.notify.empty") }}</p>
-          <ol v-else>
-            <li
-              v-for="(notice, index) in notifications"
-              :key="index"
-              class="admin-history-item"
-              data-notice
-              :data-notice-state="notice.state"
-            >
-              <time :datetime="notice.updatedAt">{{
-                formatDate(notice.updatedAt, true)
-              }}</time>
-              <div>
-                <p>
-                  <strong
-                    >{{ tr(`ad.notify.event.${notice.event}`) }} ·
-                    {{ tr(`ad.notify.channel.${notice.channel}`) }}</strong
+        <div class="admin-detail-columns">
+          <section class="admin-history" aria-labelledby="admin-history-title">
+            <h2 id="admin-history-title">{{ tr("ad.history.title") }}</h2>
+            <p v-if="!booking.history.length" class="admin-record-secondary">
+              {{ tr("ad.history.empty") }}
+            </p>
+            <ol v-else class="admin-timeline">
+              <li
+                v-for="(change, index) in booking.history"
+                :key="index"
+                class="admin-history-item"
+              >
+                <time :datetime="change.createdAt">{{
+                  formatDate(change.createdAt, true)
+                }}</time>
+                <div>
+                  <p>
+                    <strong
+                      >{{ tr(`ad.status.${change.fromStatus}`) }} →
+                      {{ tr(`ad.status.${change.toStatus}`) }}</strong
+                    >
+                  </p>
+                  <p>
+                    {{ change.actor.name ?? tr("ad.history.system")
+                    }}<span class="admin-record-secondary">{{
+                      change.actor.email
+                    }}</span>
+                  </p>
+                  <p
+                    v-if="change.operationalConfirmedAt"
+                    data-operational-attestation
                   >
-                </p>
-                <p>{{ noticeStatus(notice) }}</p>
-                <p v-if="noticeDetail(notice)" class="admin-record-secondary">
-                  {{ noticeDetail(notice) }}
-                </p>
-              </div>
-            </li>
-          </ol>
-        </section>
-        <section class="admin-history" aria-labelledby="admin-history-title">
-          <h2 id="admin-history-title">{{ tr("ad.history.title") }}</h2>
-          <p v-if="!booking.history.length">{{ tr("ad.history.empty") }}</p>
-          <ol v-else>
-            <li
-              v-for="(change, index) in booking.history"
-              :key="index"
-              class="admin-history-item"
-            >
-              <time :datetime="change.createdAt">{{
-                formatDate(change.createdAt, true)
-              }}</time>
-              <div>
-                <p>
-                  <strong
-                    >{{ tr(`ad.status.${change.fromStatus}`) }} →
-                    {{ tr(`ad.status.${change.toStatus}`) }}</strong
-                  >
-                </p>
-                <p>
-                  {{ change.actor.name ?? tr("ad.history.system")
-                  }}<span class="admin-record-secondary">{{
-                    change.actor.email
-                  }}</span>
-                </p>
-                <p
-                  v-if="change.operationalConfirmedAt"
-                  data-operational-attestation
-                >
-                  {{ tr("ad.history.operational") }}
-                  {{ formatDate(change.operationalConfirmedAt, true) }}
-                </p>
-                <p>
-                  <span class="admin-record-secondary">{{
-                    tr("ad.history.reason")
-                  }}</span
-                  >{{
-                    change.reason?.trim()
-                      ? change.reason
-                      : tr("ad.history.noReason")
-                  }}
-                </p>
-              </div>
-            </li>
-          </ol>
-        </section>
+                    {{ tr("ad.history.operational") }}
+                    {{ formatDate(change.operationalConfirmedAt, true) }}
+                  </p>
+                  <p>
+                    <span class="admin-record-secondary">{{
+                      tr("ad.history.reason")
+                    }}</span
+                    >{{
+                      change.reason?.trim()
+                        ? change.reason
+                        : tr("ad.history.noReason")
+                    }}
+                  </p>
+                </div>
+              </li>
+            </ol>
+          </section>
+          <section
+            class="admin-history"
+            aria-labelledby="admin-notify-title"
+            data-notifications
+          >
+            <h2 id="admin-notify-title">{{ tr("ad.notify.title") }}</h2>
+            <p data-telegram-message>
+              <strong>{{ tr("ad.notify.channel.telegram") }}:</strong>
+              {{ tr(telegramMessageKey) }}
+            </p>
+            <p v-if="needsContact" class="admin-callout" data-contact-task>
+              {{ tr("ad.notify.contact") }}
+            </p>
+            <p v-if="!notifications.length" class="admin-record-secondary">
+              {{ tr("ad.notify.empty") }}
+            </p>
+            <ol v-else class="admin-timeline">
+              <li
+                v-for="(notice, index) in notifications"
+                :key="index"
+                class="admin-history-item"
+                data-notice
+                :data-notice-state="notice.state"
+              >
+                <time :datetime="notice.updatedAt">{{
+                  formatDate(notice.updatedAt, true)
+                }}</time>
+                <div>
+                  <p>
+                    <strong
+                      >{{ tr(`ad.notify.event.${notice.event}`) }} ·
+                      {{ tr(`ad.notify.channel.${notice.channel}`) }}</strong
+                    >
+                  </p>
+                  <p>{{ noticeStatus(notice) }}</p>
+                  <p v-if="noticeDetail(notice)" class="admin-record-secondary">
+                    {{ noticeDetail(notice) }}
+                  </p>
+                </div>
+              </li>
+            </ol>
+          </section>
+        </div>
       </div>
     </AdminLayout>
-    <Dialog
-      v-if="booking.allowedTransitions.length"
-      :open="selectedNextStatus !== null"
-      @update:open="closeConfirmation"
-    >
-      <!-- Compose the existing wrappers with Radix content so the visible Cancel control
-           can be localized and disabled during processing; the generic content owns a fixed Close button. -->
-      <DialogPortal>
-        <DialogOverlay class="admin-dialog-overlay" />
-        <DialogContent
-          class="admin-shell admin-dialog-content"
-          role="alertdialog"
-          @open-auto-focus="
-            (event) => {
-              event.preventDefault();
-              heading?.focus();
-            }
-          "
-          @close-auto-focus="restoreFocus"
-          @interact-outside.prevent
-          @escape-key-down="
-            (event) => {
-              if (form.processing) event.preventDefault();
-            }
-          "
-        >
-          <DialogTitle as-child
-            ><h2 ref="heading" tabindex="-1">
-              {{ tr("ad.confirm.title") }}
-            </h2></DialogTitle
-          >
-          <DialogDescription>{{
-            tr("ad.confirm.body", {
-              from: tr(`ad.status.${form.currentStatus}`),
-              to: selectedNextStatus
-                ? tr(`ad.status.${selectedNextStatus}`)
-                : "",
-            })
-          }}</DialogDescription>
-          <p v-if="form.processing" role="status" aria-live="polite">
-            {{ tr("ad.confirm.processing") }}
-          </p>
-          <form
-            data-status-confirmation
-            :aria-busy="form.processing"
-            :aria-describedby="
-              form.hasErrors ? 'admin-status-form-error' : undefined
-            "
-            @submit.prevent="confirmTransition"
-          >
-            <fieldset :disabled="form.processing">
-              <legend>{{ tr("ad.table.status") }}</legend>
-              <div>
-                <output
-                  name="currentStatus"
-                  :aria-invalid="Boolean(form.errors.currentStatus)"
-                  :aria-describedby="
-                    form.errors.currentStatus
-                      ? 'admin-current-status-error'
-                      : undefined
-                  "
-                  >{{ tr(`ad.status.${form.currentStatus}`) }}</output
-                >
-                <span aria-hidden="true"> → </span>
-                <output
-                  name="nextStatus"
-                  :aria-invalid="Boolean(form.errors.nextStatus)"
-                  :aria-describedby="
-                    form.errors.nextStatus
-                      ? 'admin-next-status-error'
-                      : undefined
-                  "
-                  >{{
-                    selectedNextStatus
-                      ? tr(`ad.status.${selectedNextStatus}`)
-                      : ""
-                  }}</output
-                >
-              </div>
-              <p
-                v-if="form.errors.currentStatus"
-                id="admin-current-status-error"
-                class="admin-filter-error"
-                role="alert"
-              >
-                {{ form.errors.currentStatus }}
-              </p>
-              <p
-                v-if="form.errors.nextStatus"
-                id="admin-next-status-error"
-                class="admin-filter-error"
-                role="alert"
-              >
-                {{ form.errors.nextStatus }}
-              </p>
-              <label
-                v-if="requiresOperational"
-                for="admin-operational-confirmed"
-              >
-                <input
-                  id="admin-operational-confirmed"
-                  v-model="form.operationalConfirmed"
-                  type="checkbox"
-                  name="operationalConfirmed"
-                  :aria-invalid="Boolean(form.errors.operationalConfirmed)"
-                  :aria-describedby="
-                    form.errors.operationalConfirmed
-                      ? 'admin-status-form-error'
-                      : undefined
-                  "
-                />
-                {{ tr("ad.confirm.operational") }}
-              </label>
-              <label for="admin-status-reason">{{
-                tr("ad.confirm.reason")
-              }}</label>
-              <textarea
-                id="admin-status-reason"
-                v-model="reason"
-                class="admin-control"
-                name="reason"
-                rows="4"
-                maxlength="500"
-                :aria-invalid="Boolean(form.errors.reason)"
-                :aria-describedby="
-                  form.errors.reason ? 'admin-status-reason-error' : undefined
-                "
-              />
-              <p
-                v-if="form.errors.reason"
-                id="admin-status-reason-error"
-                class="admin-filter-error"
-                role="alert"
-              >
-                {{ form.errors.reason }}
-              </p>
-            </fieldset>
-            <div
-              v-if="form.hasErrors"
-              id="admin-status-form-error"
-              ref="feedback"
-              class="admin-filter-error"
-              role="alert"
-              tabindex="-1"
-            >
-              <p>{{ tr("ad.confirm.error") }}</p>
-              <p v-for="(error, index) in formErrors" :key="index">
-                {{ error }}
-              </p>
-            </div>
-            <div class="admin-status-actions">
-              <button
-                class="admin-button"
-                data-cancel-status
-                type="button"
-                :disabled="form.processing"
-                @click="closeConfirmation()"
-              >
-                {{ tr("ad.confirm.cancel") }}
-              </button>
-              <button
-                class="admin-button admin-button--primary"
-                type="submit"
-                :disabled="form.processing"
-              >
-                {{ tr("ad.confirm.submit") }}
-              </button>
-            </div>
-          </form>
-        </DialogContent>
-      </DialogPortal>
-    </Dialog>
+    <!-- Stays mounted: a change can remove the last action while the dialog is open. -->
+    <BookingStatusDialog
+      :booking="selectedNextStatus ? booking : null"
+      :next-status="selectedNextStatus"
+      :room-scheduling-enabled="booking.roomSchedulingEnabled"
+      @close="closeConfirmation"
+    />
   </div>
 </template>

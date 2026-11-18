@@ -47,10 +47,11 @@ class AdminBookingIndexTest extends TestCase
         $response->assertOk()->assertInertia(fn (Assert $page) => $page
             ->component('admin/bookings/Index', false)
             ->where('counts', [
-                'today' => 1,
+                'upcoming' => 1,
                 'pending' => 1,
-                'confirmed' => 0,
-                'completed' => 0,
+                'today' => 1,
+                'past' => 0,
+                'all' => 1,
             ])
             ->where('filters', [
                 'scope' => 'upcoming',
@@ -185,6 +186,39 @@ class AdminBookingIndexTest extends TestCase
         ], array_column($all->inertiaProps('bookings.data'), 'reference'));
     }
 
+    // Production break caught: the response queue must list every waiting request, oldest request first,
+    // and Today only today's appointments in time order, whatever their status.
+    public function test_pending_scope_is_oldest_request_first_and_today_scope_is_by_time(): void
+    {
+        $newest = $this->requestedAt('SJ-NEWEST-REQUEST', '2026-09-07 04:00:00', '2026-09-08', '09:00');
+        $oldest = $this->requestedAt('SJ-OLDEST-REQUEST', '2026-09-05 02:00:00', '2026-09-20', '10:00');
+        $middle = $this->requestedAt('SJ-MIDDLE-REQUEST', '2026-09-06 03:00:00', '2026-09-07', '15:00');
+        $earlyToday = Booking::factory()->create([
+            'reference' => 'SJ-EARLY-TODAY',
+            'status' => BookingStatus::Completed,
+            'appointment_date' => '2026-09-07',
+            'appointment_time' => '09:00',
+        ]);
+        $lateToday = Booking::factory()->create([
+            'reference' => 'SJ-LATE-TODAY',
+            'status' => BookingStatus::Confirmed,
+            'appointment_date' => '2026-09-07',
+            'appointment_time' => '16:00',
+        ]);
+
+        $pending = $this->actingAs($this->admin)->get('/admin/bookings?scope=pending');
+        $this->assertSame(
+            [$oldest->reference, $middle->reference, $newest->reference],
+            array_column($pending->inertiaProps('bookings.data'), 'reference'),
+        );
+
+        $today = $this->get('/admin/bookings?scope=today');
+        $this->assertSame(
+            [$earlyToday->reference, $middle->reference, $lateToday->reference],
+            array_column($today->inertiaProps('bookings.data'), 'reference'),
+        );
+    }
+
     // Production break caught: filters must compose while dashboard counts remain independent of them.
     public function test_status_search_and_inclusive_date_filters_compose_without_filtering_counts(): void
     {
@@ -241,10 +275,11 @@ class AdminBookingIndexTest extends TestCase
                 'dateTo' => '2026-09-07',
             ])
             ->where('counts', [
-                'today' => 3,
+                'upcoming' => 2,
                 'pending' => 1,
-                'confirmed' => 4,
-                'completed' => 1,
+                'today' => 3,
+                'past' => 4,
+                'all' => 6,
             ])
             ->has('bookings.data', 1)
             ->where('bookings.data.0.reference', 'SJ-MATCHING-COMPOSED'));
@@ -390,6 +425,7 @@ class AdminBookingIndexTest extends TestCase
             'total_duration_minutes' => 150,
             'total_price_idr' => 525000,
             'notes' => 'PRIVATE-NOTES',
+            'created_at' => '2026-09-01 08:15:00',
         ]);
 
         $response = $this->actingAs($this->admin)->get('/admin/bookings?scope=all');
@@ -407,6 +443,7 @@ class AdminBookingIndexTest extends TestCase
             'totalDurationMinutes',
             'totalPriceIdr',
             'allowedTransitions',
+            'requestedAt',
         ], array_keys($summary));
         $this->assertSame(['nameId', 'nameEn', 'isVip'], array_keys($summary['package']));
         $this->assertSame(['date', 'time', 'timezone'], array_keys($summary['appointment']));
@@ -434,6 +471,7 @@ class AdminBookingIndexTest extends TestCase
             'totalDurationMinutes' => 150,
             'totalPriceIdr' => 525000,
             'allowedTransitions' => ['confirmed', 'cancelled'],
+            'requestedAt' => '2026-09-01T08:15:00.000000Z',
         ], $summary);
         $this->assertStringNotContainsString('PRIVATE-NOTES', json_encode($summary, JSON_THROW_ON_ERROR));
     }
@@ -456,6 +494,17 @@ class AdminBookingIndexTest extends TestCase
             'admin.bookings.index_url',
             '/admin/bookings?scope=all&status=pending&q=Ayu&dateFrom=2026-09-07&dateTo=2026-09-08',
         );
+    }
+
+    private function requestedAt(string $reference, string $createdAt, string $date, string $time): Booking
+    {
+        return Booking::factory()->create([
+            'reference' => $reference,
+            'status' => BookingStatus::Pending,
+            'created_at' => $createdAt,
+            'appointment_date' => $date,
+            'appointment_time' => $time,
+        ]);
     }
 
     private function bookingAt(string $reference, string $date, string $time): Booking

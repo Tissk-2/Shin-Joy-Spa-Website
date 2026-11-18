@@ -264,9 +264,18 @@ describe("admin booking detail", () => {
         .findAll("[data-next-status]")
         .map((node) => node.attributes("data-next-status")),
     ).toEqual(["cancelled"]);
+    // Buttons say what they do; declining is styled as the risky choice.
+    const decline = wrapper.get("[data-next-status='cancelled']");
+    expect(decline.text()).toBe("Decline");
+    expect(decline.classes()).toContain("admin-button--danger");
     await open(wrapper, "cancelled");
+    expect(dialog().get("h2").text()).toBe("Decline this booking?");
     expect(dialog().text()).toContain(
       "Change the status from Pending to Cancelled?",
+    );
+    expect(dialog().get("[type='submit']").text()).toBe("Decline");
+    expect(dialog().get("[type='submit']").classes()).toContain(
+      "admin-button--danger-solid",
     );
     expect(dialog().element.contains(document.activeElement)).toBe(true);
     expect(confirm).not.toHaveBeenCalled();
@@ -447,15 +456,18 @@ describe("admin booking detail", () => {
       "Tidak ada alasan yang dicatat.",
     ])
       expect(wrapper.text()).toContain(text);
+    expect(wrapper.get("[data-next-status='confirmed']").text()).toBe(
+      "Setujui",
+    );
     await open(wrapper);
     for (const text of [
-      "Konfirmasi perubahan status",
+      "Setujui reservasi ini?",
       "Ubah status dari Menunggu menjadi Terkonfirmasi?",
       "Alasan (opsional)",
       "Batal",
-      "Konfirmasi perubahan",
     ])
       expect(dialog().text()).toContain(text);
+    expect(dialog().get("[type='submit']").text()).toBe("Setujui");
   });
 });
 

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Link, router } from "@inertiajs/vue3";
+import { ChevronLeft } from "lucide-vue-next";
 import { computed, nextTick, ref, watch } from "vue";
 
 import PackageConfigurator from "@/components/PackageConfigurator.vue";
@@ -20,6 +21,7 @@ import {
   type ServiceSelection,
 } from "@/lib/serviceSelection";
 import AdminLayout from "@/layouts/admin/AdminLayout.vue";
+import { formatDay } from "@/lib/adminBooking";
 import type { PackageData, TreatmentMode } from "@/types";
 
 type StaffBookingSource = "walk_in" | "phone" | "whatsapp";
@@ -251,6 +253,16 @@ async function focusFirstError(): Promise<void> {
   )?.focus();
 }
 
+const summaryDate = computed(() =>
+  values.value.date
+    ? `${formatDay(values.value.date, language.value)}${values.value.time ? `, ${values.value.time} WIB` : ""}`
+    : "—",
+);
+const summaryTreatment = computed(() =>
+  values.value.mode && total.value.duration
+    ? `${tr(`bookings.treatmentMode.${values.value.mode}`)} · ${total.value.duration} ${tr("bookings.minutes")}`
+    : "—",
+);
 function formatPrice(amount: number): string {
   return `Rp ${new Intl.NumberFormat("id-ID").format(amount)}`;
 }
@@ -308,10 +320,8 @@ function submit(): void {
       :subtitle="tr('ad.manual.subtitle')"
     >
       <div class="admin-content booking-entry-content">
-        <Link
-          href="/admin/bookings"
-          class="w-fit text-sm font-semibold text-[var(--admin-plum)] underline"
-          >{{ tr("ad.manual.back") }}</Link
+        <Link href="/admin/bookings" class="admin-back-link"
+          ><ChevronLeft aria-hidden="true" />{{ tr("ad.manual.back") }}</Link
         >
         <p v-if="!packages.length" class="admin-empty">
           {{ tr("ad.manual.noPackages") }}
@@ -336,7 +346,7 @@ function submit(): void {
             >
           </div>
           <form
-            class="space-y-5"
+            class="admin-entry"
             :aria-busy="processing"
             @submit.prevent="submit"
           >
@@ -605,43 +615,74 @@ function submit(): void {
                 </p>
               </div>
             </div>
-            <p class="admin-record-secondary">{{ tr("ad.manual.total") }}</p>
-            <p data-staff-total class="admin-price">
-              {{ formatPrice(total.price) }}
-            </p>
-            <label
-              class="flex w-fit items-center gap-3 text-sm font-semibold"
-              for="staff-approve"
-              ><input
-                id="staff-approve"
-                v-model="values.approve"
-                type="checkbox"
-                class="h-4 w-4 rounded"
-              />{{ tr("ad.manual.approve") }}</label
+            <aside
+              class="admin-entry__summary"
+              aria-labelledby="staff-summary-title"
             >
-            <p
-              v-if="errors.approve"
-              id="staff-approve-error"
-              class="room-field-error"
-            >
-              {{ errors.approve }}
-            </p>
-            <label
-              v-if="values.approve && availabilityEnabled"
-              class="flex w-fit items-start gap-3 text-sm font-semibold"
-              for="staff-operational"
-              ><input
-                id="staff-operational"
-                v-model="values.operationalConfirmed"
-                type="checkbox"
-                class="mt-1 h-4 w-4 shrink-0 rounded"
-              />{{ tr("ad.confirm.operational") }}</label
-            >
-            <div class="flex flex-wrap items-center gap-4 pb-6">
+              <h2 id="staff-summary-title">{{ tr("ad.manual.summary") }}</h2>
+              <dl>
+                <div>
+                  <dt>{{ tr("ad.manual.package") }}</dt>
+                  <dd>
+                    {{
+                      servicePackage
+                        ? language === "id"
+                          ? servicePackage.nameId
+                          : servicePackage.nameEn
+                        : "—"
+                    }}
+                  </dd>
+                </div>
+                <div>
+                  <dt>{{ tr("ad.table.treatment") }}</dt>
+                  <dd>{{ summaryTreatment }}</dd>
+                </div>
+                <div>
+                  <dt>{{ tr("ad.table.schedule") }}</dt>
+                  <dd>{{ summaryDate }}</dd>
+                </div>
+                <div>
+                  <dt>{{ tr("ad.manual.guests") }}</dt>
+                  <dd>{{ values.guests }}</dd>
+                </div>
+              </dl>
+              <div class="admin-entry__total">
+                <span>{{ tr("ad.manual.total") }}</span>
+                <strong data-staff-total class="admin-price">{{
+                  formatPrice(total.price)
+                }}</strong>
+              </div>
+              <label class="admin-check" for="staff-approve"
+                ><input
+                  id="staff-approve"
+                  v-model="values.approve"
+                  type="checkbox"
+                  class="h-4 w-4 rounded"
+                />{{ tr("ad.manual.approve") }}</label
+              >
+              <p
+                v-if="errors.approve"
+                id="staff-approve-error"
+                class="room-field-error"
+              >
+                {{ errors.approve }}
+              </p>
+              <label
+                v-if="values.approve && availabilityEnabled"
+                class="admin-check"
+                for="staff-operational"
+                ><input
+                  id="staff-operational"
+                  v-model="values.operationalConfirmed"
+                  type="checkbox"
+                  class="mt-1 h-4 w-4 shrink-0 rounded"
+                />{{ tr("ad.confirm.operational") }}</label
+              >
               <button
                 type="submit"
                 :disabled="processing"
-                class="admin-button disabled:cursor-wait disabled:opacity-60"
+                :aria-busy="processing"
+                class="admin-button admin-button--primary admin-entry__save"
               >
                 {{
                   tr(
@@ -649,7 +690,7 @@ function submit(): void {
                   )
                 }}
               </button>
-            </div>
+            </aside>
           </form>
         </template>
       </div>
@@ -659,7 +700,7 @@ function submit(): void {
 
 <style scoped>
 .booking-entry-content {
-  max-width: 64rem;
+  max-width: 76rem;
 }
 .room-field-error {
   margin-top: 0.375rem;

@@ -232,6 +232,8 @@ export interface AdminBookingSummaryData {
   readonly totalDurationMinutes: number;
   readonly totalPriceIdr: number;
   readonly allowedTransitions: readonly BookingStatus[];
+  /** When the booking was made (ISO 8601). */
+  readonly requestedAt?: string | null;
 }
 
 export interface AdminBookingStatusHistoryData {
@@ -285,19 +287,18 @@ export interface AdminBookingDetailData extends AdminBookingSummaryData {
 }
 
 export interface AdminBookingFilters {
-  readonly scope: "upcoming" | "past" | "all";
+  readonly scope: AdminBookingScope;
   readonly status: BookingStatus | null;
   readonly q: string;
   readonly dateFrom: string | null;
   readonly dateTo: string | null;
 }
 
-export interface AdminBookingCounts {
-  readonly today: number;
-  readonly pending: number;
-  readonly confirmed: number;
-  readonly completed: number;
-}
+export type AdminBookingScope =
+  "upcoming" | "pending" | "today" | "past" | "all";
+
+/** One count per list tab. */
+export type AdminBookingCounts = Readonly<Record<AdminBookingScope, number>>;
 
 export interface AdminBookingPaginationLink {
   readonly url: string | null;
@@ -373,6 +374,7 @@ export interface AppPageProps extends PageProps {
   flash: { status?: string };
   catalog: { packages: PackageLinkData[] };
   content: Record<string, { id?: string; en?: string }>;
+  adminNav?: { pendingBookings: number } | null;
 }
 
 export interface BreadcrumbItem {

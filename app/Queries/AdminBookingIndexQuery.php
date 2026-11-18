@@ -33,12 +33,17 @@ final class AdminBookingIndexQuery
             $query->whereDate('appointment_date', '<=', $filters['dateTo']);
         }
 
-        $direction = $filters['scope'] === 'upcoming' ? 'asc' : 'desc';
+        // The response queue is first come, first served; every other tab is by appointment.
+        if ($filters['scope'] === 'pending') {
+            $query->orderBy('created_at')->orderBy('id');
+        } else {
+            $direction = in_array($filters['scope'], ['upcoming', 'today'], true) ? 'asc' : 'desc';
+            $query->orderBy('appointment_date', $direction)
+                ->orderBy('appointment_time', $direction)
+                ->orderBy('id', $direction);
+        }
 
         return $query
-            ->orderBy('appointment_date', $direction)
-            ->orderBy('appointment_time', $direction)
-            ->orderBy('id', $direction)
             ->paginate(20)
             ->appends(array_filter(
                 $filters,
@@ -46,28 +51,38 @@ final class AdminBookingIndexQuery
             ));
     }
 
-    /** @return array{today: int, pending: int, confirmed: int, completed: int} */
+    /**
+     * One count per tab, before search and filters.
+     *
+     * @return array{upcoming: int, pending: int, today: int, past: int, all: int}
+     */
     public function counts(CarbonImmutable $now): array
     {
-        return [
-            'today' => Booking::query()
-                ->whereDate('appointment_date', $now->toDateString())
-                ->count(),
-            'pending' => Booking::query()
-                ->where('status', BookingStatus::Pending->value)
-                ->count(),
-            'confirmed' => Booking::query()
-                ->where('status', BookingStatus::Confirmed->value)
-                ->count(),
-            'completed' => Booking::query()
-                ->where('status', BookingStatus::Completed->value)
-                ->count(),
-        ];
+        $counts = [];
+        foreach (['upcoming', 'pending', 'today', 'past', 'all'] as $scope) {
+            $query = Booking::query();
+            $this->applyScope($query, $scope, $now);
+            $counts[$scope] = $query->count();
+        }
+
+        return $counts;
     }
 
     private function applyScope(Builder $query, string $scope, CarbonImmutable $now): void
     {
         if ($scope === 'all') {
+            return;
+        }
+
+        if ($scope === 'pending') {
+            $query->where('status', BookingStatus::Pending->value);
+
+            return;
+        }
+
+        if ($scope === 'today') {
+            $query->whereDate('appointment_date', $now->toDateString());
+
             return;
         }
 

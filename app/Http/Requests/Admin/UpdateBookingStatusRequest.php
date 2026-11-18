@@ -11,7 +11,7 @@ use Illuminate\Validation\Validator;
 final class UpdateBookingStatusRequest extends FormRequest
 {
     /** @var list<string> */
-    private const ALLOWED_FIELDS = ['currentStatus', 'nextStatus', 'reason', 'operationalConfirmed'];
+    private const ALLOWED_FIELDS = ['currentStatus', 'nextStatus', 'reason', 'operationalConfirmed', 'returnTo'];
 
     protected function prepareForValidation(): void
     {
@@ -38,6 +38,8 @@ final class UpdateBookingStatusRequest extends FormRequest
             'currentStatus' => ['required', Rule::enum(BookingStatus::class)],
             'nextStatus' => ['required', Rule::enum(BookingStatus::class)],
             'reason' => ['nullable', 'string', 'max:500'],
+            // Where to go after the change: a page name, never an address.
+            'returnTo' => ['nullable', Rule::in(['bookings', 'today'])],
             'operationalConfirmed' => [Rule::requiredIf(config('booking.scheduling_enabled') && $this->input('currentStatus') === 'pending' && $this->input('nextStatus') === 'confirmed'), 'boolean', Rule::when(config('booking.scheduling_enabled') && $this->input('currentStatus') === 'pending' && $this->input('nextStatus') === 'confirmed', ['accepted'])],
         ];
     }

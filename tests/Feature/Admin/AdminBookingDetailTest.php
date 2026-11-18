@@ -38,6 +38,7 @@ class AdminBookingDetailTest extends TestCase
             'appointment_timezone' => 'Asia/Jakarta',
             'guests' => 2,
             'notes' => 'Shoulders only',
+            'created_at' => '2026-09-06 09:15:00',
             'package_name_id' => 'Nezuko VIP',
             'package_name_en' => 'Nezuko VIP',
             'package_is_vip' => true,
@@ -97,7 +98,7 @@ class AdminBookingDetailTest extends TestCase
 
         $props = $response->inertiaProps();
         $this->assertSame(
-            ['errors', 'auth', 'locale', 'flash', 'catalog', 'content', 'booking', 'backUrl'],
+            ['errors', 'auth', 'locale', 'flash', 'catalog', 'content', 'adminNav', 'booking', 'backUrl'],
             array_keys($props),
         );
         $this->assertSame([
@@ -123,6 +124,7 @@ class AdminBookingDetailTest extends TestCase
             'totalDurationMinutes' => 150,
             'totalPriceIdr' => 470000,
             'allowedTransitions' => ['confirmed', 'cancelled'],
+            'requestedAt' => '2026-09-06T09:15:00.000000Z',
             'roomSchedulingEnabled' => false,
             'assignedRoom' => null,
             'base' => [

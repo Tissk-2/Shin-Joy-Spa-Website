@@ -2,6 +2,8 @@
 
 namespace App\Http\Middleware;
 
+use App\Enums\BookingStatus;
+use App\Models\Booking;
 use App\Models\PageContent;
 use App\Queries\PublicCatalogQuery;
 use App\Support\ServiceCatalogPresenter;
@@ -68,6 +70,10 @@ class HandleInertiaRequests extends Middleware
                     ->all(),
             ],
             'content' => fn (): array => PageContent::overrides(),
+            // The waiting-requests badge in the admin navigation; nobody else learns the number.
+            'adminNav' => fn (): ?array => $user?->can('viewAny', Booking::class) === true
+                ? ['pendingBookings' => Booking::query()->where('status', BookingStatus::Pending->value)->count()]
+                : null,
         ];
     }
 }

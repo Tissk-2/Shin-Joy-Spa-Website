@@ -38,7 +38,11 @@ interface NavItem {
   href: string;
   label: string;
   icon: Component;
+  /** Requests waiting for an answer, shown on Bookings. */
+  badge?: number;
 }
+
+const waiting = computed(() => page.props.adminNav?.pendingBookings ?? 0);
 
 const navGroups = computed(() => {
   const groups: Array<{ id: string; label: string; items: NavItem[] }> = [
@@ -55,6 +59,7 @@ const navGroups = computed(() => {
           href: "/admin/bookings",
           label: tr("ad.nav.bookings"),
           icon: CalendarDays,
+          badge: waiting.value,
         },
         {
           href: "/admin/schedule",
@@ -235,7 +240,15 @@ function logout(): void {
                 class="admin-nav-link"
                 :aria-current="isCurrent(item.href) ? 'page' : undefined"
               >
-                <component :is="item.icon" aria-hidden="true" />{{ item.label }}
+                <component :is="item.icon" aria-hidden="true" />{{ item.label
+                }}<template v-if="item.badge"
+                  ><span class="admin-nav-badge" aria-hidden="true">{{
+                    item.badge
+                  }}</span
+                  ><span class="sr-only"
+                    >, {{ tr("ad.nav.waiting", { n: item.badge }) }}</span
+                  ></template
+                >
               </Link>
             </li>
           </ul>
@@ -311,8 +324,18 @@ function logout(): void {
         class="admin-tabbar__item"
         :aria-current="isCurrent(item.href) ? 'page' : undefined"
       >
-        <component :is="item.icon" aria-hidden="true" />
-        <span>{{ item.label }}</span>
+        <span class="admin-tabbar__icon">
+          <component :is="item.icon" aria-hidden="true" /><span
+            v-if="item.badge"
+            class="admin-nav-badge admin-nav-badge--dot"
+            aria-hidden="true"
+            >{{ item.badge }}</span
+          >
+        </span>
+        <span>{{ item.label }}</span
+        ><span v-if="item.badge" class="sr-only"
+          >, {{ tr("ad.nav.waiting", { n: item.badge }) }}</span
+        >
       </Link>
       <button
         ref="menuToggle"

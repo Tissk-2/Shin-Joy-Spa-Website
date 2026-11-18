@@ -343,6 +343,12 @@ const summary = computed(() =>
   font-family: var(--font-display);
   font-size: 1.125rem;
 }
+/* The admin uses one UI font; the serif belongs to the public site. */
+.dtp--admin .dtp__month {
+  font-family: var(--font-body);
+  font-size: 1rem;
+  font-weight: 700;
+}
 .dtp__nav,
 .dtp__day,
 .dtp__today {

@@ -47,6 +47,7 @@ final class AdminBookingController extends Controller
             'filters' => $filters,
             'bookings' => $presenter->pagination($paginator),
             'canCreate' => Gate::allows('create', Booking::class),
+            'roomSchedulingEnabled' => (bool) config('booking.scheduling_enabled'),
         ]);
     }
 
@@ -109,7 +110,12 @@ final class AdminBookingController extends Controller
             (bool) ($validated['operationalConfirmed'] ?? false),
         );
 
-        return to_route('admin.bookings.show', $booking, 303)
-            ->with('status', __('admin.status.updated'));
+        $redirect = match ($validated['returnTo'] ?? null) {
+            'bookings' => redirect($request->session()->get('admin.bookings.index_url', route('admin.bookings.index', absolute: false)), 303),
+            'today' => to_route('admin.index', status: 303),
+            default => to_route('admin.bookings.show', $booking, 303),
+        };
+
+        return $redirect->with('status', __('admin.status.updated'));
     }
 }

@@ -113,9 +113,8 @@ async function expectFitsViewport(locator: Locator, page: Page): Promise<void> {
 
 async function expectDialogIsolation(page: Page): Promise<void> {
   const dialog = page.getByRole("alertdialog");
-  const heading = dialog.getByRole("heading", {
-    name: /konfirmasi perubahan status|confirm status change/i,
-  });
+  // The title names the action, such as "Approve this booking?".
+  const heading = dialog.getByRole("heading", { level: 2 });
 
   await expect(dialog).toBeVisible();
   await expect(heading).toBeFocused();
@@ -204,18 +203,18 @@ test("administrator finds and confirms a real customer booking", async ({
 
   await page.setViewportSize({ width: 375, height: 812 });
   await expectNoHorizontalPageOverflow(page);
-  await expect(page.locator(".admin-booking-cards")).toBeVisible();
+  await expect(page.locator(".admin-booking-list")).toBeVisible();
   await expect(page.getByLabel(/search/i)).toBeEditable();
   await expect(page.getByLabel(/^status$/i)).toBeEnabled();
   await expect(page.getByLabel(/from date/i)).toBeEditable();
   await expect(page.getByLabel(/to date/i)).toBeEditable();
 
-  await page.getByRole("button", { name: "All", exact: true }).click();
+  await page.locator('[data-scope="all"]').click();
   await page.getByLabel(/search/i).fill(customerEmail);
   await page.getByLabel(/^status$/i).selectOption("pending");
   await page.getByLabel(/from date/i).fill(dateFrom);
   await page.getByLabel(/to date/i).fill(dateTo);
-  await page.getByRole("button", { name: /apply filters/i }).click();
+  // Filters apply as they change; there is no Apply button.
   await expect(page).toHaveURL(new RegExp(`dateTo=${dateTo}`));
 
   const filteredUrl = new URL(page.url());
@@ -226,30 +225,32 @@ test("administrator finds and confirms a real customer booking", async ({
     dateFrom,
     dateTo,
   });
-  const mobileBookings = page.locator(".admin-booking-cards");
+  const mobileBookings = page.locator(".admin-booking-list");
   await expect(
-    mobileBookings.getByText(reference, { exact: true }),
+    mobileBookings.locator(`[data-booking-row="${reference}"]`),
   ).toHaveCount(1);
   await expect(
-    mobileBookings.getByText(customerEmail, { exact: true }),
+    mobileBookings.getByText(customerName, { exact: true }),
   ).toHaveCount(1);
   await page.screenshot({
     path: path.join(screenshotsDirectory, "admin-index-375.png"),
     fullPage: true,
   });
 
-  await page.getByRole("link", { name: new RegExp(reference) }).click();
+  await mobileBookings.locator(`[data-booking-row="${reference}"] a`).click();
   await expect(page).toHaveURL(`/admin/bookings/${reference}`);
   await expectNoHorizontalPageOverflow(page);
-  await expect(page.getByText(customerName, { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { level: 1, name: customerName }),
+  ).toBeVisible();
   await expect(page.getByText(customerEmail, { exact: true })).toBeVisible();
   await expect(page.getByText(customerPhone, { exact: true })).toBeVisible();
   await expect(page.getByText("Nezuko", { exact: true })).toBeVisible();
   await expect(
-    page.getByText(/nezuko-regular-90.*90 min.*Rp 265\.000/i),
+    page.getByText(/regular · 90 min.*Rp 265\.000.*nezuko-regular-90/i),
   ).toBeVisible();
   await expect(
-    page.getByText(/nezuko-regular-extra-60.*60 min.*Rp 75\.000/i),
+    page.getByText(/60 min.*Rp 75\.000.*nezuko-regular-extra-60/i),
   ).toBeVisible();
   await expect(page.getByText(/150 min/i)).toBeVisible();
   await expect(page.getByText("Rp 340.000", { exact: true })).toBeVisible();
@@ -276,7 +277,9 @@ test("administrator finds and confirms a real customer booking", async ({
   await expect(stalePage.locator(".admin-status--pending")).toBeVisible();
 
   await page.locator('[data-admin-locale="id"]').click();
-  await expect(page.getByRole("heading", { name: reference })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { level: 1, name: customerName }),
+  ).toBeVisible();
   await expect(page.getByText("Data tamu", { exact: true })).toBeVisible();
 
   const confirmedTrigger = page.locator('[data-next-status="confirmed"]');
@@ -299,7 +302,10 @@ test("administrator finds and confirms a real customer booking", async ({
       response.request().method() === "PATCH" &&
       new URL(response.url()).pathname.endsWith("/status"),
   );
-  await page.getByRole("button", { name: /^konfirmasi perubahan$/i }).click();
+  await page
+    .getByRole("alertdialog")
+    .getByRole("button", { name: /^setujui$/i })
+    .click();
   expect((await patch).status()).toBe(303);
   expect(statusPatchRequestsOnly(firstPageRequests)).toHaveLength(1);
   await expect(page.locator(".admin-status--confirmed")).toBeVisible();
@@ -312,7 +318,7 @@ test("administrator finds and confirms a real customer booking", async ({
   );
   await stalePage
     .getByRole("button", {
-      name: /^confirm change$|^konfirmasi perubahan$/i,
+      name: /^approve$|^setujui$/i,
     })
     .click();
   expect((await stalePatch).status()).toBe(303);
@@ -348,9 +354,8 @@ test("administrator finds and confirms a real customer booking", async ({
   await expect(zoomPage.getByLabel(/cari|search/i)).toBeEditable();
   await zoomPage.getByLabel(/cari|search/i).fill(reference);
   await zoomPage
-    .getByRole("button", { name: /terapkan filter|apply filters/i })
+    .locator(`.admin-booking-list [data-booking-row="${reference}"] a`)
     .click();
-  await zoomPage.getByRole("link", { name: new RegExp(reference) }).click();
   await expect(zoomPage).toHaveURL(`/admin/bookings/${reference}`);
   await expectNoHorizontalPageOverflow(zoomPage);
   await expect(

@@ -1,264 +1,258 @@
 <script setup lang="ts">
 import { Link, usePage } from "@inertiajs/vue3";
-import { computed } from "vue";
+import { Plus } from "lucide-vue-next";
+import { computed, nextTick, ref } from "vue";
+
+import BookingStatusDialog from "@/components/admin/BookingStatusDialog.vue";
 import { useLanguage } from "@/composables/useLanguage";
 import AdminLayout from "@/layouts/admin/AdminLayout.vue";
-import type { AppPageProps } from "@/types";
+import {
+  formatDay,
+  formatPrice,
+  packageName,
+  timeAgo,
+  timezoneLabel,
+} from "@/lib/adminBooking";
+import type {
+  AdminBookingSummaryData,
+  AppPageProps,
+  BookingStatus,
+} from "@/types";
 
-interface DashboardBooking {
-  reference: string;
-  customerName: string;
-  packageNameId: string;
-  packageNameEn: string;
-  date: string;
-  time: string;
-  status: string;
-  totalPrice: number;
-}
-
-interface CategoryStat {
-  slug: string;
-  nameId: string;
-  nameEn: string;
-  count: number;
-}
-
-interface DashboardStats {
-  services: number;
-  categories: number;
-  bookingsTotal: number;
-  bookingsPending: number;
-  bookingsToday: number;
-  bookingsWeek: number;
-  revenue: number;
-  revenueBookings: number;
-}
-
-const props = defineProps<{
-  stats: DashboardStats;
-  upcoming: DashboardBooking[];
-  recent: DashboardBooking[];
-  categoryStats: CategoryStat[];
+defineProps<{
+  queue: AdminBookingSummaryData[];
+  queueTotal: number;
+  today: AdminBookingSummaryData[];
+  pricingUnverified: number | null;
+  roomSchedulingEnabled: boolean;
+  canCreate: boolean;
 }>();
 
-const page = usePage<AppPageProps>();
 const { language, tr } = useLanguage();
-
-const userName = computed(() => page.props.auth.user?.name ?? "");
-const localeTag = computed(() => (language.value === "id" ? "id-ID" : "en-GB"));
+const page = usePage<AppPageProps>();
+const answering = ref<{
+  booking: AdminBookingSummaryData;
+  next: BookingStatus;
+} | null>(null);
+const answerTrigger = ref<HTMLElement | null>(null);
+const queueHeading = ref<HTMLElement | null>(null);
 
 const todayLabel = computed(() =>
-  new Intl.DateTimeFormat(localeTag.value, {
+  new Intl.DateTimeFormat(language.value === "id" ? "id-ID" : "en-GB", {
     weekday: "long",
     day: "numeric",
     month: "long",
     year: "numeric",
+    timeZone: "Asia/Jakarta",
   }).format(new Date()),
 );
 
-function t(key: string, replacements: Record<string, string | number>): string {
-  let value = tr(key);
-  for (const [name, replacement] of Object.entries(replacements)) {
-    value = value.replace(`{${name}}`, String(replacement));
-  }
-  return value;
+function bookingHref(booking: AdminBookingSummaryData): string {
+  return `/admin/bookings/${encodeURIComponent(booking.reference)}`;
 }
 
-function rupiah(value: number): string {
-  return `Rp ${new Intl.NumberFormat("id-ID").format(value)}`;
+function answer(
+  booking: AdminBookingSummaryData,
+  next: BookingStatus,
+  event: MouseEvent,
+): void {
+  answerTrigger.value = event.currentTarget as HTMLElement;
+  answering.value = { booking, next };
 }
 
-function formatDate(iso: string): string {
-  return new Intl.DateTimeFormat(localeTag.value, {
-    day: "numeric",
-    month: "short",
-  }).format(new Date(`${iso}T00:00:00`));
+// An answered request leaves the queue, so focus moves to the queue heading.
+function answered(): void {
+  answering.value = null;
+  void nextTick(() => {
+    const target = answerTrigger.value;
+    if (target?.isConnected) target.focus();
+    else queueHeading.value?.focus();
+  });
 }
-
-function packageName(booking: DashboardBooking): string {
-  return language.value === "id"
-    ? booking.packageNameId
-    : booking.packageNameEn;
-}
-
-function categoryName(category: CategoryStat): string {
-  return language.value === "id" ? category.nameId : category.nameEn;
-}
-
-function statusLabel(status: string): string {
-  return tr(`ad.status.${status}`);
-}
-
-const maxCategoryCount = computed(() =>
-  Math.max(1, ...props.categoryStats.map((category) => category.count)),
-);
 </script>
 
 <template>
-  <AdminLayout :title="tr('ad.dash.title')" :subtitle="tr('ad.dash.subtitle')">
-    <div class="admin-content">
-      <section class="admin-dash-welcome" aria-labelledby="dash-welcome">
-        <h2 id="dash-welcome">{{ tr("ad.dash.welcome") }}, {{ userName }}</h2>
-        <p>{{ todayLabel }}</p>
-      </section>
-
-      <dl class="admin-dash-stats">
-        <div class="admin-count admin-dash-stat">
-          <dt>{{ tr("ad.dash.totalServices") }}</dt>
-          <dd>
-            <span class="admin-dash-value">{{ props.stats.services }}</span>
-            <span class="admin-dash-note">{{
-              t("ad.dash.inCategories", { n: props.stats.categories })
-            }}</span>
-          </dd>
-        </div>
-        <div class="admin-count admin-dash-stat">
-          <dt>{{ tr("ad.dash.totalBookings") }}</dt>
-          <dd>
-            <span class="admin-dash-value">{{
-              props.stats.bookingsTotal
-            }}</span>
-            <span class="admin-dash-note">{{
-              t("ad.dash.pendingNote", { n: props.stats.bookingsPending })
-            }}</span>
-          </dd>
-        </div>
-        <div class="admin-count admin-dash-stat">
-          <dt>{{ tr("ad.dash.todayBookings") }}</dt>
-          <dd>
-            <span class="admin-dash-value">{{
-              props.stats.bookingsToday
-            }}</span>
-            <span class="admin-dash-note">{{
-              t("ad.dash.todayNote", { n: props.stats.bookingsWeek })
-            }}</span>
-          </dd>
-        </div>
-        <div class="admin-count admin-dash-stat">
-          <dt>{{ tr("ad.dash.revenue") }}</dt>
-          <dd>
-            <span class="admin-dash-value">{{
-              rupiah(props.stats.revenue)
-            }}</span>
-            <span class="admin-dash-note">{{
-              t("ad.dash.revenueNote", { n: props.stats.revenueBookings })
-            }}</span>
-          </dd>
-        </div>
-      </dl>
-
-      <div class="admin-dash-grid">
-        <section
-          class="admin-dash-panel"
-          aria-labelledby="dash-upcoming"
-          data-dash-panel="upcoming"
+  <div class="admin-shell">
+    <AdminLayout :title="tr('ad.today.title')" :subtitle="todayLabel">
+      <template v-if="canCreate" #actions>
+        <Link
+          href="/admin/bookings/create"
+          class="admin-button admin-button--primary"
+          data-new-booking
         >
-          <header class="admin-dash-panel__head">
-            <div>
-              <h2 id="dash-upcoming">{{ tr("ad.dash.upcoming") }}</h2>
-              <span>{{ tr("ad.dash.upcomingRange") }}</span>
-            </div>
-            <Link class="admin-dash-panel__link" href="/admin/bookings">
-              {{ tr("ad.dash.viewBookings") }}
-            </Link>
-          </header>
-          <ul v-if="props.upcoming.length" class="admin-dash-list">
-            <li v-for="booking in props.upcoming" :key="booking.reference">
-              <span class="admin-dash-when">
-                <b>{{ formatDate(booking.date) }}</b>
-                <span>{{ booking.time }}</span>
-              </span>
-              <span class="admin-dash-who">
-                <b>{{ booking.customerName }}</b>
-                <span>{{ packageName(booking) }}</span>
-              </span>
-              <span
-                class="admin-status"
-                :class="`admin-status--${booking.status}`"
-                >{{ statusLabel(booking.status) }}</span
-              >
-            </li>
-          </ul>
-          <p v-else class="admin-empty" data-upcoming-empty>
-            {{ tr("ad.dash.upcomingEmpty") }}
-          </p>
-        </section>
-
-        <section
-          class="admin-dash-panel"
-          aria-labelledby="dash-categories"
-          data-dash-panel="categories"
+          <Plus aria-hidden="true" />{{ tr("ad.manual.new") }}
+        </Link>
+      </template>
+      <div class="admin-content">
+        <p
+          v-if="page.props.flash.status"
+          class="admin-flash"
+          role="status"
+          aria-live="polite"
         >
-          <header class="admin-dash-panel__head">
-            <div>
-              <h2 id="dash-categories">{{ tr("ad.dash.byCategory") }}</h2>
-              <span>{{
-                t("ad.dash.byCategoryNote", { n: props.stats.services })
-              }}</span>
-            </div>
-          </header>
-          <ul v-if="props.categoryStats.length" class="admin-dash-bars">
-            <li
-              v-for="category in props.categoryStats"
-              :key="category.slug"
-              data-category-stat
-            >
-              <span class="admin-dash-bar__label">
-                <span>{{ categoryName(category) }}</span>
-                <b>{{ category.count }}</b>
-              </span>
-              <span class="admin-dash-bar__track" aria-hidden="true">
-                <span
-                  class="admin-dash-bar__fill"
-                  :style="{
-                    width: `${Math.round(
-                      (category.count / maxCategoryCount) * 100,
-                    )}%`,
-                  }"
-                ></span>
-              </span>
-            </li>
-          </ul>
-          <p v-else class="admin-empty" data-categories-empty>
-            {{ tr("ad.dash.byCategoryEmpty") }}
-          </p>
-        </section>
-      </div>
-
-      <section
-        class="admin-dash-panel"
-        aria-labelledby="dash-recent"
-        data-dash-panel="recent"
-      >
-        <header class="admin-dash-panel__head">
-          <div>
-            <h2 id="dash-recent">{{ tr("ad.dash.recent") }}</h2>
-          </div>
-          <Link class="admin-dash-panel__link" href="/admin/bookings">
-            {{ tr("ad.dash.viewBookings") }}
-          </Link>
-        </header>
-        <ul v-if="props.recent.length" class="admin-dash-list">
-          <li v-for="booking in props.recent" :key="booking.reference">
-            <span class="admin-dash-when">
-              <b>{{ booking.reference }}</b>
-              <span>{{ formatDate(booking.date) }} · {{ booking.time }}</span>
-            </span>
-            <span class="admin-dash-who">
-              <b>{{ booking.customerName }}</b>
-              <span>{{ packageName(booking) }}</span>
-            </span>
-            <span
-              class="admin-status"
-              :class="`admin-status--${booking.status}`"
-              >{{ statusLabel(booking.status) }}</span
-            >
-          </li>
-        </ul>
-        <p v-else class="admin-empty" data-recent-empty>
-          {{ tr("ad.dash.recentEmpty") }}
+          {{ page.props.flash.status }}
         </p>
-      </section>
-    </div>
-  </AdminLayout>
+        <p
+          v-if="pricingUnverified"
+          class="admin-callout admin-callout--warning"
+          data-pricing-alert
+        >
+          {{ tr("ad.today.pricing", { n: pricingUnverified }) }}
+          <Link href="/admin/catalog" class="admin-callout__link">{{
+            tr("ad.today.pricingLink")
+          }}</Link>
+        </p>
+
+        <div class="admin-today">
+          <section
+            class="admin-panel"
+            aria-labelledby="today-queue-title"
+            data-queue
+          >
+            <header class="admin-panel__head">
+              <h2 id="today-queue-title" ref="queueHeading" tabindex="-1">
+                {{ tr("ad.today.queue")
+                }}<span
+                  class="admin-tab__count"
+                  :class="{ 'admin-tab__count--alert': queueTotal > 0 }"
+                  >{{ queueTotal }}</span
+                >
+              </h2>
+              <p v-if="queue.length">{{ tr("ad.today.queueNote") }}</p>
+            </header>
+            <p v-if="!queue.length" class="admin-panel__empty">
+              {{ tr("ad.today.queueEmpty") }}
+            </p>
+            <ul v-else class="admin-queue" role="list">
+              <li
+                v-for="booking in queue"
+                :key="booking.reference"
+                :data-booking-row="booking.reference"
+              >
+                <div class="admin-queue__top">
+                  <Link
+                    class="admin-row-link"
+                    :href="bookingHref(booking)"
+                    :title="booking.reference"
+                    ><span class="admin-row-link__name">{{
+                      booking.customer.name
+                    }}</span></Link
+                  >
+                  <span
+                    v-if="booking.requestedAt"
+                    class="admin-record-secondary admin-nowrap"
+                    >{{
+                      tr("ad.list.requested", {
+                        when: timeAgo(booking.requestedAt, language),
+                      })
+                    }}</span
+                  >
+                </div>
+                <p class="admin-booking-list__meta">
+                  <span>{{
+                    formatDay(booking.appointment.date, language, "short")
+                  }}</span>
+                  ·
+                  <span
+                    >{{ booking.appointment.time }}
+                    {{ timezoneLabel(booking.appointment.timezone) }}</span
+                  >
+                  · <span>{{ packageName(booking, language) }}</span> ·
+                  <span>{{ tr("ad.list.guests", { n: booking.guests }) }}</span>
+                  ·
+                  <span class="admin-price">{{
+                    formatPrice(booking.totalPriceIdr)
+                  }}</span>
+                </p>
+                <div
+                  v-if="booking.allowedTransitions.includes('confirmed')"
+                  class="admin-booking-list__actions"
+                >
+                  <button
+                    type="button"
+                    class="admin-button admin-button--danger"
+                    data-answer="cancelled"
+                    :aria-label="`${tr(`ad.action.${booking.status}.cancelled`)} ${booking.customer.name}`"
+                    @click="answer(booking, 'cancelled', $event)"
+                  >
+                    {{ tr(`ad.action.${booking.status}.cancelled`) }}
+                  </button>
+                  <button
+                    type="button"
+                    class="admin-button admin-button--primary"
+                    data-answer="confirmed"
+                    :aria-label="`${tr(`ad.action.${booking.status}.confirmed`)} ${booking.customer.name}`"
+                    @click="answer(booking, 'confirmed', $event)"
+                  >
+                    {{ tr(`ad.action.${booking.status}.confirmed`) }}
+                  </button>
+                </div>
+              </li>
+            </ul>
+            <Link
+              v-if="queueTotal > queue.length"
+              href="/admin/bookings?scope=pending"
+              class="admin-panel__more"
+              >{{ tr("ad.today.queueMore", { n: queueTotal }) }}</Link
+            >
+          </section>
+
+          <section
+            class="admin-panel"
+            aria-labelledby="today-agenda-title"
+            data-agenda
+          >
+            <header class="admin-panel__head">
+              <h2 id="today-agenda-title">
+                {{ tr("ad.today.schedule")
+                }}<span class="admin-tab__count">{{ today.length }}</span>
+              </h2>
+            </header>
+            <p v-if="!today.length" class="admin-panel__empty">
+              {{ tr("ad.today.scheduleEmpty") }}
+            </p>
+            <ol v-else class="admin-agenda">
+              <li
+                v-for="booking in today"
+                :key="booking.reference"
+                :data-booking-row="booking.reference"
+              >
+                <time class="admin-agenda__time">{{
+                  booking.appointment.time
+                }}</time>
+                <div class="admin-agenda__body">
+                  <Link
+                    class="admin-row-link"
+                    :href="bookingHref(booking)"
+                    :title="booking.reference"
+                    ><span class="admin-row-link__name">{{
+                      booking.customer.name
+                    }}</span></Link
+                  >
+                  <span class="admin-record-secondary"
+                    >{{ packageName(booking, language) }} ·
+                    {{ booking.totalDurationMinutes }}
+                    {{ tr("bookings.minutes") }} ·
+                    {{ tr("ad.list.guests", { n: booking.guests }) }}</span
+                  >
+                </div>
+                <span
+                  class="admin-status"
+                  :class="`admin-status--${booking.status}`"
+                  >{{ tr(`ad.status.${booking.status}`) }}</span
+                >
+              </li>
+            </ol>
+          </section>
+        </div>
+      </div>
+    </AdminLayout>
+    <BookingStatusDialog
+      :booking="answering?.booking ?? null"
+      :next-status="answering?.next ?? null"
+      :room-scheduling-enabled="roomSchedulingEnabled"
+      return-to="today"
+      @close="answered"
+    />
+  </div>
 </template>
