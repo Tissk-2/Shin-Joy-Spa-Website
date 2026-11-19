@@ -179,7 +179,7 @@ class BookingPagesTest extends TestCase
     }
 
     // Production break caught: index grouping must use the appointment instant in its persisted timezone and stable chronological ordering.
-    public function test_index_groups_equality_at_now_and_orders_upcoming_and_past_chronologically(): void
+    public function test_index_groups_equality_at_now_and_orders_upcoming_and_past_chronologically_with_cancelled_visits_in_the_history(): void
     {
         $user = User::factory()->create();
         $oldPast = Booking::factory()->for($user)->create([
@@ -217,9 +217,9 @@ class BookingPagesTest extends TestCase
         $this->assertSame([
             $equalNow->reference,
             $soon->reference,
-            $laterCancelled->reference,
         ], array_column($response->inertiaProps('upcoming'), 'reference'));
         $this->assertSame([
+            $laterCancelled->reference,
             $recentPast->reference,
             $oldPast->reference,
         ], array_column($response->inertiaProps('past'), 'reference'));

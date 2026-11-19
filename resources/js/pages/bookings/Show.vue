@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Head, Link } from "@inertiajs/vue3";
+import { ArrowLeft } from "lucide-vue-next";
 import { computed, ref } from "vue";
 import { useContactInformation } from "@/composables/useContactInformation";
 import { useLanguage } from "@/composables/useLanguage";
@@ -19,6 +20,7 @@ const { language, tr } = useLanguage();
 const contactInformation = useContactInformation();
 const downloading = ref(false);
 const downloadError = ref(false);
+const copied = ref(false);
 
 const dateLocale = computed(() =>
   language.value === "id" ? "id-ID" : "en-GB",
@@ -33,6 +35,7 @@ const localizedPackageName = computed(() =>
 function formatDate(date: string): string {
   const [year, month, day] = date.split("-").map(Number);
   return new Intl.DateTimeFormat(dateLocale.value, {
+    weekday: "long",
     day: "numeric",
     month: "long",
     year: "numeric",
@@ -74,8 +77,19 @@ function modeLabel(): string {
   return tr(`bookings.treatmentMode.${props.booking.treatmentMode}`);
 }
 
+// The choice code is an internal catalogue key; guests see duration and price.
 function choiceMeta(choice: BookingChoiceData): string {
-  return `${choice.choiceCode} / ${formatDuration(choice.durationMinutes)} / ${formatPrice(choice.priceIdr)}`;
+  return `${formatDuration(choice.durationMinutes)} · ${formatPrice(choice.priceIdr)}`;
+}
+
+async function copyReference(): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(props.booking.reference);
+    copied.value = true;
+    window.setTimeout(() => (copied.value = false), 2000);
+  } catch {
+    copied.value = false;
+  }
 }
 
 async function downloadCard(): Promise<void> {
@@ -104,20 +118,35 @@ async function downloadCard(): Promise<void> {
   <MainLayout>
     <section class="page-hero booking-page-hero">
       <div class="container">
-        <nav class="breadcrumb" :aria-label="tr('nav.breadcrumb')">
-          <Link class="ulink" href="/">{{ tr("nav.home") }}</Link>
-          <span aria-hidden="true">›</span>
-          <Link class="ulink" href="/bookings">{{ tr("bookings.title") }}</Link>
-          <span aria-hidden="true">›</span>
-          <span>{{ props.booking.reference }}</span>
-        </nav>
+        <Link class="booking-back" href="/bookings">
+          <ArrowLeft aria-hidden="true" />{{ tr("bookings.title") }}
+        </Link>
 
         <div class="booking-detail-title">
           <div>
-            <p class="booking-detail-title__label">
-              {{ tr("bookings.reference") }}
+            <h1>{{ localizedPackageName }}</h1>
+            <p class="booking-detail-title__when">
+              {{ formatDate(props.booking.appointment.date) }} ·
+              {{ props.booking.appointment.time }}
+              {{ timezoneLabel(props.booking.appointment.timezone) }}
             </p>
-            <h1>{{ props.booking.reference }}</h1>
+            <p class="booking-reference">
+              <span>{{ tr("bookings.reference") }}</span>
+              <span class="booking-reference__code" data-booking-reference>{{
+                props.booking.reference
+              }}</span>
+              <button
+                type="button"
+                class="booking-reference__copy"
+                data-booking-copy-reference
+                @click="copyReference"
+              >
+                {{ copied ? tr("bookings.copied") : tr("bookings.copy") }}
+              </button>
+              <span v-if="copied" class="sr-only" role="status">{{
+                tr("bookings.copied")
+              }}</span>
+            </p>
           </div>
           <span
             class="booking-status"
@@ -140,17 +169,6 @@ async function downloadCard(): Promise<void> {
 
         <div class="booking-appointment-band">
           <dl>
-            <div>
-              <dt>{{ tr("bookings.date") }}</dt>
-              <dd>{{ formatDate(props.booking.appointment.date) }}</dd>
-            </div>
-            <div>
-              <dt>{{ tr("bookings.time") }}</dt>
-              <dd>
-                {{ props.booking.appointment.time }}
-                {{ timezoneLabel(props.booking.appointment.timezone) }}
-              </dd>
-            </div>
             <div>
               <dt>{{ tr("bookings.guests") }}</dt>
               <dd>{{ formatGuests(props.booking.guests) }}</dd>

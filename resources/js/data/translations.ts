@@ -389,7 +389,9 @@ export default {
     "bookings.title": "Reservasi Saya",
     "bookings.sub":
       "Lihat jadwal dan riwayat reservasi yang tersimpan di akun Anda.",
-    "bookings.reference": "Referensi",
+    "bookings.reference": "Kode reservasi",
+    "bookings.copy": "Salin",
+    "bookings.copied": "Disalin",
     "bookings.upcomingHeading": "Reservasi mendatang ({count})",
     "bookings.pastHeading": "Riwayat reservasi ({count})",
     "bookings.emptyUpcoming":
@@ -1418,7 +1420,9 @@ export default {
     "bookings.title": "My Bookings",
     "bookings.sub":
       "See the schedule and booking history saved to your account.",
-    "bookings.reference": "Reference",
+    "bookings.reference": "Booking code",
+    "bookings.copy": "Copy",
+    "bookings.copied": "Copied",
     "bookings.upcomingHeading": "Upcoming bookings ({count})",
     "bookings.pastHeading": "Past bookings ({count})",
     "bookings.emptyUpcoming":

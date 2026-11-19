@@ -16,15 +16,32 @@ const dateLocale = computed(() =>
   language.value === "id" ? "id-ID" : "en-GB",
 );
 
+const groups = computed(() => [
+  {
+    id: "upcoming-bookings-title",
+    heading: tr("bookings.upcomingHeading", { count: props.upcoming.length }),
+    bookings: props.upcoming,
+    empty: tr("bookings.emptyUpcoming"),
+  },
+  {
+    id: "past-bookings-title",
+    heading: tr("bookings.pastHeading", { count: props.past.length }),
+    bookings: props.past,
+    empty: tr("bookings.emptyPast"),
+  },
+]);
+
 function packageName(booking: BookingSummaryData): string {
   return language.value === "id"
     ? booking.package.nameId
     : booking.package.nameEn;
 }
 
+// The day leads each row, so it carries the weekday as well.
 function formatDate(date: string): string {
   const [year, month, day] = date.split("-").map(Number);
   return new Intl.DateTimeFormat(dateLocale.value, {
+    weekday: "short",
     day: "numeric",
     month: "long",
     year: "numeric",
@@ -33,10 +50,6 @@ function formatDate(date: string): string {
 
 function timezoneLabel(timezone: string): string {
   return timezone === "Asia/Jakarta" ? "WIB" : timezone;
-}
-
-function formatAppointment(booking: BookingSummaryData): string {
-  return `${formatDate(booking.appointment.date)} ${booking.appointment.time} ${timezoneLabel(booking.appointment.timezone)}`;
 }
 
 function formatPrice(amount: number): string {
@@ -81,22 +94,18 @@ function modeLabel(booking: BookingSummaryData): string {
     <section class="section booking-ledger-section">
       <div class="container booking-ledger">
         <section
+          v-for="group in groups"
+          :key="group.id"
           class="booking-ledger__group"
-          aria-labelledby="upcoming-bookings-title"
+          :aria-labelledby="group.id"
         >
           <div class="booking-ledger__heading">
-            <h2 id="upcoming-bookings-title">
-              {{
-                tr("bookings.upcomingHeading", {
-                  count: props.upcoming.length,
-                })
-              }}
-            </h2>
+            <h2 :id="group.id">{{ group.heading }}</h2>
           </div>
 
-          <ul v-if="props.upcoming.length" class="booking-list" role="list">
+          <ul v-if="group.bookings.length" class="booking-list" role="list">
             <li
-              v-for="booking in props.upcoming"
+              v-for="booking in group.bookings"
               :key="booking.reference"
               class="booking-row"
             >
@@ -112,9 +121,6 @@ function modeLabel(booking: BookingSummaryData): string {
                   >
                 </span>
                 <span class="booking-row__main">
-                  <span class="booking-row__reference">{{
-                    booking.reference
-                  }}</span>
                   <span class="booking-row__package">
                     {{ packageName(booking) }}
                     <span v-if="booking.package.isVip" class="booking-vip">{{
@@ -123,79 +129,14 @@ function modeLabel(booking: BookingSummaryData): string {
                   </span>
                   <span class="booking-row__meta">
                     {{ modeLabel(booking) }}
-                    <span aria-hidden="true">/</span>
-                    {{ formatAppointment(booking) }}
-                    <span aria-hidden="true">/</span>
+                    <span aria-hidden="true">·</span>
                     {{ formatGuests(booking.guests) }}
+                    <span aria-hidden="true">·</span>
+                    {{ formatDuration(booking.totalDurationMinutes) }}
                   </span>
-                </span>
-                <span class="booking-row__total">
-                  <span
-                    class="booking-status"
-                    :class="`booking-status--${booking.status}`"
-                    >{{ statusLabel(booking.status) }}</span
-                  >
-                  <span>{{
-                    formatDuration(booking.totalDurationMinutes)
-                  }}</span>
-                  <strong>{{ formatPrice(booking.totalPriceIdr) }}</strong>
-                </span>
-              </Link>
-            </li>
-          </ul>
-
-          <div v-else class="booking-empty">
-            <p>{{ tr("bookings.emptyUpcoming") }}</p>
-            <Link class="ulink" href="/booking">{{
-              tr("bookings.reserveTreatment")
-            }}</Link>
-          </div>
-        </section>
-
-        <section
-          class="booking-ledger__group"
-          aria-labelledby="past-bookings-title"
-        >
-          <div class="booking-ledger__heading">
-            <h2 id="past-bookings-title">
-              {{ tr("bookings.pastHeading", { count: props.past.length }) }}
-            </h2>
-          </div>
-
-          <ul v-if="props.past.length" class="booking-list" role="list">
-            <li
-              v-for="booking in props.past"
-              :key="booking.reference"
-              class="booking-row"
-            >
-              <Link
-                class="booking-row__link"
-                :href="`/bookings/${booking.reference}`"
-              >
-                <span class="booking-row__date">
-                  <span>{{ formatDate(booking.appointment.date) }}</span>
-                  <span
-                    >{{ booking.appointment.time }}
-                    {{ timezoneLabel(booking.appointment.timezone) }}</span
-                  >
-                </span>
-                <span class="booking-row__main">
                   <span class="booking-row__reference">{{
                     booking.reference
                   }}</span>
-                  <span class="booking-row__package">
-                    {{ packageName(booking) }}
-                    <span v-if="booking.package.isVip" class="booking-vip">{{
-                      tr("bookings.vip")
-                    }}</span>
-                  </span>
-                  <span class="booking-row__meta">
-                    {{ modeLabel(booking) }}
-                    <span aria-hidden="true">/</span>
-                    {{ formatAppointment(booking) }}
-                    <span aria-hidden="true">/</span>
-                    {{ formatGuests(booking.guests) }}
-                  </span>
                 </span>
                 <span class="booking-row__total">
                   <span
@@ -203,9 +144,6 @@ function modeLabel(booking: BookingSummaryData): string {
                     :class="`booking-status--${booking.status}`"
                     >{{ statusLabel(booking.status) }}</span
                   >
-                  <span>{{
-                    formatDuration(booking.totalDurationMinutes)
-                  }}</span>
                   <strong>{{ formatPrice(booking.totalPriceIdr) }}</strong>
                 </span>
               </Link>
@@ -213,7 +151,7 @@ function modeLabel(booking: BookingSummaryData): string {
           </ul>
 
           <div v-else class="booking-empty">
-            <p>{{ tr("bookings.emptyPast") }}</p>
+            <p>{{ group.empty }}</p>
             <Link class="ulink" href="/booking">{{
               tr("bookings.reserveTreatment")
             }}</Link>

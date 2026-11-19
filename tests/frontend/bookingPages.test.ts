@@ -1,4 +1,4 @@
-import { mount, type VueWrapper } from "@vue/test-utils";
+import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 
@@ -184,6 +184,10 @@ describe("customer booking index", () => {
     expect(
       wrapper.get('a[href="/bookings/SJ-01K4DR9M7JQ2ABCD3EFGHJKL10"]'),
     ).toBeTruthy();
+    // Each row leads with the day of the visit, weekday included.
+    expect(wrapper.get(".booking-row__date").text()).toMatch(
+      /^Sun,? 6 September 2026/,
+    );
     expect(wrapper.text()).toContain("Upcoming bookings (2)");
     expect(wrapper.text()).toContain("Past bookings (2)");
     expect(wrapper.text()).toContain("Calm Nezuko");
@@ -267,7 +271,14 @@ describe("customer booking detail", () => {
       props: { booking: withExtension },
     });
 
-    expect(wrapper.get("h1").text()).toBe("SJ-01K4DR9M7JQ2ABCD3EFGHJKL11");
+    // The visit leads: treatment as the title, then the day and time.
+    expect(wrapper.get("h1").text()).toBe("Nezuko VIP");
+    expect(wrapper.get(".booking-detail-title__when").text()).toBe(
+      "Wednesday, 7 October 2026 · 13:30 WIB",
+    );
+    expect(wrapper.get("[data-booking-reference]").text()).toBe(
+      "SJ-01K4DR9M7JQ2ABCD3EFGHJKL11",
+    );
     expect(wrapper.text()).toContain("Confirmed");
     expect(wrapper.text()).toContain("Nezuko VIP");
     expect(wrapper.text()).toContain("VIP");
@@ -276,11 +287,12 @@ describe("customer booking detail", () => {
     expect(wrapper.text()).toContain("13:30 WIB");
     expect(wrapper.text()).toContain("1 guest");
     expect(wrapper.text()).toContain("Base treatment");
-    expect(wrapper.text()).toContain("nezuko-vip-double-60");
-    expect(wrapper.text()).toContain("60 min");
+    // Catalogue codes are internal and never shown to the guest.
+    expect(wrapper.text()).not.toContain("nezuko-vip-double-60");
+    expect(wrapper.text()).toContain("60 min · Rp 350.000");
     expect(wrapper.text()).toContain("Rp 350.000");
     expect(wrapper.text()).toContain("Extension");
-    expect(wrapper.text()).toContain("nezuko-vip-double-extra-30");
+    expect(wrapper.text()).not.toContain("nezuko-vip-double-extra-30");
     expect(wrapper.text()).toContain("30 min");
     expect(wrapper.text()).toContain("Rp 100.000");
     expect(wrapper.text()).toContain("90 min");
@@ -311,6 +323,22 @@ describe("customer booking detail", () => {
     expect(wrapper.get('.booking-actions a[href="/booking"]').text()).toBe(
       "Reservasi perawatan lain",
     );
+  });
+
+  it("copies the booking code and says so", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+    const wrapper = mount(Show, { props: { booking: withExtension } });
+
+    await wrapper.get("[data-booking-copy-reference]").trigger("click");
+    await flushPromises();
+
+    expect(writeText).toHaveBeenCalledWith("SJ-01K4DR9M7JQ2ABCD3EFGHJKL11");
+    expect(wrapper.get("[data-booking-copy-reference]").text()).toBe("Copied");
+    expect(wrapper.get('[role="status"]').text()).toBe("Copied");
   });
 
   it("states no extension and no notes explicitly", () => {

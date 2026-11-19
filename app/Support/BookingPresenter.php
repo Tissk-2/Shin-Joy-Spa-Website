@@ -17,9 +17,11 @@ class BookingPresenter
      */
     public function groupedIndex(Collection $bookings): array
     {
+        // A cancelled visit belongs to the history even when its day is still ahead.
         $grouped = $bookings->partition(
-            fn (Booking $booking): bool => $this->appointmentInstant($booking)
-                ->greaterThanOrEqualTo(CarbonImmutable::now($booking->appointment_timezone))
+            fn (Booking $booking): bool => $booking->status !== BookingStatus::Cancelled
+                && $this->appointmentInstant($booking)
+                    ->greaterThanOrEqualTo(CarbonImmutable::now($booking->appointment_timezone))
         );
 
         return [

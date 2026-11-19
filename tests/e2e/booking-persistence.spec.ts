@@ -414,11 +414,12 @@ test("verified customers persist one booking and cannot view another customer's 
   const reference = new URL(page.url()).pathname.split("/").pop() ?? "";
   expect(reference).toMatch(bookingReferencePattern);
 
-  await expect(page.getByRole("heading", { name: reference })).toBeVisible();
-  await expect(page.getByText(/menunggu|pending/i)).toBeVisible();
+  // The visit leads the page; the booking code is a small line under it.
   await expect(
-    page.locator("main").getByText("Nezuko", { exact: true }),
+    page.getByRole("heading", { level: 1, name: "Nezuko", exact: true }),
   ).toBeVisible();
+  await expect(page.locator("[data-booking-reference]")).toHaveText(reference);
+  await expect(page.getByText(/menunggu|pending/i)).toBeVisible();
   await expect(page.getByText(/150 (menit|min)/i)).toBeVisible();
   await expect(page.getByText("Rp 340.000", { exact: true })).toBeVisible();
 

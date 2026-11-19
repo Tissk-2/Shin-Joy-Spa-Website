@@ -246,10 +246,8 @@
 /* ---------- Customer booking ledger ---------- */
 .booking-page-hero h1,
 .booking-detail-title h1,
-.booking-ledger h2,
 .booking-panel h2,
-.booking-row__reference,
-.booking-row__total strong {
+.booking-row__package {
   font-family: var(--font-display);
 }
 
@@ -270,7 +268,10 @@
 
 .booking-ledger__heading h2 {
   color: var(--ink);
-  font-size: clamp(1.45rem, 2.2vw, 1.9rem);
+  font-family: var(--font-body);
+  font-size: 1.15rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
 .booking-list {
@@ -293,8 +294,8 @@
   text-decoration: none;
 }
 
-.booking-row__link:hover .booking-row__reference,
-.booking-row__link:focus-visible .booking-row__reference {
+.booking-row__link:hover .booking-row__package,
+.booking-row__link:focus-visible .booking-row__package {
   color: var(--rose-strong);
 }
 
@@ -330,14 +331,16 @@
 }
 
 .booking-row__reference {
-  color: var(--rose-strong);
-  font-size: clamp(1.05rem, 2vw, 1.35rem);
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
 }
 
 .booking-row__package {
   color: var(--ink);
-  font-weight: 800;
+  font-size: 1.25rem;
+  line-height: 1.25;
 }
 
 .booking-row__meta {
@@ -353,7 +356,8 @@
 
 .booking-row__total strong {
   color: var(--ink);
-  font-size: 1.15rem;
+  font-size: 1.05rem;
+  font-variant-numeric: tabular-nums;
 }
 
 .booking-status,
@@ -417,11 +421,63 @@
   justify-content: space-between;
 }
 
-.booking-detail-title__label {
-  margin: 0 0 0.4rem;
+.booking-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 44px;
+  margin-bottom: 0.5rem;
   color: var(--text-muted);
   font-size: 0.9rem;
-  font-weight: 800;
+  font-weight: 600;
+}
+
+.booking-back:hover {
+  color: var(--rose-strong);
+}
+
+.booking-back svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.booking-detail-title__when {
+  margin: 0.6rem 0 0;
+  color: var(--ink);
+  font-size: 1.15rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.booking-reference {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.6rem;
+  margin: 0.75rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.booking-reference__code {
+  min-width: 0;
+  color: var(--ink);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.booking-reference__copy {
+  min-height: 32px;
+  padding: 0 0.25rem;
+  border: 0;
+  background: none;
+  color: var(--rose-strong);
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
 }
 
 .booking-detail {
@@ -443,7 +499,7 @@
 }
 
 .booking-appointment-band dl {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
 }
 
 .booking-appointment-band dt,
@@ -487,7 +543,6 @@
   border: 1px solid var(--line);
   border-radius: var(--r-md);
   background: var(--panel);
-  box-shadow: var(--shadow-card);
 }
 
 .booking-panel__header {
@@ -505,8 +560,8 @@
 }
 
 .booking-total-panel dd {
-  font-family: var(--font-display);
-  font-size: 1.35rem;
+  font-size: 1.25rem;
+  font-variant-numeric: tabular-nums;
 }
 
 .booking-notes-panel,
@@ -539,7 +594,11 @@
   }
 
   .booking-row__total {
-    justify-items: start;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem 1rem;
     text-align: left;
   }
 
