@@ -1994,6 +1994,39 @@ a.admin-tab[aria-current="page"] {
   font-weight: 500;
 }
 
+/* Staff: one row per person, columns for who, booking access and Telegram. */
+.admin-staff-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.75rem 1.5rem;
+  padding: 1rem 0;
+}
+.admin-staff-row h2 {
+  font-size: 1rem;
+}
+.admin-staff-person,
+.admin-staff-access {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.admin-staff-access {
+  display: grid;
+  align-content: start;
+  gap: 0.5rem;
+}
+@media (min-width: 1100px) {
+  .admin-staff-row {
+    grid-template-columns: minmax(12rem, 1fr) minmax(11rem, 0.9fr) minmax(
+        14rem,
+        1.3fr
+      );
+    align-items: start;
+  }
+  .admin-staff-row > [data-telegram-state] {
+    margin-top: 0;
+  }
+}
+
 /* Page content editor (Konten) */
 .admin-content-editor {
   max-width: 72rem;

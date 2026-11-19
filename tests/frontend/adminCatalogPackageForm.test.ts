@@ -227,6 +227,8 @@ describe("admin package form", () => {
       "[data-lifecycle-confirm]",
     )!;
     confirm.click();
+    // One request: confirming inside the save bar must not also save the package.
+    expect(inertia.requests).toHaveLength(1);
     expect(inertia.requests[0]).toMatchObject({
       url: "/admin/catalog/packages/draft-package/publish",
       data: { version: 9 },
@@ -494,5 +496,43 @@ describe("admin package form", () => {
     await nextTick();
     expect(wrapper.text()).toContain("Stale version");
     expect(wrapper.text()).toContain("Taken");
+  });
+
+  // Catches the save button scrolling out of reach, dead section links and prices read as bare numbers.
+  it("keeps save and lifecycle actions in one bar, links every section and shows rupiah prices", () => {
+    const wrapper = mountForm({
+      ...draftPackage,
+      variants: [
+        {
+          id: 7,
+          code: "base",
+          mode: "regular",
+          durationMinutes: 60,
+          priceIdr: 1250000,
+          isActive: true,
+          displayOrder: 0,
+          isPublished: false,
+        },
+      ],
+      can: { ...draftPackage.can, update: true, publish: true },
+    });
+    const bar = wrapper.get(".catalog-savebar");
+    expect(bar.find('button[type="submit"]').exists()).toBe(true);
+    expect(bar.find("[data-catalog-action]").exists()).toBe(true);
+    const targets = wrapper
+      .findAll(".admin-jump a")
+      .map((link) => link.attributes("href"));
+    expect(targets).toEqual([
+      "#package-details",
+      "#package-photos",
+      "#package-pricing",
+      "#package-variants",
+      "#package-extensions",
+    ]);
+    for (const target of targets)
+      expect(wrapper.find(target!).exists()).toBe(true);
+    expect(
+      wrapper.findAll("[data-price-hint]").map((hint) => hint.text()),
+    ).toEqual(["Rp 1.250.000"]);
   });
 });

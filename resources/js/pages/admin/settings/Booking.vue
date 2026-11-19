@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { router, usePage } from "@inertiajs/vue3";
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 import { useLanguage } from "@/composables/useLanguage";
 import AdminLayout from "@/layouts/admin/AdminLayout.vue";
 import type { BookingSettingsData } from "@/types";
@@ -10,17 +10,42 @@ const props = defineProps<{
   settings: BookingSettingsData | null;
   version: number | null;
 }>();
-const { tr } = useLanguage();
+const { language, tr } = useLanguage();
 const page = usePage();
 const flash = computed(
   () => (page.props.flash as { status?: string } | undefined)?.status,
 );
-const fields = [
+// Online payment is off, so the payment window does nothing yet; it stays
+// saved and editable, folded away. It starts open when nothing is saved, and
+// opens again whenever it has an error, so a required field is never hidden.
+const limitFields = [
   "booking_horizon_days",
   "minimum_lead_minutes",
   "review_target_minutes",
-  "minimum_checkout_minutes",
 ] as const;
+const paymentOpen = ref(props.settings === null);
+// A minute count read back as days, hours and minutes ("= 1 day 2 hours").
+function minutesReading(raw: string): string {
+  if (!/^\d+$/.test(raw) || Number(raw) < 60) return "";
+  const total = Number(raw);
+  const locale = language.value === "id" ? "id-ID" : "en-GB";
+  const parts = (
+    [
+      [Math.floor(total / 1440), "day"],
+      [Math.floor((total % 1440) / 60), "hour"],
+      [total % 60, "minute"],
+    ] as const
+  )
+    .filter(([amount]) => amount > 0)
+    .map(([amount, unit]) =>
+      new Intl.NumberFormat(locale, {
+        style: "unit",
+        unit,
+        unitDisplay: "long",
+      }).format(amount),
+    );
+  return `= ${parts.join(" ")}`;
+}
 const bounds = {
   booking_horizon_days: [1, 365],
   minimum_lead_minutes: [0, 525600],
@@ -47,6 +72,9 @@ const errors = ref<Record<string, string>>({});
 const canSave = computed(
   () => props.state !== "unavailable" && version.value !== null,
 );
+watch(errors, (current) => {
+  if (current.minimum_checkout_minutes) paymentOpen.value = true;
+});
 const intervalError = (index: number, field: string) =>
   errors.value[`review_intervals.${index}.${field}`];
 function addInterval() {
@@ -105,17 +133,13 @@ function submit() {
       :subtitle="tr('ad.settings.purpose')"
     >
       <div class="admin-content settings-content">
-        <p
-          v-if="flash"
-          role="status"
-          class="admin-filter-panel text-[var(--admin-success)]"
-        >
+        <p v-if="flash" role="status" class="admin-flash">
           {{ flash }}
         </p>
         <p
           v-if="state !== 'configured'"
           role="status"
-          class="admin-filter-panel"
+          class="admin-callout admin-callout--warning"
         >
           {{ tr(`ad.settings.${state}`) }}
         </p>
@@ -145,7 +169,7 @@ function submit() {
             <legend class="sr-only">{{ tr("ad.settings.limits") }}</legend>
             <h2 class="font-bold">{{ tr("ad.settings.limits") }}</h2>
             <div class="grid gap-5 sm:grid-cols-2">
-              <div v-for="field in fields" :key="field" class="min-w-0">
+              <div v-for="field in limitFields" :key="field" class="min-w-0">
                 <label :for="field" class="mb-1 block text-sm font-semibold">{{
                   tr(`ad.settings.${field}`)
                 }}</label>
@@ -169,6 +193,13 @@ function submit() {
                   {{ tr(`ad.settings.${field}Help`) }}
                 </p>
                 <p
+                  v-if="minutesReading(values[field])"
+                  class="settings-reading"
+                  :data-reading="field"
+                >
+                  {{ minutesReading(values[field]) }}
+                </p>
+                <p
                   v-if="errors[field]"
                   :id="`${field}-error`"
                   class="settings-field-error"
@@ -177,6 +208,50 @@ function submit() {
                 </p>
               </div>
             </div>
+            <details
+              class="settings-payment"
+              :open="paymentOpen"
+              data-payment-settings
+              @toggle="paymentOpen = ($event.target as HTMLDetailsElement).open"
+            >
+              <summary>{{ tr("ad.settings.paymentSection") }}</summary>
+              <p class="text-sm text-[var(--admin-muted)]">
+                {{ tr("ad.settings.paymentOff") }}
+              </p>
+              <div class="min-w-0 sm:max-w-sm">
+                <label
+                  for="minimum_checkout_minutes"
+                  class="mb-1 block text-sm font-semibold"
+                  >{{ tr("ad.settings.minimum_checkout_minutes") }}</label
+                >
+                <input
+                  id="minimum_checkout_minutes"
+                  v-model="values.minimum_checkout_minutes"
+                  type="number"
+                  inputmode="numeric"
+                  required
+                  step="1"
+                  :min="bounds.minimum_checkout_minutes[0]"
+                  :max="bounds.minimum_checkout_minutes[1]"
+                  class="admin-control"
+                  :aria-invalid="!!errors.minimum_checkout_minutes"
+                  aria-describedby="minimum_checkout_minutes-help minimum_checkout_minutes-error"
+                />
+                <p
+                  id="minimum_checkout_minutes-help"
+                  class="mt-1 text-xs text-[var(--admin-muted)]"
+                >
+                  {{ tr("ad.settings.minimum_checkout_minutesHelp") }}
+                </p>
+                <p
+                  v-if="errors.minimum_checkout_minutes"
+                  id="minimum_checkout_minutes-error"
+                  class="settings-field-error"
+                >
+                  {{ errors.minimum_checkout_minutes }}
+                </p>
+              </div>
+            </details>
           </fieldset>
           <fieldset
             :disabled="processing"
@@ -309,5 +384,32 @@ function submit() {
   margin-top: 0.375rem;
   font-size: 0.875rem;
   color: var(--admin-danger, #a12435);
+}
+.settings-reading {
+  margin-top: 0.25rem;
+  color: var(--admin-ink);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+/* No grid gap here: a details element's open content does not take it. */
+.settings-payment {
+  padding-top: 1rem;
+  border-top: 1px solid var(--admin-line);
+}
+.settings-payment summary {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--admin-muted);
+  font-weight: 600;
+  cursor: pointer;
+}
+.settings-payment[open] summary {
+  color: var(--admin-ink);
+}
+.settings-payment > p {
+  max-width: 65ch;
+  margin: 0.25rem 0 1rem;
 }
 </style>

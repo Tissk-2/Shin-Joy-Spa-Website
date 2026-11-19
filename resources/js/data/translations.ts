@@ -79,7 +79,11 @@ export default {
     "ad.settings.minimum_checkout_minutes":
       "Jendela pembayaran minimum (menit)",
     "ad.settings.booking_horizon_daysHelp": "Bilangan bulat 1–365 hari.",
-    "ad.settings.minimum_lead_minutesHelp": "Bilangan bulat 0–525600 menit.",
+    "ad.settings.minimum_lead_minutesHelp":
+      "Bilangan bulat dalam menit, dari 0 sampai 525600 (365 hari).",
+    "ad.settings.paymentSection": "Pembayaran online (nonaktif)",
+    "ad.settings.paymentOff":
+      "Pembayaran online belum aktif, jadi nilai ini belum berpengaruh. Nilai tetap disimpan untuk saat pembayaran online diaktifkan.",
     "ad.settings.review_target_minutesHelp":
       "Bilangan bulat 1–10080 menit, dihitung hanya selama jam peninjauan.",
     "ad.settings.minimum_checkout_minutesHelp":
@@ -718,7 +722,7 @@ export default {
     "ad.content.section.about": "Bagian Tentang",
     "ad.content.section.gallery": "Bagian Galeri (Suasana)",
     "ad.content.section.contact": "Kontak & Lokasi",
-    "ad.content.field.eyebrow": "Eyebrow",
+    "ad.content.field.eyebrow": "Teks kecil di atas judul",
     "ad.content.field.title": "Judul",
     "ad.content.field.title2": "Judul baris kedua",
     "ad.content.field.subtitle": "Subjudul",
@@ -728,14 +732,15 @@ export default {
     "ad.content.field.phone": "Telepon / WhatsApp",
     "ad.content.captionId": "Indonesia",
     "ad.content.captionEn": "Inggris",
-    "ad.content.note": "Kosongkan kolom untuk memakai teks bawaan situs.",
+    "ad.content.note":
+      "Kolom kosong memakai teks bawaan situs, yang tampil samar di dalam kolom.",
     "ad.catalog.title": "Katalog perawatan",
     "ad.catalog.subtitle":
       "Atur nama, harga, dan detail paket yang tampil di menu resmi.",
     "ad.catalog.categories": "Kategori",
+    "ad.catalog.package": "Paket",
     "ad.catalog.packages": "Paket",
     "ad.catalog.category": "Kategori",
-    "ad.catalog.package": "Paket",
     "ad.catalog.status": "Status",
     "ad.catalog.status.draft": "Draf",
     "ad.catalog.status.published": "Dipublikasikan",
@@ -770,6 +775,10 @@ export default {
     "ad.catalog.form.packageNameId": "Nama paket dalam Bahasa Indonesia",
     "ad.catalog.form.packageNameEn": "Nama paket dalam Bahasa Inggris",
     "ad.catalog.form.packageSlug": "Slug paket",
+    "ad.catalog.form.back": "Kembali ke katalog",
+    "ad.catalog.form.sections": "Bagian formulir",
+    "ad.catalog.form.details": "Detail paket",
+    "ad.catalog.form.photos": "Foto",
     "ad.catalog.form.cover": "Foto sampul",
     "ad.catalog.form.gallery": "Galeri foto",
     "ad.catalog.upload.help":
@@ -1121,7 +1130,10 @@ export default {
     "ad.settings.minimum_checkout_minutes": "Minimum checkout window (minutes)",
     "ad.settings.booking_horizon_daysHelp": "Whole number from 1–365 days.",
     "ad.settings.minimum_lead_minutesHelp":
-      "Whole number from 0–525600 minutes.",
+      "Whole number of minutes, from 0 to 525600 (365 days).",
+    "ad.settings.paymentSection": "Online payment (off)",
+    "ad.settings.paymentOff":
+      "Online payment is off, so this value has no effect yet. It is still saved for when online payment is turned on.",
     "ad.settings.review_target_minutesHelp":
       "Whole number from 1–10080 minutes, counted only during review hours.",
     "ad.settings.minimum_checkout_minutesHelp":
@@ -1751,7 +1763,7 @@ export default {
     "ad.content.section.about": "About section",
     "ad.content.section.gallery": "Gallery section (Atmosphere)",
     "ad.content.section.contact": "Contact & location",
-    "ad.content.field.eyebrow": "Eyebrow",
+    "ad.content.field.eyebrow": "Small line above the title",
     "ad.content.field.title": "Title",
     "ad.content.field.title2": "Second title line",
     "ad.content.field.subtitle": "Subtitle",
@@ -1761,14 +1773,15 @@ export default {
     "ad.content.field.phone": "Phone / WhatsApp",
     "ad.content.captionId": "Indonesian",
     "ad.content.captionEn": "English",
-    "ad.content.note": "Leave a field empty to use the site's default text.",
+    "ad.content.note":
+      "An empty field uses the site's default text, shown faintly inside it.",
     "ad.catalog.title": "Treatment catalog",
     "ad.catalog.subtitle":
       "Manage the names, prices, and details of the packages shown on the official menu.",
     "ad.catalog.categories": "Categories",
+    "ad.catalog.package": "Package",
     "ad.catalog.packages": "Packages",
     "ad.catalog.category": "Category",
-    "ad.catalog.package": "Package",
     "ad.catalog.status": "Status",
     "ad.catalog.status.draft": "Draft",
     "ad.catalog.status.published": "Published",
@@ -1804,6 +1817,10 @@ export default {
     "ad.catalog.form.packageNameId": "Indonesian package name",
     "ad.catalog.form.packageNameEn": "English package name",
     "ad.catalog.form.packageSlug": "Package slug",
+    "ad.catalog.form.back": "Back to the catalog",
+    "ad.catalog.form.sections": "Form sections",
+    "ad.catalog.form.details": "Package details",
+    "ad.catalog.form.photos": "Photos",
     "ad.catalog.form.cover": "Cover image",
     "ad.catalog.form.gallery": "Image gallery",
     "ad.catalog.upload.help":

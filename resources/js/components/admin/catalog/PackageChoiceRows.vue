@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { useLanguage } from "@/composables/useLanguage";
+import { formatPrice } from "@/lib/adminBooking";
 import type { CatalogChoiceInput, TreatmentMode } from "@/types";
 
 const props = withDefaults(
@@ -149,6 +150,13 @@ function remove(index: number): void {
             )
           "
         />
+        <p
+          v-if="field === 'priceIdr' && Number(row.priceIdr) > 0"
+          class="catalog-price-hint"
+          data-price-hint
+        >
+          {{ formatPrice(Number(row.priceIdr)) }}
+        </p>
         <p
           v-if="error(index, field)"
           :id="`${key(index, field)}-error`"

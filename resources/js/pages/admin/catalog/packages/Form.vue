@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { router } from "@inertiajs/vue3";
 import { computed, ref } from "vue";
+import { ChevronLeft } from "lucide-vue-next";
 import CatalogImageInput from "@/components/admin/catalog/CatalogImageInput.vue";
 import CatalogLifecycleActions from "@/components/admin/catalog/CatalogLifecycleActions.vue";
 import PackageChoiceRows from "@/components/admin/catalog/PackageChoiceRows.vue";
@@ -241,6 +242,16 @@ function retainedIds(ids: readonly string[]): void {
       :title="tr('ad.catalog.form.editPackageTitle')"
       :subtitle="tr('ad.catalog.subtitle')"
     >
+      <a href="/admin/catalog" class="admin-back-link"
+        ><ChevronLeft aria-hidden="true" />{{ tr("ad.catalog.form.back") }}</a
+      >
+      <nav class="admin-jump" :aria-label="tr('ad.catalog.form.sections')">
+        <a href="#package-details">{{ tr("ad.catalog.form.details") }}</a>
+        <a href="#package-photos">{{ tr("ad.catalog.form.photos") }}</a>
+        <a href="#package-pricing">{{ tr("ad.catalog.form.pricing") }}</a>
+        <a href="#package-variants">{{ tr("ad.catalog.form.variants") }}</a>
+        <a href="#package-extensions">{{ tr("ad.catalog.form.extensions") }}</a>
+      </nav>
       <section class="catalog-editor catalog-package-form" data-package-form>
         <form novalidate :aria-busy="processing" @submit.prevent="submit">
           <p v-if="errors.version" class="catalog-error" role="alert">
@@ -254,7 +265,7 @@ function retainedIds(ids: readonly string[]): void {
           >
             {{ message }}
           </p>
-          <div class="catalog-form-grid">
+          <div id="package-details" class="catalog-form-grid">
             <div
               v-for="field in [
                 'categoryId',
@@ -341,26 +352,32 @@ function retainedIds(ids: readonly string[]): void {
               {{ tr("ad.catalog.form.isVip") }}</label
             >
           </div>
-          <CatalogImageInput
-            id="catalog-package-cover"
-            v-model:removed="removeCover"
-            :current-image="packageItem.cover"
-            :disabled="processing"
-            :label="tr('ad.catalog.form.cover')"
-            help-id="catalog-package-cover-help"
-            error-id="catalog-package-cover-error"
-            :error="errors.cover"
-            @change="cover = $event"
-          />
-          <PackageGalleryInput
-            :retained="retained"
-            :uploads="uploads"
-            :disabled="processing"
-            :error="errors.galleryUploads ?? errors.retainedGalleryIds"
-            @update:retained="retainedIds"
-            @update:uploads="uploads = $event"
-          />
-          <section class="catalog-pricing" data-package-pricing>
+          <div id="package-photos" class="catalog-photos">
+            <CatalogImageInput
+              id="catalog-package-cover"
+              v-model:removed="removeCover"
+              :current-image="packageItem.cover"
+              :disabled="processing"
+              :label="tr('ad.catalog.form.cover')"
+              help-id="catalog-package-cover-help"
+              error-id="catalog-package-cover-error"
+              :error="errors.cover"
+              @change="cover = $event"
+            />
+            <PackageGalleryInput
+              :retained="retained"
+              :uploads="uploads"
+              :disabled="processing"
+              :error="errors.galleryUploads ?? errors.retainedGalleryIds"
+              @update:retained="retainedIds"
+              @update:uploads="uploads = $event"
+            />
+          </div>
+          <section
+            id="package-pricing"
+            class="catalog-pricing"
+            data-package-pricing
+          >
             <h2 class="catalog-pricing__title">
               {{ tr("ad.catalog.form.pricing") }}
             </h2>
@@ -476,7 +493,7 @@ function retainedIds(ids: readonly string[]): void {
             <button
               v-if="packageItem.can.attestPricing"
               type="button"
-              class="catalog-control catalog-control--primary"
+              class="catalog-control"
               data-pricing-attest
               :disabled="processing || hasOtherEdits"
               aria-describedby="pricing-attestation-help"
@@ -503,6 +520,7 @@ function retainedIds(ids: readonly string[]): void {
             </p>
           </section>
           <PackageChoiceRows
+            id="package-variants"
             kind="variants"
             :rows="variants"
             :errors="errors"
@@ -510,6 +528,7 @@ function retainedIds(ids: readonly string[]): void {
             @update:rows="variants = $event"
           />
           <PackageChoiceRows
+            id="package-extensions"
             kind="extensions"
             :rows="extensions"
             :errors="errors"
@@ -519,7 +538,13 @@ function retainedIds(ids: readonly string[]): void {
           <p v-if="processing" role="status">
             {{ tr("ad.catalog.processing") }}
           </p>
-          <div class="catalog-form-actions">
+          <div class="catalog-form-actions catalog-savebar">
+            <div class="catalog-actions">
+              <CatalogLifecycleActions
+                :package="packageItem"
+                :disabled="processing"
+              />
+            </div>
             <button
               type="submit"
               class="catalog-control catalog-control--primary"
@@ -529,12 +554,6 @@ function retainedIds(ids: readonly string[]): void {
             </button>
           </div>
         </form>
-        <div class="catalog-actions">
-          <CatalogLifecycleActions
-            :package="packageItem"
-            :disabled="processing"
-          />
-        </div>
       </section>
     </AdminLayout>
   </div>
@@ -545,9 +564,9 @@ function retainedIds(ids: readonly string[]): void {
   display: grid;
   gap: 0.85rem;
   padding: 1.1rem;
-  border: 1px solid #e4dcd3;
-  border-radius: 0.9rem;
-  background: #fdfbf7;
+  border: 1px solid var(--admin-line);
+  border-radius: var(--admin-radius-lg);
+  background: var(--admin-canvas);
 }
 .catalog-pricing__title {
   margin: 0;
@@ -558,11 +577,11 @@ function retainedIds(ids: readonly string[]): void {
   font-size: 0.85rem;
 }
 .catalog-pricing__status strong {
-  color: #8c3b43;
+  color: var(--admin-plum);
 }
 .catalog-pricing .catalog-help {
   margin: 0;
-  color: #6d6259;
+  color: var(--admin-muted);
   font-size: 0.8rem;
   line-height: 1.5;
 }

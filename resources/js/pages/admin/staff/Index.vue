@@ -246,9 +246,9 @@ function submit(): void {
               v-for="member in staff.data"
               :key="member.id"
               :data-staff-id="member.id"
-              class="flex flex-col items-stretch gap-4 py-5 sm:flex-row sm:items-center sm:justify-between"
+              class="admin-staff-row"
             >
-              <div class="min-w-0 flex-1 break-words">
+              <div class="admin-staff-person">
                 <h2 class="font-semibold">{{ member.name }}</h2>
                 <p class="break-all text-sm">{{ member.email }}</p>
                 <p class="mt-2 text-sm">
@@ -261,6 +261,8 @@ function submit(): void {
                     )
                   }}
                 </p>
+              </div>
+              <div class="admin-staff-access">
                 <p class="text-sm">
                   {{ tr("ad.staff.permission") }}:
                   <strong>{{
@@ -271,200 +273,191 @@ function submit(): void {
                     )
                   }}</strong>
                 </p>
-                <div
-                  v-if="member.telegram"
-                  class="mt-3 space-y-2 text-sm"
-                  tabindex="-1"
-                  :data-telegram-state="member.telegram.state"
-                >
-                  <p>
-                    <strong>{{ tr("ad.telegram.heading") }}:</strong>
-                    {{ telegramText(member) }}
-                  </p>
+                <p v-if="member.role === 'owner'" class="text-sm">
+                  {{ tr("ad.staff.inherent") }}
+                </p>
+                <div v-else>
+                  <button
+                    type="button"
+                    class="admin-button"
+                    :disabled="
+                      form.processing ||
+                      (!member.verified && !member.canManageBookings)
+                    "
+                    @click="choose(member, $event)"
+                  >
+                    {{
+                      tr(
+                        member.canManageBookings
+                          ? "ad.staff.revoke"
+                          : "ad.staff.grant",
+                      )
+                    }}
+                  </button>
                   <p
-                    v-if="
-                      member.telegram.state === 'linked' && !canLink(member)
-                    "
-                    class="admin-filter-error"
-                    data-telegram-warning
+                    v-if="!member.verified && !member.canManageBookings"
+                    class="mt-1 text-sm"
                   >
-                    {{ tr("ad.telegram.cannotManage") }}
+                    {{ tr("ad.staff.verifyFirst") }}
                   </p>
-                  <p
-                    v-if="
-                      member.telegram.state === 'claimed' && !canLink(member)
-                    "
-                    data-telegram-cannot-activate
-                  >
-                    {{ tr("ad.telegram.cannotActivate") }}
-                  </p>
-                  <div class="flex flex-wrap gap-2">
-                    <button
-                      v-if="
-                        member.telegram.state !== 'linked' && canLink(member)
-                      "
-                      type="button"
-                      class="admin-button"
-                      data-telegram-issue
-                      :disabled="telegramBusy"
-                      @click="sendTelegram(member, 'issue', $event)"
-                    >
-                      {{
-                        tr(
-                          member.telegram.state === "none"
-                            ? "ad.telegram.issue"
-                            : "ad.telegram.reissue",
-                        )
-                      }}
-                    </button>
-                    <button
-                      v-if="
-                        member.telegram.state === 'claimed' && canLink(member)
-                      "
-                      type="button"
-                      class="admin-button admin-button--primary"
-                      data-telegram-activate
-                      :disabled="telegramBusy"
-                      @click="askTelegram(member, 'activate', $event)"
-                    >
-                      {{ tr("ad.telegram.activate") }}
-                    </button>
-                    <button
-                      v-if="member.telegram.state !== 'none'"
-                      type="button"
-                      class="admin-button"
-                      data-telegram-revoke
-                      :disabled="telegramBusy"
-                      @click="askTelegram(member, 'revoke', $event)"
-                    >
-                      {{
-                        tr(
-                          member.telegram.state === "linked"
-                            ? "ad.telegram.revoke"
-                            : "ad.telegram.cancelLink",
-                        )
-                      }}
-                    </button>
-                  </div>
-                  <p
-                    v-if="
-                      telegramMessages.length && telegramRowId === member.id
-                    "
-                    role="alert"
-                    class="admin-filter-error"
-                    data-telegram-row-error
-                  >
-                    {{ telegramMessages.join(" ") }}
-                  </p>
-                  <div
-                    v-if="telegramPending?.member.id === member.id"
-                    role="group"
-                    data-telegram-confirm
-                    :aria-label="tr('ad.telegram.confirm')"
-                    @keydown.esc="cancelTelegram"
-                  >
-                    <p>
-                      {{
-                        telegramPending.action === "activate"
-                          ? tr("ad.telegram.confirmActivate", {
-                              identity: identityOf(member),
-                              name: member.name,
-                            })
-                          : tr(
-                              member.telegram.state === "linked"
-                                ? "ad.telegram.confirmRevoke"
-                                : "ad.telegram.confirmCancel",
-                              { name: member.name },
-                            )
-                      }}
-                    </p>
-                    <button
-                      type="button"
-                      class="admin-button admin-button--primary"
-                      data-telegram-confirm-button
-                      :disabled="telegramBusy"
-                      @click="confirmTelegram"
-                    >
-                      {{ tr("ad.telegram.confirm") }}
-                    </button>
-                    <button
-                      type="button"
-                      class="admin-button"
-                      data-telegram-cancel
-                      @click="cancelTelegram"
-                    >
-                      {{ tr("ad.telegram.back") }}
-                    </button>
-                  </div>
-                  <div
-                    v-if="
-                      freshTelegramLink &&
-                      freshTelegramLink.staffId === member.id
-                    "
-                    role="status"
-                    data-telegram-fresh
-                    class="admin-filter-panel break-all"
-                  >
-                    <p>
-                      {{
-                        tr("ad.telegram.freshTitle", {
-                          name: member.name,
-                          time: when(freshTelegramLink.expiresAt),
-                        })
-                      }}
-                    </p>
-                    <p v-if="freshTelegramLink.url">
-                      <a
-                        :href="freshTelegramLink.url"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        class="font-semibold underline"
-                        >{{ freshTelegramLink.url }}</a
-                      >
-                    </p>
-                    <p>
-                      {{
-                        tr(
-                          freshTelegramLink.url
-                            ? "ad.telegram.freshCommand"
-                            : "ad.telegram.freshCommandOnly",
-                        )
-                      }}
-                      <code>{{ freshTelegramLink.command }}</code>
-                    </p>
-                    <p v-if="!telegramBotConfigured">
-                      {{ tr("ad.telegram.botMissing") }}
-                    </p>
-                  </div>
                 </div>
               </div>
-              <p v-if="member.role === 'owner'" class="text-sm">
-                {{ tr("ad.staff.inherent") }}
-              </p>
-              <div v-else>
-                <button
-                  type="button"
-                  class="admin-button"
-                  :disabled="
-                    form.processing ||
-                    (!member.verified && !member.canManageBookings)
-                  "
-                  @click="choose(member, $event)"
-                >
-                  {{
-                    tr(
-                      member.canManageBookings
-                        ? "ad.staff.revoke"
-                        : "ad.staff.grant",
-                    )
-                  }}
-                </button>
-                <p
-                  v-if="!member.verified && !member.canManageBookings"
-                  class="mt-1 text-sm"
-                >
-                  {{ tr("ad.staff.verifyFirst") }}
+              <div
+                v-if="member.telegram"
+                class="mt-3 space-y-2 text-sm"
+                tabindex="-1"
+                :data-telegram-state="member.telegram.state"
+              >
+                <p>
+                  <strong>{{ tr("ad.telegram.heading") }}:</strong>
+                  {{ telegramText(member) }}
                 </p>
+                <p
+                  v-if="member.telegram.state === 'linked' && !canLink(member)"
+                  class="admin-filter-error"
+                  data-telegram-warning
+                >
+                  {{ tr("ad.telegram.cannotManage") }}
+                </p>
+                <p
+                  v-if="member.telegram.state === 'claimed' && !canLink(member)"
+                  data-telegram-cannot-activate
+                >
+                  {{ tr("ad.telegram.cannotActivate") }}
+                </p>
+                <div class="flex flex-wrap gap-2">
+                  <button
+                    v-if="member.telegram.state !== 'linked' && canLink(member)"
+                    type="button"
+                    class="admin-button"
+                    data-telegram-issue
+                    :disabled="telegramBusy"
+                    @click="sendTelegram(member, 'issue', $event)"
+                  >
+                    {{
+                      tr(
+                        member.telegram.state === "none"
+                          ? "ad.telegram.issue"
+                          : "ad.telegram.reissue",
+                      )
+                    }}
+                  </button>
+                  <button
+                    v-if="
+                      member.telegram.state === 'claimed' && canLink(member)
+                    "
+                    type="button"
+                    class="admin-button admin-button--primary"
+                    data-telegram-activate
+                    :disabled="telegramBusy"
+                    @click="askTelegram(member, 'activate', $event)"
+                  >
+                    {{ tr("ad.telegram.activate") }}
+                  </button>
+                  <button
+                    v-if="member.telegram.state !== 'none'"
+                    type="button"
+                    class="admin-button"
+                    data-telegram-revoke
+                    :disabled="telegramBusy"
+                    @click="askTelegram(member, 'revoke', $event)"
+                  >
+                    {{
+                      tr(
+                        member.telegram.state === "linked"
+                          ? "ad.telegram.revoke"
+                          : "ad.telegram.cancelLink",
+                      )
+                    }}
+                  </button>
+                </div>
+                <p
+                  v-if="telegramMessages.length && telegramRowId === member.id"
+                  role="alert"
+                  class="admin-filter-error"
+                  data-telegram-row-error
+                >
+                  {{ telegramMessages.join(" ") }}
+                </p>
+                <div
+                  v-if="telegramPending?.member.id === member.id"
+                  role="group"
+                  data-telegram-confirm
+                  :aria-label="tr('ad.telegram.confirm')"
+                  @keydown.esc="cancelTelegram"
+                >
+                  <p>
+                    {{
+                      telegramPending.action === "activate"
+                        ? tr("ad.telegram.confirmActivate", {
+                            identity: identityOf(member),
+                            name: member.name,
+                          })
+                        : tr(
+                            member.telegram.state === "linked"
+                              ? "ad.telegram.confirmRevoke"
+                              : "ad.telegram.confirmCancel",
+                            { name: member.name },
+                          )
+                    }}
+                  </p>
+                  <button
+                    type="button"
+                    class="admin-button admin-button--primary"
+                    data-telegram-confirm-button
+                    :disabled="telegramBusy"
+                    @click="confirmTelegram"
+                  >
+                    {{ tr("ad.telegram.confirm") }}
+                  </button>
+                  <button
+                    type="button"
+                    class="admin-button"
+                    data-telegram-cancel
+                    @click="cancelTelegram"
+                  >
+                    {{ tr("ad.telegram.back") }}
+                  </button>
+                </div>
+                <div
+                  v-if="
+                    freshTelegramLink && freshTelegramLink.staffId === member.id
+                  "
+                  role="status"
+                  data-telegram-fresh
+                  class="admin-filter-panel break-all"
+                >
+                  <p>
+                    {{
+                      tr("ad.telegram.freshTitle", {
+                        name: member.name,
+                        time: when(freshTelegramLink.expiresAt),
+                      })
+                    }}
+                  </p>
+                  <p v-if="freshTelegramLink.url">
+                    <a
+                      :href="freshTelegramLink.url"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="font-semibold underline"
+                      >{{ freshTelegramLink.url }}</a
+                    >
+                  </p>
+                  <p>
+                    {{
+                      tr(
+                        freshTelegramLink.url
+                          ? "ad.telegram.freshCommand"
+                          : "ad.telegram.freshCommandOnly",
+                      )
+                    }}
+                    <code>{{ freshTelegramLink.command }}</code>
+                  </p>
+                  <p v-if="!telegramBotConfigured">
+                    {{ tr("ad.telegram.botMissing") }}
+                  </p>
+                </div>
               </div>
             </li>
           </ul>

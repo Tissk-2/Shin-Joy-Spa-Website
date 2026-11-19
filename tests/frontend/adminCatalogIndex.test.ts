@@ -216,4 +216,31 @@ describe("admin catalog index", () => {
     expect(source).not.toMatch(/localStorage|sessionStorage|vue-router|v-html/);
     wrapper.unmount();
   });
+
+  // Catches the duplicate section label returning and deletion looking like a safe step.
+  it("offers a draft its publish and red delete actions under one heading", () => {
+    const wrapper = mountIndex({
+      packages: [
+        {
+          ...packages[0],
+          slug: "new-draft",
+          status: "draft" as const,
+          can: {
+            update: true,
+            publish: true,
+            archive: false,
+            restore: false,
+            delete: true,
+          },
+        },
+      ],
+    });
+    expect(wrapper.findAll("h2").map((node) => node.text())).toEqual([
+      "Packages",
+    ]);
+    const publish = wrapper.get('[data-catalog-action="new-draft-publish"]');
+    const remove = wrapper.get('[data-catalog-action="new-draft-delete"]');
+    expect(publish.classes()).not.toContain("catalog-control--danger");
+    expect(remove.classes()).toContain("catalog-control--danger");
+  });
 });

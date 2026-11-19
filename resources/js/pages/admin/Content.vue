@@ -2,6 +2,7 @@
 import { router, useForm, usePage } from "@inertiajs/vue3";
 import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import { useLanguage } from "@/composables/useLanguage";
+import siteTranslations from "@/data/translations";
 import AdminLayout from "@/layouts/admin/AdminLayout.vue";
 import type { AppPageProps } from "@/types";
 
@@ -102,6 +103,10 @@ function sectionLabel(sectionKey: string): string {
   return tr(sectionLabelKeys[sectionKey] ?? sectionKey);
 }
 
+// What the public page shows when the field is left empty.
+function siteText(key: string, language: "id" | "en"): string {
+  return (siteTranslations[language] as Record<string, string>)[key] ?? "";
+}
 function fieldLabel(key: string): string {
   return tr(fieldLabelKeys[key] ?? key);
 }
@@ -227,6 +232,7 @@ document.addEventListener("keydown", handleKeydown);
                   v-if="isLong(key)"
                   :id="inputId(key, 'id')"
                   v-model="form.values[key].id"
+                  :placeholder="siteText(key, 'id')"
                   rows="3"
                   :maxlength="1000"
                   :aria-invalid="Boolean(errorFor(key, 'id'))"
@@ -240,6 +246,7 @@ document.addEventListener("keydown", handleKeydown);
                   v-else
                   :id="inputId(key, 'id')"
                   v-model="form.values[key].id"
+                  :placeholder="siteText(key, 'id')"
                   type="text"
                   :maxlength="1000"
                   :aria-invalid="Boolean(errorFor(key, 'id'))"
@@ -267,6 +274,7 @@ document.addEventListener("keydown", handleKeydown);
                   v-if="isLong(key)"
                   :id="inputId(key, 'en')"
                   v-model="form.values[key].en"
+                  :placeholder="siteText(key, 'en')"
                   rows="3"
                   :maxlength="1000"
                   :aria-invalid="Boolean(errorFor(key, 'en'))"
@@ -280,6 +288,7 @@ document.addEventListener("keydown", handleKeydown);
                   v-else
                   :id="inputId(key, 'en')"
                   v-model="form.values[key].en"
+                  :placeholder="siteText(key, 'en')"
                   type="text"
                   :maxlength="1000"
                   :aria-invalid="Boolean(errorFor(key, 'en'))"

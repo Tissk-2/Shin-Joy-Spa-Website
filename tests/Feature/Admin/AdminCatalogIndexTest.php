@@ -125,6 +125,35 @@ class AdminCatalogIndexTest extends TestCase
         }
     }
 
+    // Production break caught: a published package offered Publish and Restore, which the server
+    // then refused; each package must offer only the step its state allows.
+    public function test_lifecycle_abilities_offer_only_the_next_step_for_each_state(): void
+    {
+        $category = $this->createCategory('state-category', 1, null, true);
+        $this->createService($category, 'state-draft', 1, false);
+        $this->createService($category, 'state-published', 2, true);
+        $this->createService($category, 'state-archived', 3, true)
+            ->forceFill(['is_active' => false])->save();
+
+        $packages = collect(
+            $this->actingAs(User::factory()->admin()->create())
+                ->get('/admin/catalog')->inertiaProps('packages'),
+        )->keyBy('slug');
+
+        $this->assertSame(
+            ['update' => true, 'publish' => true, 'archive' => false, 'restore' => false, 'delete' => true],
+            $packages['state-draft']['can'],
+        );
+        $this->assertSame(
+            ['update' => true, 'publish' => false, 'archive' => true, 'restore' => false, 'delete' => false],
+            $packages['state-published']['can'],
+        );
+        $this->assertSame(
+            ['update' => true, 'publish' => false, 'archive' => false, 'restore' => true, 'delete' => false],
+            $packages['state-archived']['can'],
+        );
+    }
+
     private function createCategory(
         string $slug,
         int $displayOrder,

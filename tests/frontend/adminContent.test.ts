@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 
 import Content from "@/pages/admin/Content.vue";
+import translations from "@/data/translations";
 
 type PostCall = { url: string; data: unknown; options: unknown };
 type EditorValues = Record<string, { id?: string; en?: string }>;
@@ -176,5 +177,24 @@ describe("admin content editor", () => {
         options: { preserveScroll: true },
       },
     ]);
+  });
+
+  // Catches empty fields hiding what visitors see on the site right now.
+  it("shows the site's current text faintly in fields that hold no change", () => {
+    const wrapper = mountEditor({ "hero.sub": { id: "Teks khusus" } });
+    const heading = wrapper.get('[data-content-field="hero.heading"]');
+    const [headingId, headingEn] = heading.findAll("input");
+    expect(headingId.attributes("placeholder")).toBe(
+      translations.id["hero.heading"],
+    );
+    expect(headingEn.attributes("placeholder")).toBe(
+      translations.en["hero.heading"],
+    );
+    expect(headingId.element.value).toBe("");
+    const [subId] = wrapper
+      .get('[data-content-field="hero.sub"]')
+      .findAll("textarea");
+    expect((subId.element as HTMLTextAreaElement).value).toBe("Teks khusus");
+    expect(subId.attributes("placeholder")).toBe(translations.id["hero.sub"]);
   });
 });

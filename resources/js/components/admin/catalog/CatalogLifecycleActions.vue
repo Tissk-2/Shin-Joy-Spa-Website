@@ -86,6 +86,7 @@ function confirm(): void {
     :key="action"
     type="button"
     class="catalog-control"
+    :class="{ 'catalog-control--danger': action === 'delete' }"
     :disabled="disabled || processing"
     :data-catalog-action="`${record.slug}-${action}`"
     @click="open(action, $event)"
@@ -151,7 +152,12 @@ function confirm(): void {
             <button
               data-lifecycle-confirm
               type="submit"
-              class="catalog-control catalog-control--primary"
+              class="catalog-control"
+              :class="
+                selection?.action === 'delete'
+                  ? 'catalog-control--danger-solid'
+                  : 'catalog-control--primary'
+              "
               :disabled="processing"
             >
               {{

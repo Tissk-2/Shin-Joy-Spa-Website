@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Enums\CatalogStatus;
 use App\Models\Service;
 use App\Models\ServiceCategory;
 use App\Support\Catalog\ManagedCatalogPath;
@@ -123,12 +124,16 @@ final class AdminCatalogPresenter
     /** @return array{update: bool, publish: bool, archive: bool, restore: bool, delete: bool} */
     private function abilities(ServiceCategory|Service $model): array
     {
+        // Permission and state together: only the step the server will accept for the record's
+        // current state (draft publishes, published archives, archived restores, a draft deletes).
+        $status = $model->catalogStatus();
+
         return [
             'update' => Gate::allows('update', $model),
-            'publish' => Gate::allows('publish', $model),
-            'archive' => Gate::allows('archive', $model),
-            'restore' => Gate::allows('restore', $model),
-            'delete' => Gate::allows('delete', $model),
+            'publish' => $status === CatalogStatus::Draft && Gate::allows('publish', $model),
+            'archive' => $status === CatalogStatus::Published && Gate::allows('archive', $model),
+            'restore' => $status === CatalogStatus::Archived && Gate::allows('restore', $model),
+            'delete' => $status === CatalogStatus::Draft && Gate::allows('delete', $model),
         ];
     }
 

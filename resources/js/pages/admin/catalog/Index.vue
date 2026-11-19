@@ -32,12 +32,9 @@ function otherName(record: AdminCatalogPackageData): string {
           aria-labelledby="catalog-packages-title"
         >
           <div class="catalog-section-heading">
-            <div>
-              <p class="catalog-kicker">{{ tr("ad.catalog.package") }}</p>
-              <h2 id="catalog-packages-title">
-                {{ tr("ad.catalog.packages") }}
-              </h2>
-            </div>
+            <h2 id="catalog-packages-title">
+              {{ tr("ad.catalog.packages") }}
+            </h2>
           </div>
 
           <p

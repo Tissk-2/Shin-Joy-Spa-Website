@@ -143,4 +143,66 @@ describe("owner booking settings", () => {
     expect(invalid.find("form").exists()).toBe(true);
     expect(invalid.text()).toContain("Simpan pengaturan");
   });
+
+  // Catches minute counts staff must convert in their head.
+  it("reads minute values back as days, hours and minutes while typing", async () => {
+    const wrapper = render({
+      state: "configured",
+      settings: saved,
+      version: 1,
+    });
+    expect(wrapper.get('[data-reading="minimum_lead_minutes"]').text()).toBe(
+      "= 2 hours",
+    );
+    expect(wrapper.get('[data-reading="review_target_minutes"]').text()).toBe(
+      "= 1 hour",
+    );
+    expect(wrapper.find('[data-reading="booking_horizon_days"]').exists()).toBe(
+      false,
+    );
+    await wrapper.get("#minimum_lead_minutes").setValue("1530");
+    expect(wrapper.get('[data-reading="minimum_lead_minutes"]').text()).toBe(
+      "= 1 day 1 hour 30 minutes",
+    );
+    await wrapper.get("#minimum_lead_minutes").setValue("45");
+    expect(wrapper.find('[data-reading="minimum_lead_minutes"]').exists()).toBe(
+      false,
+    );
+  });
+
+  // Catches the payment window hiding a required field or pretending to work while payments are off.
+  it("folds the unused payment window away once saved, but never while it is empty or wrong", async () => {
+    const blank = render();
+    const blankSection = blank.get<HTMLDetailsElement>(
+      "[data-payment-settings]",
+    );
+    expect(blankSection.element.open).toBe(true);
+    expect(blankSection.find("#minimum_checkout_minutes").exists()).toBe(true);
+
+    const configured = render({
+      state: "configured",
+      settings: saved,
+      version: 1,
+    });
+    const section = configured.get<HTMLDetailsElement>(
+      "[data-payment-settings]",
+    );
+    expect(section.element.open).toBe(false);
+    expect(section.get("summary").text()).toBe("Online payment (off)");
+    expect(section.text()).toContain("has no effect yet");
+    expect(
+      configured.get<HTMLInputElement>("#minimum_checkout_minutes").element
+        .value,
+    ).toBe("15");
+
+    await configured.get("form").trigger("submit");
+    (
+      inertia.calls[0].options.onError as (
+        errors: Record<string, string>,
+      ) => void
+    )({ minimum_checkout_minutes: "Choose 1 to 60 minutes." });
+    await configured.vm.$nextTick();
+    expect(section.element.open).toBe(true);
+    expect(configured.text()).toContain("Choose 1 to 60 minutes.");
+  });
 });
