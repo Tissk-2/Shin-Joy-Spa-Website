@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, Link } from "@inertiajs/vue3";
+import { Head } from "@inertiajs/vue3";
 import { computed } from "vue";
 import CatalogMenuFooter from "@/components/CatalogMenuFooter.vue";
 import PackageMenuCard from "@/components/PackageMenuCard.vue";
@@ -26,14 +26,10 @@ const visibleCategories = computed(() =>
       aria-labelledby="catalog-page-title"
     >
       <div class="container">
-        <h1 id="catalog-page-title" class="sr-only">
-          {{ tr("menu.allTitle") }}
-        </h1>
-        <nav class="breadcrumb sr-only" :aria-label="tr('nav.breadcrumb')">
-          <Link class="ulink" href="/">{{ tr("nav.home") }}</Link>
-          <span aria-hidden="true">›</span>
-          <span aria-current="page">{{ tr("nav.services") }}</span>
-        </nav>
+        <header class="public-catalog__page-head">
+          <h1 id="catalog-page-title">{{ tr("menu.allTitle") }}</h1>
+          <p>{{ tr("menu.allSub") }}</p>
+        </header>
 
         <div v-if="visibleCategories.length" class="public-catalog__categories">
           <section

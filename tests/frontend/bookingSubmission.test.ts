@@ -621,6 +621,46 @@ describe("reviewed booking submission", () => {
     expect(wrapper.find("#f-time input:checked").exists()).toBe(false);
   });
 
+  it("opens on the regular treatment type with a visible title and no step bar", () => {
+    const wrapper = mount(Booking, {
+      props: {
+        packages,
+        selection: {
+          service: "nezuko",
+          mode: "",
+          duration: null,
+          extension: "",
+        },
+        submissionKey,
+      },
+    });
+
+    expect(
+      wrapper.get('button[data-mode="regular"]').attributes("aria-checked"),
+    ).toBe("true");
+    expect(wrapper.findAll("button[data-duration]").length).toBeGreaterThan(0);
+    expect(wrapper.get("main h1").classes()).not.toContain("sr-only");
+    expect(wrapper.find(".bk-steps").exists()).toBe(false);
+    expect(wrapper.find('[aria-current="step"]').exists()).toBe(false);
+  });
+
+  it("says once in the summary that no package is chosen yet", () => {
+    const wrapper = mount(Booking, {
+      props: {
+        packages,
+        selection: { service: "", mode: "", duration: null, extension: "" },
+        submissionKey,
+      },
+    });
+
+    expect(
+      wrapper
+        .get(".summary-card__head")
+        .text()
+        .match(/Not selected yet/g),
+    ).toHaveLength(1);
+  });
+
   it("shows every distinct server selection error in the associated configuration group", async () => {
     inertia.nextPostError = {
       mode: "The selected treatment type is unavailable.",

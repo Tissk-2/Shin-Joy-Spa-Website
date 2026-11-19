@@ -241,8 +241,7 @@ export default {
     "menu.from": "Mulai dari",
     "menu.viewDetails": "Lihat detail",
     "menu.cardCta": "Reservasi",
-    "menu.bookingAuthRequired":
-      "Untuk melanjutkan pemesanan, Anda perlu masuk atau membuat akun. Akun baru harus memverifikasi email sebelum memilih jadwal.",
+    "menu.bookingAuthRequired": "Perlu masuk atau membuat akun untuk memesan.",
     "menu.emptyTitle": "Menu perawatan kami sedang diperbarui",
     "menu.emptyBody":
       "Silakan kembali lagi atau hubungi tim kami untuk mengetahui perawatan yang tersedia.",
@@ -1273,7 +1272,7 @@ export default {
     "menu.viewDetails": "View details",
     "menu.cardCta": "Book",
     "menu.bookingAuthRequired":
-      "Sign in or create an account to continue booking. New accounts must verify their email before choosing an appointment time.",
+      "You need to sign in or create an account to book.",
     "menu.emptyTitle": "Our treatment menu is being refreshed",
     "menu.emptyBody":
       "Please check back soon or contact our team to ask what is available.",

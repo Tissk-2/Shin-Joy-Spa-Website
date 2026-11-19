@@ -32,8 +32,8 @@ export default [
   {
     qId: "Bisakah saya datang bersama teman atau pasangan?",
     qEn: "Can I come with a friend or partner?",
-    aId: "Silakan hubungi kami sebelum memesan agar kami dapat mengonfirmasi ketersediaan waktu dan terapis untuk kunjungan Anda.",
-    aEn: "Please contact us before booking so we can confirm time and therapist availability for your visit.",
+    aId: "Bisa. Pilih jumlah tamu di formulir reservasi, sesuai batas paketnya. Bila jumlah yang Anda perlukan tidak tersedia, hubungi kami lebih dulu.",
+    aEn: "Yes. Choose the number of guests in the booking form, up to what the package allows. If the number you need is not offered, contact us first.",
   },
   {
     qId: "Bagaimana kebijakan bila air panas terganggu?",

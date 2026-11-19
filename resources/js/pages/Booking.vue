@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import { Head, Link, useForm, usePage } from "@inertiajs/vue3";
-import { ArrowRight, ExternalLink, ShieldCheck } from "lucide-vue-next";
+import {
+  ArrowLeft,
+  ArrowRight,
+  ExternalLink,
+  ShieldCheck,
+} from "lucide-vue-next";
 import { computed, nextTick, ref, watch } from "vue";
 import PackageConfigurator from "@/components/PackageConfigurator.vue";
 import RoomAvailability from "@/components/booking/RoomAvailability.vue";
@@ -71,11 +76,19 @@ const initialPackage = props.packages.find(
 const initialCoverage = initialPackage
   ? guestCoverage(initialPackage)
   : { min: 1, max: 4 };
+// Open on the package's first treatment type (Reguler when it has one), so its
+// durations show at once instead of behind an extra choice.
+const initialMode =
+  props.selection.mode ||
+  (["regular", "double_therapist"] as const).find((mode) =>
+    initialPackage?.variants.some((variant) => variant.mode === mode),
+  ) ||
+  "";
 const bookingForm = useForm<BookingForm>({
   name: user?.name ?? "",
   phone: user?.phone ?? "",
   service: props.selection.service,
-  mode: props.selection.mode,
+  mode: initialMode,
   duration: props.selection.duration,
   extension: props.selection.extension,
   date: "",
@@ -327,18 +340,18 @@ const labels = computed(() =>
           "Setelah dikirim, reservasi Anda menunggu persetujuan staf. Belum ada yang dipesan sampai staf mengonfirmasinya.",
         estimateScope:
           "Total ini mencakup perawatan yang dipilih dan tambahan apa pun untuk satu tamu. Paket ini dapat dipesan online untuk satu tamu sampai spa mengonfirmasi harga rombongan; untuk rombongan, silakan hubungi kami.",
-        s1: "Paket & Perawatan",
-        s1sub: "Konfigurasi jenis treatment, durasi, dan tambahan sesi Anda.",
-        s2: "Jadwal Kunjungan",
+        intro:
+          "Pilih perawatan dan jadwal, lalu tinjau sebelum mengirim. Staf mengonfirmasi setiap reservasi.",
+        back: "Menu perawatan",
+        s1: "Paket dan perawatan",
+        s1sub: "Pilih jenis perawatan, durasi, dan tambahan bila perlu.",
+        s2: "Jadwal kunjungan",
         s2sub: "Pilih hari, waktu mulai, dan jumlah tamu.",
-        s3: "Data Tamu & Catatan",
+        s3: "Data tamu dan catatan",
         s3sub:
           "Staf dapat menggunakan nomor ini untuk menghubungi Anda tentang reservasi.",
-        step1: "Layanan",
-        step2: "Jadwal & Tamu",
-        step3: "Selesai",
         help: "Perlu bantuan reservasi?",
-        concierge: "WhatsApp Concierge",
+        concierge: "Chat di WhatsApp",
       }
     : {
         pickPrompt: "Choose a package from the treatment menu first.",
@@ -363,18 +376,17 @@ const labels = computed(() =>
           "Once sent, your booking waits for staff approval. Nothing is reserved until staff confirm it.",
         estimateScope:
           "This total covers the selected treatment and any extension for one guest. This package can be booked online for one guest until the spa confirms its group pricing; for a group, please contact us.",
-        s1: "Package & Treatment",
-        s1sub:
-          "Configure the treatment type, duration, and add-ons for your session.",
-        s2: "Visit Schedule",
-        s2sub: "Choose the day, start time, and number of guests.",
-        s3: "Guest Details & Notes",
+        intro:
+          "Choose a treatment and a time, then review before sending. Staff confirm every booking.",
+        back: "Treatment menu",
+        s1: "Package and treatment",
+        s1sub: "Choose the treatment type, duration and any extension.",
+        s2: "Visit schedule",
+        s2sub: "Choose the day, start time and number of guests.",
+        s3: "Your details and notes",
         s3sub: "Staff may use this number to contact you about your booking.",
-        step1: "Service",
-        step2: "Schedule & Guests",
-        step3: "Done",
         help: "Need booking help?",
-        concierge: "WhatsApp Concierge",
+        concierge: "Chat on WhatsApp",
       },
 );
 const scopeCopy = computed(() =>
@@ -513,32 +525,15 @@ function confirm(): void {
 <template>
   <Head :title="`${tr('b.title')} · Shin Joy Spa Malang`" />
   <MainLayout>
-    <div class="bk-steps">
-      <div class="container bk-steps__inner">
-        <h1 class="sr-only">{{ tr("b.title") }}</h1>
-        <nav class="bk-steps__crumb" aria-label="Breadcrumb">
-          <Link class="ulink" href="/">{{ tr("nav.home") }}</Link>
-          <span aria-hidden="true">/</span>
-          <span>{{ tr("nav.book") }}</span>
-        </nav>
-        <ol class="bk-steps__flow">
-          <li class="bk-steps__item is-done">
-            <span class="bk-steps__dot" aria-hidden="true">✓</span>
-            <span class="bk-steps__label">{{ labels.step1 }}</span>
-          </li>
-          <li class="bk-steps__line" aria-hidden="true"></li>
-          <li class="bk-steps__item is-active" aria-current="step">
-            <span class="bk-steps__dot">2</span>
-            <span class="bk-steps__label">{{ labels.step2 }}</span>
-          </li>
-          <li class="bk-steps__line" aria-hidden="true"></li>
-          <li class="bk-steps__item">
-            <span class="bk-steps__dot">3</span>
-            <span class="bk-steps__label">{{ labels.step3 }}</span>
-          </li>
-        </ol>
+    <header class="bk-head">
+      <div class="container">
+        <Link class="bk-head__back" href="/services">
+          <ArrowLeft aria-hidden="true" />{{ labels.back }}
+        </Link>
+        <h1>{{ tr("b.title") }}</h1>
+        <p>{{ labels.intro }}</p>
       </div>
-    </div>
+    </header>
 
     <section class="section bk-main">
       <div class="container">
@@ -585,7 +580,9 @@ function confirm(): void {
             </div>
             <div class="summary-row">
               <span>{{ tr("b.sumtime") }}</span
-              ><span>{{ bookingForm.time }} WIB</span>
+              ><span>{{
+                bookingForm.time ? `${bookingForm.time} WIB` : tr("b.sumempty")
+              }}</span>
             </div>
             <div class="summary-row">
               <span>{{ tr("b.fguests") }}</span
@@ -627,7 +624,7 @@ function confirm(): void {
           <div class="bk-review__actions">
             <button
               type="button"
-              class="btn btn--primary"
+              class="btn btn--ghost"
               data-booking-edit
               :disabled="bookingForm.processing"
               @click="edit"
@@ -656,6 +653,7 @@ function confirm(): void {
             :slots="roomSlots"
             :selected-time="bookingForm.time"
             :generated-at="availabilityGeneratedAt"
+            reviewing
             @refresh="refreshAvailability"
           />
         </section>
@@ -901,9 +899,9 @@ function confirm(): void {
           </form>
           <aside class="summary-card" :aria-label="tr('b.summary')">
             <div class="summary-card__head">
-              <span class="summary-card__eyebrow">{{ tr("nav.book") }}</span>
+              <span class="summary-card__eyebrow">{{ tr("b.summary") }}</span>
               <h3>{{ packageName }}</h3>
-              <p>{{ modeLabel }}</p>
+              <p v-if="servicePackage">{{ modeLabel }}</p>
             </div>
             <div class="summary-row">
               <span>{{ labels.base }}</span
@@ -966,86 +964,40 @@ function confirm(): void {
 </template>
 
 <style scoped>
-.bk-steps {
-  padding-top: 78px;
-  background: #fff;
-  border-bottom: 1px solid var(--line);
+.bk-head {
+  padding-top: calc(78px + clamp(1.5rem, 4vw, 2.5rem));
 }
-.bk-steps__inner {
-  display: flex;
+.bk-head__back {
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 0.75rem 1.5rem;
-  padding-block: 1rem;
-}
-.bk-steps__crumb {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
+  gap: 0.35rem;
+  min-height: 44px;
   color: var(--text-muted);
-}
-.bk-steps__crumb span:last-child {
-  color: var(--ink);
-  letter-spacing: 0.08em;
-}
-.bk-steps__flow {
-  display: flex;
-  align-items: center;
-  gap: clamp(0.5rem, 2vw, 1rem);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  font-size: 0.75rem;
-}
-.bk-steps__item {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  color: var(--text-muted);
-}
-.bk-steps__item.is-active {
-  color: var(--ink);
+  font-size: 0.9rem;
   font-weight: 600;
 }
-.bk-steps__dot {
-  display: grid;
-  place-items: center;
-  width: 1.1rem;
-  height: 1.1rem;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  font-size: 0.6rem;
-  line-height: 1;
+.bk-head__back:hover {
+  color: var(--rose-strong);
 }
-.bk-steps__item.is-active .bk-steps__dot {
-  background: var(--rose);
-  border-color: var(--rose);
-  color: #fff;
+.bk-head__back svg {
+  width: 1rem;
+  height: 1rem;
 }
-.bk-steps__line {
-  width: clamp(1rem, 4vw, 2.75rem);
-  height: 1px;
-  background: var(--line);
+.bk-head h1 {
+  margin: 0.25rem 0 0;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(1.9rem, 4vw, 2.6rem);
+  line-height: 1.15;
+  color: var(--ink);
 }
-.bk-steps__label {
-  display: none;
-  letter-spacing: 0.06em;
-}
-.bk-steps__item.is-active .bk-steps__label {
-  display: inline;
-}
-@media (min-width: 640px) {
-  .bk-steps__label {
-    display: inline;
-  }
+.bk-head p {
+  margin: 0.6rem 0 0;
+  max-width: 60ch;
+  color: var(--text-muted);
 }
 .bk-main {
-  padding-top: clamp(2.5rem, 5vw, 4rem);
+  padding-top: clamp(1.75rem, 4vw, 2.75rem);
 }
 .bk-form {
   display: grid;
@@ -1105,11 +1057,9 @@ function confirm(): void {
 .bk-form .field label {
   display: block;
   margin-bottom: 0.4rem;
-  font-size: 0.7rem;
+  font-size: 0.9rem;
   font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--text-muted);
+  color: var(--ink);
 }
 .bk-form .field input,
 .bk-form .field select,
@@ -1161,7 +1111,6 @@ function confirm(): void {
 }
 .bk-submit {
   gap: 0.55em;
-  letter-spacing: 0.15em;
 }
 .bk-submit__icon {
   width: 1rem;
@@ -1247,10 +1196,8 @@ function confirm(): void {
   border-bottom: 1px solid var(--line);
 }
 .summary-card__eyebrow {
-  font-size: 0.65rem;
+  font-size: 0.8rem;
   font-weight: 600;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
   color: var(--text-muted);
 }
 .summary-card__head h3 {

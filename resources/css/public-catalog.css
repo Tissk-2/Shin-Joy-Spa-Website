@@ -4,7 +4,26 @@
 
 .public-catalog--page {
   min-height: 60dvh;
-  padding-top: calc(78px + clamp(2.5rem, 7vw, 5rem));
+  padding-top: calc(78px + clamp(1.5rem, 4vw, 2.5rem));
+}
+
+.public-catalog__page-head {
+  max-width: 44rem;
+  margin-bottom: clamp(2rem, 5vw, 3rem);
+}
+
+.public-catalog__page-head h1 {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: clamp(1.9rem, 4vw, 2.6rem);
+  font-weight: 400;
+  line-height: 1.15;
+}
+
+.public-catalog__page-head p {
+  margin: 0.6rem 0 0;
+  color: var(--text-muted);
 }
 
 
@@ -59,9 +78,8 @@
   min-width: 0;
   padding: clamp(1rem, 2vw, 1.75rem);
   border: 1px solid var(--line);
-  border-radius: 1.5rem;
+  border-radius: 1rem;
   background: #fff;
-  box-shadow: var(--shadow-card);
 }
 
 .package-menu-card--vip {
@@ -155,28 +173,16 @@
   background: var(--rose);
   padding: 0.7rem 1rem;
   color: #fff;
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  font-size: 0.95rem;
+  font-weight: 600;
   text-align: center;
   text-decoration: none;
-  text-transform: uppercase;
   transition: background-color 160ms ease, border-color 160ms ease;
 }
 
 .package-menu-card__booking-link:hover {
   border-color: var(--rose-dark, #6e242d);
   background: var(--rose-dark, #6e242d);
-  color: #fff;
-}
-
-.package-menu-card--regular .package-menu-card__booking-link {
-  background: #fff;
-  color: var(--rose);
-}
-
-.package-menu-card--regular .package-menu-card__booking-link:hover {
-  background: var(--rose);
   color: #fff;
 }
 

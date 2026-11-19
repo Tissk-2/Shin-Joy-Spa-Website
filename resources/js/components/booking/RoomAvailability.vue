@@ -15,6 +15,8 @@ const props = defineProps<{
   }[];
   selectedTime: string;
   generatedAt: string | null;
+  // On the review step the time cannot be changed here, so say how to go on.
+  reviewing?: boolean;
 }>();
 defineEmits<{ refresh: [] }>();
 const copy = computed(() =>
@@ -44,7 +46,7 @@ const copy = computed(() =>
         capacity: "Kapasitas",
         updated: "Diperiksa",
         caveat:
-          "Ketersediaan dapat berubah. Persetujuan staf akan memesan ruangan yang sesuai. Kesesuaian terapis perlu dikonfirmasi staf.",
+          "Ketersediaan dapat berubah. Persetujuan staf memesan ruangan yang sesuai dan memastikan terapisnya.",
         blocked:
           "Periksa ketersediaan terbaru dan pilih kembali waktu yang tersedia sebelum melanjutkan.",
       }
@@ -70,7 +72,7 @@ const copy = computed(() =>
         capacity: "Capacity",
         updated: "Checked",
         caveat:
-          "Availability can change. Staff approval reserves a suitable room. Therapist suitability needs staff confirmation.",
+          "Availability can change. Staff approval reserves a suitable room and confirms the therapist.",
         blocked:
           "Check the latest availability and select an available time again before continuing.",
       },
@@ -90,6 +92,9 @@ const message = computed(() => {
     return copy.value.occupied;
   return selected.value ? "" : copy.value.choose;
 });
+const selectedAvailable = computed(
+  () => selected.value?.rooms.some((room) => room.available) ?? false,
+);
 const checkedAt = computed(() =>
   props.generatedAt ? jakartaAppointment(props.generatedAt) : null,
 );
@@ -98,11 +103,23 @@ const checkedAt = computed(() =>
 <template>
   <section
     data-room-availability
-    class="bk-step__block"
+    class="bk-step__block room-availability"
     aria-labelledby="room-availability-heading"
     :aria-busy="status === 'loading'"
   >
-    <h3 id="room-availability-heading" class="h3">{{ copy.title }}</h3>
+    <div class="room-availability__head">
+      <h3 id="room-availability-heading">{{ copy.title }}</h3>
+      <button
+        v-if="status !== 'incomplete'"
+        type="button"
+        class="room-availability__refresh"
+        data-availability-refresh
+        :disabled="status === 'loading'"
+        @click="$emit('refresh')"
+      >
+        {{ copy.refresh }}
+      </button>
+    </div>
     <p id="room-availability-status" role="status" aria-live="polite">
       {{ message }}
     </p>
@@ -116,36 +133,71 @@ const checkedAt = computed(() =>
         >
       </li>
     </ul>
-    <p v-if="checkedAt" class="muted">
-      {{ copy.updated }}: {{ checkedAt.date }} {{ checkedAt.time }} WIB
-    </p>
-    <p id="room-availability-caveat" class="estimate-scope">
-      {{ copy.caveat }}
-    </p>
-    <p
-      v-if="!selected || !selected.rooms.some((room) => room.available)"
-      class="muted"
-    >
+    <p v-if="reviewing && !selectedAvailable" class="room-availability__note">
       {{ copy.blocked }}
     </p>
-    <button
-      type="button"
-      class="btn btn--primary"
-      data-availability-refresh
-      :disabled="status === 'loading' || status === 'incomplete'"
-      @click="$emit('refresh')"
+    <p
+      v-if="status === 'success'"
+      id="room-availability-caveat"
+      class="room-availability__note"
     >
-      {{ copy.refresh }}
-    </button>
+      {{ copy.caveat }}
+      <template v-if="checkedAt">
+        {{ copy.updated }}: {{ checkedAt.time }} WIB.</template
+      >
+    </p>
   </section>
 </template>
 
 <style scoped>
+.room-availability {
+  display: grid;
+  gap: 0.5rem;
+}
+.room-availability p {
+  margin: 0;
+}
+.room-availability__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.25rem 1rem;
+}
+.room-availability__head h3 {
+  margin: 0;
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 700;
+}
+.room-availability__refresh {
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.room-availability__refresh:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+.room-availability__note {
+  color: color-mix(in oklch, currentColor 72%, transparent);
+  font-size: 0.85rem;
+  line-height: 1.55;
+}
 .availability-rooms {
+  margin: 0;
   padding-left: 1.25rem;
   overflow-wrap: anywhere;
 }
 .availability-rooms li {
-  margin-block: 0.5rem;
+  margin-block: 0.35rem;
 }
 </style>

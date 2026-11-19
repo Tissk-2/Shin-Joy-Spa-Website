@@ -1,6 +1,7 @@
 import { mount, flushPromises } from "@vue/test-utils";
 import { defineComponent, h, ref, nextTick } from "vue";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import RoomAvailability from "@/components/booking/RoomAvailability.vue";
 import { useRoomAvailability } from "@/composables/useRoomAvailability";
 import { jakartaAppointment, parseAvailability } from "@/lib/roomAvailability";
 
@@ -217,5 +218,53 @@ describe("room availability", () => {
     expect(api.status.value).toBe("success");
     expect(fetcher).toHaveBeenCalledTimes(3);
     wrapper.unmount();
+  });
+});
+
+describe("room availability panel", () => {
+  const slot = {
+    start_at: "2099-09-06T02:00:00Z",
+    rooms: [
+      { code: "A", name: "Room A", type: null, capacity: 2, available: true },
+    ],
+  };
+
+  it("asks for the missing choices with no refresh button or caveat yet", () => {
+    const wrapper = mount(RoomAvailability, {
+      props: {
+        language: "en",
+        status: "incomplete",
+        slots: [],
+        selectedTime: "",
+        generatedAt: null,
+      },
+    });
+
+    expect(wrapper.text()).toContain("Choose treatment");
+    expect(wrapper.find("[data-availability-refresh]").exists()).toBe(false);
+    expect(wrapper.find("#room-availability-caveat").exists()).toBe(false);
+  });
+
+  it("adds the caveat once rooms load and explains a blocked review only on review", () => {
+    const props = {
+      language: "en",
+      status: "success",
+      slots: [slot],
+      selectedTime: "",
+      generatedAt: "2099-09-05T12:00:00Z",
+    } as const;
+    const form = mount(RoomAvailability, { props });
+
+    expect(form.text()).toContain("Choose a time");
+    expect(form.get("#room-availability-caveat").text()).toContain(
+      "Staff approval reserves",
+    );
+    expect(form.find("[data-availability-refresh]").exists()).toBe(true);
+    expect(form.text()).not.toContain("select an available time again");
+
+    const review = mount(RoomAvailability, {
+      props: { ...props, reviewing: true },
+    });
+    expect(review.text()).toContain("select an available time again");
   });
 });

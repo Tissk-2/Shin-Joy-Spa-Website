@@ -33,7 +33,7 @@
   flex-direction: column;
   justify-content: space-between;
   background: var(--panel);
-  border-radius: 1.5rem;
+  border-radius: 1rem;
   color: var(--menu-espresso);
 }
 .package-menu-card > img {
@@ -101,11 +101,9 @@
 }
 .package-configurator__label {
   flex-basis: 100%;
-  color: var(--config-muted);
-  font-size: 0.75rem;
+  color: var(--config-ink);
+  font-size: 0.9rem;
   font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
 }
 .package-configurator__group button {
   flex: 1 1 9rem;

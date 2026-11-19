@@ -59,7 +59,6 @@ describe("Laravel-owned public pages", () => {
 
       expect(source).toMatch(/MainLayout/);
       expect(source).toMatch(/<Head/);
-      expect(source).toMatch(/<Link/);
       expect(source).not.toMatch(/vue-router|RouterLink|useRoute/);
     }
   });
