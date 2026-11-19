@@ -64,17 +64,53 @@ describe("Laravel-owned public pages", () => {
     }
   });
 
-  it("preserves the bilingual home sections and accessible lightbox controls", () => {
+  it("keeps the bilingual home sections and has no stock-photo gallery", () => {
     const source = readPage("Home.vue");
 
     expect(source).toMatch(/useLanguage/);
     expect(source).toMatch(/id="menu"/);
     expect(source).toMatch(/id="about"/);
-    expect(source).toMatch(/id="gallery"/);
+    expect(source).toMatch(/id="faq"/);
     expect(source).toMatch(/id="contact"/);
-    expect(source).toMatch(/role="dialog"/);
-    expect(source).toMatch(/aria-modal="true"/);
-    expect(source).toMatch(/handleLightboxKeydown/);
+    expect(source).not.toMatch(/gallery|lightbox|about\.webp/i);
+  });
+
+  it("offers a booking link in the header, hidden only on the booking page", () => {
+    const home = mount(MainLayout, { slots: { default: "<h1>Page</h1>" } });
+    expect(home.get(".header-book").attributes("href")).toBe("/booking");
+    expect(home.get("#primary-nav .nav-book").attributes("href")).toBe(
+      "/booking",
+    );
+    expect(
+      home.findAll("#primary-nav .nav-link").map((link) => link.text()),
+    ).toEqual(["Home", "Menu", "About", "Contact"]);
+
+    inertia.page.url = "/booking?service=nezuko";
+    const booking = mount(MainLayout, { slots: { default: "<h1>Page</h1>" } });
+    expect(booking.find(".header-book").exists()).toBe(false);
+    expect(booking.find(".nav-book").exists()).toBe(false);
+  });
+
+  it("names the account in the phone menu instead of showing only an initial", () => {
+    const wrapper = mount(MainLayout, { slots: { default: "<h1>Page</h1>" } });
+    const toggle = wrapper.get(".account-toggle");
+
+    expect(toggle.get(".account-toggle__initial").text()).toBe("N");
+    expect(toggle.get(".account-toggle__name").text()).toBe("Nadia Lestari");
+    expect(toggle.attributes("aria-label")).toContain("Nadia Lestari");
+  });
+
+  it("lets visitors call or message the spa from the footer", () => {
+    const wrapper = mount(MainLayout, { slots: { default: "<h1>Page</h1>" } });
+    const links = wrapper
+      .findAll(".footer-contact a")
+      .map((link) => link.attributes("href"));
+
+    expect(links).toEqual([
+      "tel:+62895324748530",
+      "https://wa.me/62895324748530",
+    ]);
+    expect(wrapper.find(".footer-meta").exists()).toBe(false);
   });
 
   it("does not retain placeholder catalog imports or scalar service cards", () => {

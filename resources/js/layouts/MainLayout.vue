@@ -22,7 +22,7 @@ const isScrolled = ref(false);
 const isMobileNavigation = ref(
   typeof window !== "undefined" &&
     typeof window.matchMedia === "function" &&
-    window.matchMedia("(max-width: 900px)").matches,
+    window.matchMedia("(max-width: 1100px)").matches,
 );
 let mobileNavigation: MediaQueryList | null = null;
 const navElement = ref<HTMLElement | null>(null);
@@ -47,6 +47,8 @@ const accountLabel = computed(
 );
 const activeSection = ref("");
 const catalogPackages = computed(() => page.props.catalog.packages);
+// The booking page is the destination itself, so it needs no button to it.
+const showsBookingLink = computed(() => currentUrl.value.path !== "/booking");
 
 const links = computed(() => {
   const hash = currentUrl.value.hash;
@@ -68,11 +70,6 @@ const links = computed(() => {
     },
     { label: tr("nav.about"), to: "/#about", active: isHashMatch("#about") },
     {
-      label: tr("nav.gallery"),
-      to: "/#gallery",
-      active: isHashMatch("#gallery"),
-    },
-    {
       label: tr("nav.contact"),
       to: "/#contact",
       active: isHashMatch("#contact"),
@@ -91,7 +88,6 @@ function handleScroll() {
   const sections = [
     { id: "contact", el: document.getElementById("contact") },
     { id: "faq", el: document.getElementById("faq") },
-    { id: "gallery", el: document.getElementById("gallery") },
     { id: "about", el: document.getElementById("about") },
     { id: "menu", el: document.getElementById("menu") },
   ];
@@ -242,7 +238,7 @@ watch(
 
 onMounted(() => {
   if (typeof window.matchMedia === "function") {
-    mobileNavigation = window.matchMedia("(max-width: 900px)");
+    mobileNavigation = window.matchMedia("(max-width: 1100px)");
     isMobileNavigation.value = mobileNavigation.matches;
     mobileNavigation.addEventListener("change", handleNavigationBreakpoint);
   }
@@ -342,9 +338,18 @@ onUnmounted(() => {
             </li>
           </ul>
 
+          <Link
+            v-if="showsBookingLink"
+            class="btn btn--primary nav-book"
+            href="/booking"
+            @click="setMenu(false, false)"
+          >
+            {{ tr("nav.book") }}
+          </Link>
+
           <div v-if="!isAuthenticated" class="nav-auth-actions">
             <Link
-              class="btn btn--primary"
+              class="btn btn--ghost"
               href="/login"
               :aria-current="
                 currentUrl.path === '/login' || currentUrl.path === '/register'
@@ -367,7 +372,12 @@ onUnmounted(() => {
               :aria-label="accountLabel"
               @click="setAccountMenu(!isAccountMenuOpen)"
             >
-              <span aria-hidden="true">{{ accountInitial }}</span>
+              <span class="account-toggle__initial" aria-hidden="true">{{
+                accountInitial
+              }}</span>
+              <span class="account-toggle__name" aria-hidden="true">{{
+                currentUser?.name
+              }}</span>
             </button>
 
             <div
@@ -442,6 +452,14 @@ onUnmounted(() => {
               EN
             </button>
           </div>
+
+          <Link
+            v-if="showsBookingLink"
+            class="btn btn--primary header-book"
+            href="/booking"
+          >
+            {{ tr("nav.book") }}
+          </Link>
 
           <button
             ref="navToggle"
@@ -551,11 +569,6 @@ onUnmounted(() => {
                 }}</Link>
               </li>
               <li>
-                <Link href="/#gallery" @click="setMenu(false, false)">{{
-                  tr("nav.gallery")
-                }}</Link>
-              </li>
-              <li>
                 <Link href="/#faq" @click="setMenu(false, false)">{{
                   tr("faq.eyebrow")
                 }}</Link>
@@ -616,7 +629,29 @@ onUnmounted(() => {
                     stroke-linejoin="round"
                   />
                 </svg>
-                <span>{{ contactInformation.phone }}</span>
+                <a :href="contactInformation.phoneUrl">{{
+                  contactInformation.phone
+                }}</a>
+              </li>
+              <li v-if="contactInformation.whatsappUrl">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M4 20l1.3-3.9A8 8 0 1 1 8 19.1L4 20Z"
+                    stroke-linejoin="round"
+                  />
+                </svg>
+                <a
+                  :href="contactInformation.whatsappUrl"
+                  target="_blank"
+                  rel="noopener"
+                  >{{ tr("loc.whatsapp") }}</a
+                >
               </li>
               <li>
                 <svg
@@ -639,7 +674,6 @@ onUnmounted(() => {
           <span
             >&copy; {{ new Date().getFullYear() }} {{ tr("foot.rights") }}</span
           >
-          <span class="footer-meta">{{ tr("foot.made") }}</span>
         </div>
       </div>
     </footer>

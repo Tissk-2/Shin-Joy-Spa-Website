@@ -8,25 +8,13 @@
   color: var(--menu-espresso);
 }
 
-.official-menu {
-  position: relative;
-  overflow: hidden;
-}
-.official-menu::before {
-  content: "";
-  position: absolute;
-  width: 58rem;
-  height: 22rem;
-  border: 1px solid color-mix(in srgb, var(--menu-gold) 60%, transparent);
-  border-radius: 50%;
-  top: -15rem;
-  left: -12rem;
-  pointer-events: none;
-}
 .official-menu__header {
   max-width: 44rem;
-  margin: 0 auto 2.5rem;
-  text-align: center;
+  margin: 0 0 2.5rem;
+}
+.official-menu__header p {
+  margin-top: 0.75rem;
+  color: var(--text-muted);
 }
 .official-menu__header h2,
 .menu-comparison h2,
@@ -69,11 +57,6 @@
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.12em;
-}
-.package-menu-card__benefit,
-.menu-policy {
-  border-left: 3px solid var(--menu-gold);
-  padding-left: 0.75rem;
 }
 .menu-policy {
   margin: 2rem auto 0;

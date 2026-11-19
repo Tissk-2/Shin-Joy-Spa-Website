@@ -21,7 +21,7 @@ final class AdminContentController extends Controller
      */
     public const SECTIONS = [
         'hero' => ['hero.eyebrow', 'hero.heading', 'hero.headingAccent', 'hero.sub'],
-        'about' => ['about.eyebrow', 'about.title', 'about.body'],
+        'about' => ['about.title', 'about.body'],
         'contact' => ['loc.address', 'loc.hours', 'loc.phone'],
     ];
 

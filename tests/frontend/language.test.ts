@@ -17,7 +17,6 @@ describe("official menu translations", () => {
 
   it("keeps paired official-menu copy in both dictionaries", () => {
     const keys = [
-      "menu.eyebrow",
       "menu.title",
       "menu.sub",
       "menu.hotWaterPolicy",

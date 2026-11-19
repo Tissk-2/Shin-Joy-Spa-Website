@@ -154,6 +154,20 @@ describe("public contact information", () => {
     expect(normalizeContactPhone(input)).toBe(expected);
   });
 
+  it("lets visitors call or message the spa and book from the homepage", () => {
+    setContactContent({ "loc.phone": { id: "+62 (812) 3456-7890" } });
+    const wrapper = mount(Home, { props: { categories: [] } });
+
+    expect(
+      wrapper.findAll("#contact a").map((link) => link.attributes("href")),
+    ).toEqual([
+      "tel:+6281234567890",
+      "https://wa.me/6281234567890",
+      "https://www.google.com/maps?q=Jalan+Terusan+Batubara+No.+12%2C+Lantai+2",
+    ]);
+    expect(wrapper.get(".cta-band a").attributes("href")).toBe("/booking");
+  });
+
   it("loads the Google map only when the visitor asks for it", async () => {
     const wrapper = mount(Home, { props: { categories: [] } });
 

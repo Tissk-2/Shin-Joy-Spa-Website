@@ -1,13 +1,12 @@
 <script setup lang="ts">
 import { Head, Link, usePage } from "@inertiajs/vue3";
 import { MapPin } from "lucide-vue-next";
-import { computed, nextTick, onBeforeUnmount, ref } from "vue";
+import { computed, nextTick, ref } from "vue";
 import CatalogMenuFooter from "@/components/CatalogMenuFooter.vue";
 import PackageMenuCard from "@/components/PackageMenuCard.vue";
 import { useContactInformation } from "@/composables/useContactInformation";
 import { useLanguage } from "@/composables/useLanguage";
 import faqs from "@/data/faq";
-import galleryImgs from "@/data/gallery";
 import MainLayout from "@/layouts/MainLayout.vue";
 import type { AppPageProps, PublicCatalogCategoryData } from "@/types";
 
@@ -26,21 +25,7 @@ function c(key: string): string {
 const visibleCategories = computed(() =>
   props.categories.filter((category) => category.packages.length > 0),
 );
-const statServices = computed(() =>
-  visibleCategories.value.reduce(
-    (total, category) => total + category.packages.length,
-    0,
-  ),
-);
-const gallerySpans = ["tall", "", "", "wide", "", "tall", "", "wide"];
 const title = computed(() => tr("meta.tagline"));
-
-function galleryCaption(
-  image: (typeof galleryImgs)[number] | undefined,
-): string {
-  if (!image) return "";
-  return language.value === "id" ? image.captionId : image.captionEn;
-}
 
 // The embed pulls about 400 KB of Google Maps scripts, so it waits for a click.
 const mapLoaded = ref(false);
@@ -51,106 +36,9 @@ function loadMap(): void {
   // The button disappears; keep keyboard focus where the visitor was.
   nextTick(() => mapFrame.value?.focus());
 }
-
-const lightboxIndex = ref(-1);
-const lightboxOpen = computed(() => lightboxIndex.value >= 0);
-const lightboxElement = ref<HTMLElement | null>(null);
-const lightboxCloseButton = ref<HTMLButtonElement | null>(null);
-let lastFocused: HTMLElement | null = null;
-const previousInertStates = new Map<HTMLElement, boolean>();
-
-function isolateBackgroundFromLightbox(): void {
-  const dialog = lightboxElement.value;
-  if (!dialog || previousInertStates.size > 0) return;
-
-  let branch: HTMLElement = dialog;
-  let ancestor = branch.parentElement;
-  while (ancestor) {
-    for (const sibling of Array.from(ancestor.children)) {
-      if (sibling === branch) continue;
-      const element = sibling as HTMLElement;
-      previousInertStates.set(element, element.inert);
-      element.inert = true;
-    }
-
-    if (ancestor === document.body) break;
-    branch = ancestor;
-    ancestor = ancestor.parentElement;
-  }
-}
-
-function restoreBackgroundFromLightbox(): void {
-  for (const [element, wasInert] of previousInertStates) {
-    element.inert = wasInert;
-  }
-  previousInertStates.clear();
-}
-
-function openLightbox(index: number): void {
-  lastFocused = document.activeElement as HTMLElement | null;
-  lightboxIndex.value = index;
-  document.body.style.overflow = "hidden";
-  nextTick(() => {
-    isolateBackgroundFromLightbox();
-    lightboxCloseButton.value?.focus();
-  });
-}
-
-function closeLightbox(): void {
-  if (!lightboxOpen.value) return;
-  lightboxIndex.value = -1;
-  document.body.style.overflow = "";
-  nextTick(() => {
-    restoreBackgroundFromLightbox();
-    if (lastFocused?.isConnected) lastFocused.focus();
-  });
-}
-
-function moveLightbox(offset: number): void {
-  lightboxIndex.value =
-    (lightboxIndex.value + offset + galleryImgs.length) % galleryImgs.length;
-}
-
-function handleLightboxKeydown(event: KeyboardEvent): void {
-  if (event.key === "Escape") {
-    closeLightbox();
-  } else if (event.key === "ArrowLeft") {
-    moveLightbox(-1);
-  } else if (event.key === "ArrowRight") {
-    moveLightbox(1);
-  } else if (event.key === "Tab") {
-    const controls = [
-      ...(lightboxElement.value?.querySelectorAll<HTMLButtonElement>(
-        "button",
-      ) ?? []),
-    ];
-    const first = controls[0];
-    const last = controls.at(-1);
-    if (event.shiftKey && document.activeElement === first) {
-      event.preventDefault();
-      last?.focus();
-    } else if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault();
-      first?.focus();
-    }
-  }
-}
-
-onBeforeUnmount(() => {
-  document.body.style.overflow = "";
-  restoreBackgroundFromLightbox();
-});
 </script>
 
 <style scoped>
-.hero__meta--single {
-  grid-template-columns: minmax(0, 1fr);
-}
-
-.hero__meta--single > div {
-  max-width: 15rem;
-}
-
 .hero-title {
   font-family: var(--font-display);
   font-weight: 400;
@@ -165,36 +53,112 @@ onBeforeUnmount(() => {
   font-size: inherit;
   letter-spacing: inherit;
 }
+
+/* About and visit: text on one side, facts or the map on the other. */
+.home-about,
+.home-visit {
+  display: grid;
+  gap: clamp(2rem, 5vw, 4.5rem);
+  align-items: start;
+}
+@media (min-width: 860px) {
+  .home-about {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+  }
+  .home-visit {
+    grid-template-columns: minmax(0, 6fr) minmax(0, 5fr);
+  }
+}
+.home-about__intro p {
+  margin-top: 1.2rem;
+  max-width: 60ch;
+  color: var(--text-muted);
+}
+
+.fact-list {
+  display: grid;
+  margin: 0;
+}
+.fact-list > div {
+  display: grid;
+  gap: 0.25rem;
+  padding-block: 1.1rem;
+  border-top: 1px solid var(--line);
+}
+.fact-list > div:last-child {
+  border-bottom: 1px solid var(--line);
+}
+.fact-list dt {
+  font-weight: 700;
+  color: var(--ink);
+}
+.fact-list dd {
+  margin: 0;
+  color: var(--text-muted);
+}
+.fact-list dd a {
+  color: var(--rose-strong);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.home-visit .fact-list {
+  margin-top: 1.8rem;
+}
+@media (min-width: 560px) {
+  .home-visit .fact-list > div {
+    grid-template-columns: 11rem minmax(0, 1fr);
+    gap: 1rem;
+  }
+}
+
+.home-visit__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.8rem;
+}
+@media (max-width: 420px) {
+  .home-visit__actions .btn,
+  .hero__cta .btn {
+    width: 100%;
+  }
+  .hero__cta {
+    gap: 0.75rem;
+  }
+}
+
 /* Same box as the map it replaces, so nothing moves when the map loads. */
+.map-placeholder,
+.home-visit__map iframe {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+}
 .map-placeholder {
   display: grid;
   place-content: center;
   justify-items: center;
-  gap: 1.25rem;
-  width: 100%;
-  aspect-ratio: 4 / 5;
-  padding: 2rem;
-  border-radius: var(--r-lg);
-  background: var(--bg);
-  box-shadow: var(--shadow-card);
+  gap: 1rem;
+  padding: 1.5rem;
+  background: var(--surface);
   color: var(--text-muted);
   text-align: center;
 }
 .map-placeholder__pin {
-  width: 2.5rem;
-  height: 2.5rem;
+  width: 2rem;
+  height: 2rem;
   color: var(--gold-deep);
   stroke-width: 1.5;
 }
 .map-placeholder p {
   max-width: 22rem;
 }
-@media (max-width: 420px) {
-  .hero__cta {
-    gap: 0.75rem;
-  }
-  .hero__cta .btn {
-    width: 100%;
+/* Stacked under the details, an empty 4:3 box would only push the page down. */
+@media (max-width: 859px) {
+  .map-placeholder {
+    aspect-ratio: auto;
   }
 }
 </style>
@@ -236,12 +200,6 @@ onBeforeUnmount(() => {
             tr("hero.cta2")
           }}</Link>
         </div>
-        <div class="hero__meta hero__meta--single reveal" data-delay="4">
-          <div>
-            <b>{{ statServices }}</b
-            ><span>{{ tr("hero.m1l") }}</span>
-          </div>
-        </div>
       </div>
       <span class="hero__scroll" aria-hidden="true">
         <span>{{ tr("hero.scroll") }}</span>
@@ -256,7 +214,6 @@ onBeforeUnmount(() => {
     >
       <div class="container">
         <header class="official-menu__header">
-          <span class="eyebrow">{{ tr("menu.eyebrow") }}</span>
           <h2 id="menu-title">{{ tr("menu.title") }}</h2>
           <p>{{ tr("menu.sub") }}</p>
         </header>
@@ -290,198 +247,33 @@ onBeforeUnmount(() => {
       </div>
     </section>
 
-    <section id="about" class="section">
-      <div class="container">
-        <div class="split">
-          <div class="split__media reveal">
-            <img
-              src="/img/about.webp"
-              srcset="
-                /img/about-560.webp 560w,
-                /img/about-720.webp 720w,
-                /img/about.webp     960w
-              "
-              sizes="(min-width: 1024px) 540px, 92vw"
-              :alt="tr('about.imageAlt')"
-              width="960"
-              height="1152"
-              loading="lazy"
-            />
-          </div>
-          <div class="split__body">
-            <span class="eyebrow reveal">{{ c("about.eyebrow") }}</span>
-            <h2 class="reveal" data-delay="1" style="margin-top: 1rem">
-              {{ c("about.title") }}
-            </h2>
-            <p
-              class="reveal"
-              data-delay="1"
-              style="margin-top: 1.2rem; color: var(--text-muted)"
-            >
-              {{ c("about.body") }}
-            </p>
-            <ul class="feature-list">
-              <li class="reveal" data-delay="2">
-                <span class="ic">
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.7"
-                    aria-hidden="true"
-                  >
-                    <path
-                      d="M20 6L9 17l-5-5"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    />
-                  </svg>
-                </span>
-                <div>
-                  <b>{{ tr("about.f1t") }}</b>
-                  <p>{{ tr("about.f1d") }}</p>
-                </div>
-              </li>
-              <li class="reveal" data-delay="3">
-                <span class="ic">
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.7"
-                    aria-hidden="true"
-                  >
-                    <path
-                      d="M12 2C9 6 6 8.5 6 13a6 6 0 0012 0c0-4.5-3-7-6-11Z"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    />
-                  </svg>
-                </span>
-                <div>
-                  <b>{{ tr("about.f2t") }}</b>
-                  <p>{{ tr("about.f2d") }}</p>
-                </div>
-              </li>
-              <li class="reveal" data-delay="4">
-                <span class="ic">
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.7"
-                    aria-hidden="true"
-                  >
-                    <path
-                      d="M12 3l7 4v5c0 4-3 7-7 9-4-2-7-5-7-9V7l7-4Z"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    />
-                  </svg>
-                </span>
-                <div>
-                  <b>{{ tr("about.f3t") }}</b>
-                  <p>{{ tr("about.f3d") }}</p>
-                </div>
-              </li>
-            </ul>
-          </div>
+    <section id="about" class="section" aria-labelledby="about-title">
+      <div class="container home-about">
+        <div class="home-about__intro">
+          <h2 id="about-title" class="reveal">{{ c("about.title") }}</h2>
+          <p class="reveal" data-delay="1">{{ c("about.body") }}</p>
         </div>
+        <dl class="fact-list reveal" data-delay="2">
+          <div>
+            <dt>{{ tr("about.f1t") }}</dt>
+            <dd>{{ tr("about.f1d") }}</dd>
+          </div>
+          <div>
+            <dt>{{ tr("about.f2t") }}</dt>
+            <dd>{{ tr("about.f2d") }}</dd>
+          </div>
+          <div>
+            <dt>{{ tr("about.f3t") }}</dt>
+            <dd>{{ tr("about.f3d") }}</dd>
+          </div>
+        </dl>
       </div>
     </section>
 
-    <section id="gallery" class="section tint">
+    <section id="faq" class="section tint" aria-labelledby="faq-title">
       <div class="container">
         <div class="section-head center">
-          <span class="eyebrow center reveal">{{ tr("gallery.eyebrow") }}</span>
-          <h2 class="reveal" data-delay="1">{{ tr("gallery.title") }}</h2>
-          <p class="lead reveal" data-delay="2" style="margin-inline: auto">
-            {{ tr("gallery.sub") }}
-          </p>
-          <p class="gallery__provenance" role="note">
-            {{ tr("gallery.provenance") }}
-          </p>
-        </div>
-        <div class="gallery reveal">
-          <a
-            v-for="(image, index) in galleryImgs"
-            :key="image.src"
-            :class="[
-              gallerySpans[index % gallerySpans.length],
-              'gallery__item',
-            ]"
-            :href="image.src"
-            :aria-label="`${tr('gallery.lbView')}: ${galleryCaption(image)}`"
-            @click.prevent="openLightbox(index)"
-          >
-            <img
-              :src="image.thumb"
-              :srcset="`${image.small} 320w, ${image.thumb} 640w`"
-              :sizes="
-                gallerySpans[index % gallerySpans.length] === 'wide'
-                  ? '(min-width: 1024px) 475px, 92vw'
-                  : '(min-width: 1024px) 233px, 45vw'
-              "
-              :alt="galleryCaption(image)"
-              loading="lazy"
-            />
-            <span class="gallery__caption">{{ galleryCaption(image) }}</span>
-          </a>
-        </div>
-      </div>
-    </section>
-
-    <div
-      ref="lightboxElement"
-      class="lightbox"
-      :class="{ open: lightboxOpen }"
-      role="dialog"
-      aria-modal="true"
-      :aria-label="tr('gallery.lbLabel')"
-      :aria-hidden="!lightboxOpen"
-      @click.self="closeLightbox"
-      @keydown="handleLightboxKeydown"
-    >
-      <button
-        ref="lightboxCloseButton"
-        type="button"
-        class="lightbox__close"
-        :aria-label="tr('gallery.lbClose')"
-        @click="closeLightbox"
-      >
-        &times;
-      </button>
-      <button
-        type="button"
-        class="lightbox__nav lightbox__prev"
-        :aria-label="tr('gallery.lbPrev')"
-        @click="moveLightbox(-1)"
-      >
-        &lsaquo;
-      </button>
-      <img
-        class="lightbox__img"
-        :src="lightboxOpen ? (galleryImgs[lightboxIndex]?.src ?? '') : ''"
-        :alt="lightboxOpen ? galleryCaption(galleryImgs[lightboxIndex]) : ''"
-      />
-      <button
-        type="button"
-        class="lightbox__nav lightbox__next"
-        :aria-label="tr('gallery.lbNext')"
-        @click="moveLightbox(1)"
-      >
-        &rsaquo;
-      </button>
-      <span class="lightbox__count" aria-hidden="true">
-        {{ lightboxIndex + 1 }} / {{ galleryImgs.length }}
-      </span>
-    </div>
-
-    <section id="faq" class="section tint">
-      <div class="container">
-        <div class="section-head center">
-          <span class="eyebrow center reveal">{{ tr("faq.eyebrow") }}</span>
-          <h2 class="reveal" data-delay="1">{{ tr("faq.title") }}</h2>
+          <h2 id="faq-title" class="reveal">{{ tr("faq.title") }}</h2>
         </div>
         <div class="faq reveal">
           <details v-for="faq in faqs" :key="faq.qId" class="faq-item">
@@ -495,130 +287,81 @@ onBeforeUnmount(() => {
       </div>
     </section>
 
-    <section id="contact" class="section tint">
-      <div class="container">
-        <div class="split reverse">
-          <div class="split__media reveal">
-            <iframe
-              v-if="mapLoaded"
-              ref="mapFrame"
-              :title="tr('loc.title')"
-              :src="contactInformation.mapEmbedUrl"
-              style="
-                width: 100%;
-                aspect-ratio: 4/5;
-                border: 0;
-                border-radius: var(--r-lg);
-                box-shadow: var(--shadow-card);
-              "
-              loading="lazy"
-              referrerpolicy="no-referrer-when-downgrade"
-            ></iframe>
-            <div v-else class="map-placeholder">
-              <MapPin class="map-placeholder__pin" aria-hidden="true" />
-              <p>{{ tr("loc.mapNote") }}</p>
-              <button
-                type="button"
-                class="btn btn--ghost"
-                data-map-load
-                @click="loadMap"
-              >
-                {{ tr("loc.mapShow") }}
-              </button>
+    <section id="contact" class="section" aria-labelledby="contact-title">
+      <div class="container home-visit">
+        <div class="home-visit__body">
+          <h2 id="contact-title" class="reveal">{{ tr("loc.title") }}</h2>
+          <dl class="fact-list reveal" data-delay="1">
+            <div>
+              <dt>{{ tr("loc.addresst") }}</dt>
+              <dd>{{ contactInformation.address }}</dd>
             </div>
+            <div>
+              <dt>{{ tr("loc.hourst") }}</dt>
+              <dd>{{ contactInformation.hours }}</dd>
+            </div>
+            <div>
+              <dt>{{ tr("loc.phonet") }}</dt>
+              <dd>
+                <a :href="contactInformation.phoneUrl">{{
+                  contactInformation.phone
+                }}</a>
+              </dd>
+            </div>
+          </dl>
+          <div class="home-visit__actions reveal" data-delay="2">
+            <a
+              v-if="contactInformation.whatsappUrl"
+              class="btn btn--primary"
+              :href="contactInformation.whatsappUrl"
+              target="_blank"
+              rel="noopener"
+            >
+              {{ tr("loc.whatsapp") }}
+            </a>
+            <a
+              class="btn btn--ghost"
+              :href="contactInformation.directionsUrl"
+              target="_blank"
+              rel="noopener"
+            >
+              {{ tr("loc.directions") }}
+            </a>
           </div>
-          <div class="split__body">
-            <span class="eyebrow reveal">{{ tr("loc.eyebrow") }}</span>
-            <h2 class="reveal" data-delay="1" style="margin-top: 1rem">
-              {{ tr("loc.title") }}
-            </h2>
-            <ul class="feature-list" style="margin-top: 2rem">
-              <li class="reveal" data-delay="2">
-                <span class="ic">
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.7"
-                    aria-hidden="true"
-                  >
-                    <path
-                      d="M12 21s7-5.5 7-11a7 7 0 10-14 0c0 5.5 7 11 7 11Z"
-                      stroke-linejoin="round"
-                    />
-                    <circle cx="12" cy="10" r="2.5" />
-                  </svg>
-                </span>
-                <div>
-                  <b>{{ tr("loc.addresst") }}</b>
-                  <p>{{ contactInformation.address }}</p>
-                </div>
-              </li>
-              <li class="reveal" data-delay="3">
-                <span class="ic">
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.7"
-                    aria-hidden="true"
-                  >
-                    <circle cx="12" cy="12" r="10" />
-                    <path d="M12 6v6l4 2" />
-                  </svg>
-                </span>
-                <div>
-                  <b>{{ tr("loc.hourst") }}</b>
-                  <p>{{ contactInformation.hours }}</p>
-                </div>
-              </li>
-              <li class="reveal" data-delay="4">
-                <span class="ic">
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.7"
-                    aria-hidden="true"
-                  >
-                    <path
-                      d="M5 4h4l2 5-2.5 1.5a11 11 0 005 5L15 13l5 2v4a2 2 0 01-2 2A16 16 0 013 6a2 2 0 012-2Z"
-                      stroke-linejoin="round"
-                    />
-                  </svg>
-                </span>
-                <div>
-                  <b>{{ tr("loc.phonet") }}</b>
-                  <p>{{ contactInformation.phone }}</p>
-                </div>
-              </li>
-            </ul>
-            <p style="margin-top: 1.8rem">
-              <a
-                class="btn btn--ghost"
-                :href="contactInformation.directionsUrl"
-                target="_blank"
-                rel="noopener"
-              >
-                {{ tr("loc.directions") }}
-              </a>
-            </p>
+        </div>
+        <div class="home-visit__map reveal">
+          <iframe
+            v-if="mapLoaded"
+            ref="mapFrame"
+            :title="tr('loc.title')"
+            :src="contactInformation.mapEmbedUrl"
+            loading="lazy"
+            referrerpolicy="no-referrer-when-downgrade"
+          ></iframe>
+          <div v-else class="map-placeholder">
+            <MapPin class="map-placeholder__pin" aria-hidden="true" />
+            <p>{{ tr("loc.mapNote") }}</p>
+            <button
+              type="button"
+              class="btn btn--ghost"
+              data-map-load
+              @click="loadMap"
+            >
+              {{ tr("loc.mapShow") }}
+            </button>
           </div>
         </div>
       </div>
     </section>
 
-    <section class="section cta-band">
+    <section class="section cta-band" aria-labelledby="cta-title">
       <div class="container inner">
-        <span class="eyebrow center reveal">{{ tr("cta.eyebrow") }}</span>
-        <h2 class="reveal" data-delay="1" style="margin-top: 1rem">
-          {{ tr("cta.title") }}
-        </h2>
-        <p class="reveal" data-delay="2">{{ tr("cta.sub") }}</p>
+        <h2 id="cta-title" class="reveal">{{ tr("cta.title") }}</h2>
+        <p class="reveal" data-delay="1">{{ tr("cta.sub") }}</p>
         <Link
           class="btn btn--gold btn--lg reveal"
-          data-delay="3"
-          href="/services"
+          data-delay="2"
+          href="/booking"
           >{{ tr("cta.btn") }}</Link
         >
       </div>

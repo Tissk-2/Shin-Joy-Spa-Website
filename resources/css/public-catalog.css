@@ -102,11 +102,6 @@
   line-height: 1.6;
 }
 
-.package-menu-card__benefit {
-  border-left: 3px solid var(--menu-gold);
-  padding-left: 0.75rem;
-}
-
 .package-menu-card__comparison {
   width: 100%;
   border-collapse: collapse;

@@ -9,6 +9,7 @@ export interface ContactInformation {
   address: string;
   hours: string;
   phone: string;
+  phoneUrl: string;
   whatsappUrl: string | null;
   mapEmbedUrl: string;
   directionsUrl: string;
@@ -77,6 +78,7 @@ export function resolveContactInformation(
     address,
     hours: localizedValue(content, locale, "loc.hours"),
     phone,
+    phoneUrl: `tel:${phone.replace(/[^+\d]/g, "")}`,
     whatsappUrl: normalizedPhone
       ? `https://wa.me/${normalizedPhone}`
       : null,

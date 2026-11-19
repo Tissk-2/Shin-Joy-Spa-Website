@@ -59,7 +59,7 @@ async function captureContactScreenshots(page: Page): Promise<void> {
       height: viewport.height,
     });
     await page.goto("/");
-    const contactDetails = page.locator("#contact .split__body");
+    const contactDetails = page.locator("#contact .home-visit__body");
     await contactDetails.scrollIntoViewIfNeeded();
     await contactDetails.screenshot({
       path: path.join(outputDirectory, `home-contact-${viewport.name}.png`),

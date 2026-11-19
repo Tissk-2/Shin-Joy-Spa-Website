@@ -6,42 +6,8 @@ import { resetTestingDatabase } from "./testing-environment";
 test.beforeAll(resetTestingDatabase);
 
 const locales = [
-  {
-    locale: "id",
-    galleryHeading: "Detail spa dan perawatan",
-    gallerySubtitle: "Gambar detail perawatan dan suasana spa.",
-    galleryDescription:
-      "Gambar-gambar ini menampilkan detail spa dan perawatan; kami belum dapat memastikan bahwa gambar tersebut memperlihatkan lokasi Shin Joy Spa.",
-    packageLabel: "Paket tersedia",
-    captions: [
-      "Minyak pijat diaplikasikan saat perawatan.",
-      "Perawatan wajah sedang dilakukan.",
-      "Handuk, botol, lilin, dan bunga.",
-      "Batu panas diletakkan di atas punggung.",
-      "Handuk, lilin, dan diffuser.",
-      "Seseorang bersantai di dalam bathtub.",
-      "Tangan diletakkan di atas handuk.",
-      "Minyak pijat dituangkan ke telapak tangan.",
-    ],
-  },
-  {
-    locale: "en",
-    galleryHeading: "Spa and treatment details",
-    gallerySubtitle: "Images of spa treatments and settings.",
-    galleryDescription:
-      "These images show spa settings and treatments; we have not verified that they depict Shin Joy Spa.",
-    packageLabel: "Packages available",
-    captions: [
-      "Massage oil is applied during a treatment.",
-      "A facial treatment in progress.",
-      "A towel, bottle, candle, and flowers.",
-      "Hot stones rest on a back.",
-      "Towels, candles, and a diffuser.",
-      "A person relaxing in a bathtub.",
-      "Hands resting on a towel.",
-      "Massage oil is poured into an open palm.",
-    ],
-  },
+  { locale: "id", aboutHeading: "Istirahat sebentar dari kesibukan" },
+  { locale: "en", aboutHeading: "A break from the busy city" },
 ] as const;
 
 const viewports = [
@@ -50,7 +16,7 @@ const viewports = [
   { width: 1440, height: 960, name: "desktop" },
 ] as const;
 
-test("homepage shows only sourced claims and describes unverified gallery imagery", async ({
+test("homepage shows only sourced claims and no stock-photo gallery", async ({
   page,
 }) => {
   const screenshotDirectory = path.resolve(
@@ -78,12 +44,9 @@ test("homepage shows only sourced claims and describes unverified gallery imager
       const publishedPackages = menu.locator("[data-package-card]");
       await expect(hero).toBeVisible();
       await expect(publishedPackages).toHaveCount(2);
-      await expect(hero.locator(".hero__meta b")).toHaveText("2");
-      await expect(hero.locator(".hero__meta")).toContainText(
-        copy.packageLabel,
-      );
-      await expect(hero.locator(".hero__meta")).not.toContainText(
-        /4\.9|2,000\+|2\.000\+|average rating|rata-rata ulasan|guests pampered|tamu dimanjakan/i,
+      await expect(hero.locator(".hero__meta")).toHaveCount(0);
+      await expect(hero).not.toContainText(
+        /4\.9|2,000\+|2\.000\+|average rating|rata-rata ulasan|guests pampered|tamu dimanjakan|packages available|paket tersedia/i,
       );
       await expect(page.locator(".badge-float")).toHaveCount(0);
 
@@ -105,37 +68,19 @@ test("homepage shows only sourced claims and describes unverified gallery imager
         ).toHaveCount(0);
       }
 
-      const gallery = page.locator("#gallery");
-      await expect(
-        gallery.getByRole("heading", { level: 2, name: copy.galleryHeading }),
-      ).toBeVisible();
-      await expect(
-        gallery.getByText(copy.gallerySubtitle, { exact: true }),
-      ).toBeVisible();
-      await expect(gallery.getByRole("note")).toHaveText(
-        copy.galleryDescription,
+      // Stock photos are not shown as the spa: no gallery, no About photo.
+      await expect(page.locator("#gallery, .gallery, .lightbox")).toHaveCount(
+        0,
       );
-      await expect(gallery.locator(".gallery__item")).toHaveCount(8);
-      const captions = await gallery
-        .locator(".gallery__caption")
-        .evaluateAll((elements) =>
-          elements.map((element) => element.textContent?.trim() ?? ""),
-        );
-      expect(captions).toEqual(copy.captions);
-      await expect(
-        gallery.locator(".gallery__item img").first(),
-      ).toHaveAttribute("alt", copy.captions[0]);
-      const finalGalleryItem = gallery.locator(".gallery__item").last();
-      await expect(finalGalleryItem.locator(".gallery__caption")).toHaveText(
-        copy.captions[7],
+      const about = page.locator("#about");
+      await expect(about.locator("img")).toHaveCount(0);
+      await expect(about.getByRole("heading", { level: 2 })).toHaveText(
+        copy.aboutHeading,
       );
-      await expect(finalGalleryItem.locator("img")).toHaveAttribute(
-        "alt",
-        copy.captions[7],
+      await expect(page.locator(".cta-band a")).toHaveAttribute(
+        "href",
+        "/booking",
       );
-      await expect(
-        gallery.getByRole("heading", { level: 2 }),
-      ).not.toContainText(/our space|ruangan kami/i);
 
       const noHorizontalOverflow = await page.evaluate(
         () => document.documentElement.scrollWidth <= window.innerWidth,
@@ -143,27 +88,12 @@ test("homepage shows only sourced claims and describes unverified gallery imager
       expect(noHorizontalOverflow).toBe(true);
 
       const suffix = `${copy.locale}-${viewport.name}`;
-      await gallery.scrollIntoViewIfNeeded();
-      await expect(finalGalleryItem).toBeVisible();
-      await finalGalleryItem.click();
-      const lightbox = page.getByRole("dialog");
-      await expect(lightbox).toBeVisible();
-      await expect(lightbox.locator(".lightbox__img")).toHaveAttribute(
-        "alt",
-        copy.captions[7],
-      );
-      await page.keyboard.press("Escape");
-      await expect(lightbox).toBeHidden();
       if (
         (copy.locale === "id" && viewport.name === "small-mobile") ||
         (copy.locale === "en" && viewport.name === "desktop")
       ) {
         await hero.screenshot({
           path: path.join(screenshotDirectory, `hero-${suffix}.png`),
-        });
-        await gallery.screenshot({
-          path: path.join(screenshotDirectory, `gallery-${suffix}.png`),
-          style: "header { position: static !important; }",
         });
       }
     }

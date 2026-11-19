@@ -21,12 +21,8 @@ const fieldLabelKeys: Record<string, string> = {
   "hero.heading": "ad.content.field.title",
   "hero.headingAccent": "ad.content.field.title2",
   "hero.sub": "ad.content.field.subtitle",
-  "about.eyebrow": "ad.content.field.eyebrow",
   "about.title": "ad.content.field.title",
   "about.body": "ad.content.field.text",
-  "gallery.eyebrow": "ad.content.field.eyebrow",
-  "gallery.title": "ad.content.field.title",
-  "gallery.sub": "ad.content.field.subtitle",
   "loc.address": "ad.content.field.address",
   "loc.hours": "ad.content.field.hours",
   "loc.phone": "ad.content.field.phone",
@@ -35,16 +31,10 @@ const fieldLabelKeys: Record<string, string> = {
 const sectionLabelKeys: Record<string, string> = {
   hero: "ad.content.section.hero",
   about: "ad.content.section.about",
-  gallery: "ad.content.section.gallery",
   contact: "ad.content.section.contact",
 };
 
-const longFields = new Set([
-  "hero.sub",
-  "about.body",
-  "gallery.sub",
-  "loc.address",
-]);
+const longFields = new Set(["hero.sub", "about.body", "loc.address"]);
 
 function editorValues(
   source: ContentProps["values"],

@@ -336,7 +336,8 @@ describe("customer booking detail", () => {
     });
 
     expect(wrapper.text()).toContain("No WhatsApp number was added");
-    expect(wrapper.find("a[href^='tel:']").exists()).toBe(false);
+    // The site footer always offers the spa's own number; the page adds none.
+    expect(wrapper.find("main a[href^='tel:']").exists()).toBe(false);
   });
 
   it("downloads a PNG summary with the current pending status and no contact details", async () => {

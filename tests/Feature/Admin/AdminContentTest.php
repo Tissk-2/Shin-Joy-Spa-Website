@@ -32,7 +32,7 @@ class AdminContentTest extends TestCase
         $response->assertOk()->assertInertia(fn (Assert $page) => $page
             ->component('admin/Content', false)
             ->has('sections.hero', 4)
-            ->has('sections.about', 3)
+            ->has('sections.about', 2)
             ->has('sections.contact', 3));
 
         $props = $response->inertiaProps();

@@ -76,15 +76,13 @@ test("locale switching preserves a valid Nezuko selection", async ({
   await expect(
     english.getByRole("checkbox", { name: /Extension \+60/ }),
   ).toBeChecked();
-  await expect(
-    english.getByText("Total: 150 min · Rp 340.000"),
-  ).toBeVisible();
+  await expect(english.getByText("Total: 150 min · Rp 340.000")).toBeVisible();
   await expect(
     page.getByRole("button", { name: /review booking/i }),
   ).toBeVisible();
 });
 
-test("Gallery anchor and booking round trip keep browsing cards and lower content visible without reveal initialization", async ({
+test("About anchor and booking round trip keep browsing cards and lower content visible without reveal initialization", async ({
   page,
 }) => {
   await registerCustomer(page, "menu-reveal@example.com");
@@ -113,12 +111,12 @@ test("Gallery anchor and booking round trip keep browsing cards and lower conten
   const navigation = page.getByRole("navigation", {
     name: /primary navigation|navigasi utama/i,
   });
-  await navigation.getByRole("link", { name: /^(gallery|galeri)$/i }).click();
-  await expect(page).toHaveURL(/\/#gallery$/);
-  await expect(page.locator("#gallery h2")).toBeInViewport();
+  await navigation.getByRole("link", { name: /^(about|tentang)$/i }).click();
+  await expect(page).toHaveURL(/\/#about$/);
+  await expect(page.locator("#about h2")).toBeInViewport();
 
   const expectLowerContentVisible = async () => {
-    for (const section of ["#about", "#gallery", "#faq", "#contact"]) {
+    for (const section of ["#about", "#faq", "#contact"]) {
       const reveals = page.locator(`${section} .reveal`);
       await expect(reveals.first()).toBeVisible();
       for (const reveal of await reveals.all()) {

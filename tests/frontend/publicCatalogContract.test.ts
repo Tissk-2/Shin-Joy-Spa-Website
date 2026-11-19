@@ -62,7 +62,9 @@ describe("public grouped catalog page", () => {
     });
 
     expect(wrapper.findAll("a")).toHaveLength(1);
-    expect(wrapper.get("a").attributes("href")).toBe("/booking?service=balinese-60");
+    expect(wrapper.get("a").attributes("href")).toBe(
+      "/booking?service=balinese-60",
+    );
     expect(wrapper.find('[role="radiogroup"]').exists()).toBe(false);
     expect(wrapper.find("button").exists()).toBe(false);
     expect(wrapper.get("[data-starting-price]").text()).toContain("199.000");
@@ -94,24 +96,27 @@ describe("public grouped catalog page", () => {
     });
 
     expect(wrapper.get("h1").text()).toBe("All treatments");
-    expect(wrapper.findAll("main h2").map((heading) => heading.text())).toEqual([
-      "Massage",
-      "Body Care",
-    ]);
+    expect(wrapper.findAll("main h2").map((heading) => heading.text())).toEqual(
+      ["Massage", "Body Care"],
+    );
     expect(wrapper.findAll(".package-menu-card")).toHaveLength(2);
     expect(wrapper.get('a[href="/booking?service=balinese-60"]')).toBeTruthy();
     expect(wrapper.get('a[href="/booking?service=body-scrub"]')).toBeTruthy();
     expect(wrapper.findAll("address")).toHaveLength(1);
     expect(
-      wrapper.findAll('[role="note"]').filter((note) =>
-        /hot[- ]water/i.test(note.text()),
-      ),
+      wrapper
+        .findAll('[role="note"]')
+        .filter((note) => /hot[- ]water/i.test(note.text())),
     ).toHaveLength(1);
   });
 
   it("uses the documented hot-water policy wording in both catalog locales", () => {
-    expect(translations.id["menu.hotWaterPolicy"]).toBe(faq[0].aId);
-    expect(translations.en["menu.hotWaterPolicy"]).toBe(faq[0].aEn);
+    const entry = faq.find(
+      (item) => item.qEn === "What is the policy if hot water is disrupted?",
+    );
+
+    expect(translations.id["menu.hotWaterPolicy"]).toBe(entry?.aId);
+    expect(translations.en["menu.hotWaterPolicy"]).toBe(entry?.aEn);
   });
 
   // This release has no rescheduling: staff cancel, and another time is a new booking.
