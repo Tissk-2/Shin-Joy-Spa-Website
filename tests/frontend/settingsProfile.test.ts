@@ -2,22 +2,27 @@ import { flushPromises, mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
 
 import DeleteUser from "@/components/DeleteUser.vue";
-import HeadingSmall from "@/components/HeadingSmall.vue";
-import AppLayout from "@/layouts/AppLayout.vue";
-import Profile from "@/pages/settings/Profile.vue";
+import Profile from "@/pages/Profile.vue";
 
 const inertia = vi.hoisted(() => ({
-  patches: [] as Array<{ url: string; data: Record<string, unknown> }>,
+  requests: [] as Array<{
+    method: string;
+    url: string;
+    data: Record<string, unknown>;
+  }>,
 }));
 
 vi.mock("@inertiajs/vue3", async () => {
   const { reactive } = await import("vue");
   const page = reactive({
+    url: "/profile",
     props: {
+      locale: "en",
       auth: {
         user: {
           name: "Ayu",
           email: "ayu@example.com",
+          phone: "+62 812-3456-7890",
           email_verified_at: "2026-11-01T00:00:00Z",
         },
       },
@@ -27,6 +32,7 @@ vi.mock("@inertiajs/vue3", async () => {
   return {
     Head: "span",
     Link: "a",
+    router: { post: vi.fn() },
     usePage: () => page,
     // Models Inertia 3.7's useForm: a successful submit copies the submitted
     // data into the defaults (unless onSuccess set them), then runs onFinish;
@@ -35,27 +41,33 @@ vi.mock("@inertiajs/vue3", async () => {
       let defaults = { ...initial };
       const data = () =>
         Object.fromEntries(Object.keys(initial).map((key) => [key, form[key]]));
+      const submit =
+        (method: string) =>
+        (
+          url: string,
+          options?: { onSuccess?: () => void; onFinish?: () => void },
+        ) => {
+          inertia.requests.push({ method, url, data: data() });
+          options?.onSuccess?.();
+          defaults = data();
+          options?.onFinish?.();
+        };
       const form: Record<string, unknown> = reactive({
         ...initial,
         errors: {},
         processing: false,
         recentlySuccessful: false,
-        patch: (
-          url: string,
-          options?: { onSuccess?: () => void; onFinish?: () => void },
-        ) => {
-          inertia.patches.push({ url, data: data() });
-          options?.onSuccess?.();
-          defaults = data();
-          options?.onFinish?.();
-        },
+        patch: submit("patch"),
+        put: submit("put"),
+        delete: submit("delete"),
+        clearErrors: () => form,
         defaults: (field: string, value: unknown) => {
           defaults = { ...defaults, [field]: value };
           return form;
         },
         reset: (...keys: string[]) => {
-          keys.forEach((key) => {
-            form[key] = defaults[key];
+          (keys.length ? keys : Object.keys(initial)).forEach((key) => {
+            form[key] = keys.length ? defaults[key] : initial[key];
           });
         },
       });
@@ -65,41 +77,29 @@ vi.mock("@inertiajs/vue3", async () => {
   };
 });
 
-vi.stubGlobal("route", (name: string) => `/${name}`);
-
 const stubs = {
-  AppLayout: { template: "<div><slot /></div>" },
-  SettingsLayout: { template: "<div><slot /></div>" },
+  MainLayout: { template: "<main><slot /></main>" },
   DeleteUser: true,
-  TransitionRoot: true,
 };
 
-describe("settings layout", () => {
-  it("gives the settings pages the site's meta description", () => {
-    // Shallow: the sidebar itself needs a full page, and only the head matters here.
-    const meta = mount(AppLayout, { shallow: true }).findAll(
-      'meta[name="description"]',
-    );
+describe("account page", () => {
+  it("is one page in the site layout: details, password, bookings and deletion", () => {
+    const wrapper = mount(Profile, { global: { stubs } });
 
-    expect(meta).toHaveLength(1);
-    expect(meta[0].attributes("content")).toMatch(/Spa/);
+    expect(wrapper.get("h1").text()).toBe("My Account");
+    expect(wrapper.findAll("h2").map((heading) => heading.text())).toEqual([
+      "Account details",
+      "Password",
+      "Booking history",
+    ]);
+    expect(wrapper.get('a[href="/bookings"]').text()).toBe("View My Bookings");
+    expect(wrapper.text()).toContain("+62 812-3456-7890");
+    expect(wrapper.findComponent({ name: "DeleteUser" }).exists()).toBe(true);
   });
 
-  it("puts section headings right under the page's h1", () => {
-    // The settings layout's only heading above them is the h1 "Settings".
-    const heading = mount(HeadingSmall, { props: { title: "Profile" } });
-
-    expect(heading.get("h2").text()).toBe("Profile");
-    expect(heading.find("h3").exists()).toBe(false);
-  });
-});
-
-describe("profile settings", () => {
   it("asks for the current password only while the email changes, sends it, then clears it", async () => {
-    const wrapper = mount(Profile, {
-      props: { mustVerifyEmail: true },
-      global: { stubs },
-    });
+    inertia.requests = [];
+    const wrapper = mount(Profile, { global: { stubs } });
     expect(wrapper.find("#current_password").exists()).toBe(false);
 
     await wrapper.get("#email").setValue("moved@example.com");
@@ -107,11 +107,12 @@ describe("profile settings", () => {
     expect(password.attributes("type")).toBe("password");
     expect(password.attributes("autocomplete")).toBe("current-password");
     await password.setValue("pass-1234");
-    await wrapper.get("form").trigger("submit");
+    await wrapper.get("#email").element.form!.requestSubmit();
 
-    expect(inertia.patches).toEqual([
+    expect(inertia.requests).toEqual([
       {
-        url: "/profile.update",
+        method: "patch",
+        url: "/settings/profile",
         data: {
           name: "Ayu",
           email: "moved@example.com",
@@ -133,12 +134,39 @@ describe("profile settings", () => {
     expect(wrapper.find("#current_password").exists()).toBe(false);
   });
 
+  it("changes the password from the same page and clears the fields", async () => {
+    inertia.requests = [];
+    const wrapper = mount(Profile, { global: { stubs } });
+
+    await wrapper.get("#password_current").setValue("old-pass-1");
+    await wrapper.get("#password_new").setValue("new-pass-22");
+    await wrapper.get("#password_confirmation").setValue("new-pass-22");
+    await wrapper.get("#password_new").element.form!.requestSubmit();
+
+    expect(inertia.requests).toEqual([
+      {
+        method: "put",
+        url: "/settings/password",
+        data: {
+          current_password: "old-pass-1",
+          password: "new-pass-22",
+          password_confirmation: "new-pass-22",
+        },
+      },
+    ]);
+    expect(
+      (wrapper.get("#password_new").element as HTMLInputElement).value,
+    ).toBe("");
+  });
+
   it("confirms account deletion with one submit button, not a button inside a button", async () => {
     const wrapper = mount(DeleteUser, { attachTo: document.body });
     await wrapper.get("button").trigger("click");
     await flushPromises();
 
-    const submit = document.body.querySelector<HTMLButtonElement>(
+    const dialog = document.body.querySelector('[role="alertdialog"]');
+    expect(dialog).not.toBeNull();
+    const submit = dialog!.querySelector<HTMLButtonElement>(
       'form button[type="submit"]',
     );
     expect(submit?.textContent?.trim()).toBe("Delete account");

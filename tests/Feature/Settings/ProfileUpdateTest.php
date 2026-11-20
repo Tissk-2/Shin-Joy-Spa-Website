@@ -41,15 +41,16 @@ class ProfileUpdateTest extends TestCase
         ];
     }
 
-    public function test_profile_page_is_displayed()
+    public function test_the_old_settings_pages_lead_to_the_account_page()
     {
         $user = User::factory()->create();
 
-        $response = $this
-            ->actingAs($user)
-            ->get('/settings/profile');
-
-        $response->assertOk();
+        $this->actingAs($user)->get('/settings')->assertRedirect('/profile');
+        $this->actingAs($user)->get('/settings/profile')->assertRedirect('/profile');
+        $this->actingAs($user)->get('/settings/password')->assertRedirect('/profile#password');
+        $this->actingAs($user)->get('/settings/appearance')->assertRedirect('/profile');
+        $this->actingAs($user)->get('/profile')->assertOk()
+            ->assertInertia(fn ($page) => $page->component('Profile'));
     }
 
     public function test_profile_information_can_be_updated()

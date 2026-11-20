@@ -581,11 +581,6 @@
   gap: 0.8rem;
 }
 
-.history-empty--left {
-  align-items: flex-start;
-  text-align: left;
-}
-
 @media (max-width: 900px) {
   .booking-row__link,
   .booking-detail-grid,

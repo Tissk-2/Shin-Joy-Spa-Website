@@ -48,7 +48,7 @@ export async function verifyCustomer(
 
   if (expectedUrl === undefined) {
     await expect(
-      page.getByRole("heading", { name: /profil saya|my profile/i }),
+      page.getByRole("heading", { name: /akun saya|my account/i }),
     ).toBeVisible();
   }
 }

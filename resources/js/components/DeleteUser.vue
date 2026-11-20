@@ -1,110 +1,103 @@
 <script setup lang="ts">
 import { useForm } from "@inertiajs/vue3";
+import { DialogContent, DialogOverlay, DialogPortal } from "radix-vue";
 import { ref } from "vue";
-
-// Components
+import { Dialog, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { useLanguage } from "@/composables/useLanguage";
-import HeadingSmall from "@/components/HeadingSmall.vue";
-import InputError from "@/components/InputError.vue";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 
-const passwordInput = ref<HTMLInputElement | null>(null);
 const { tr } = useLanguage();
+const open = ref(false);
+const passwordInput = ref<HTMLInputElement | null>(null);
 
 const form = useForm({
   password: "",
 });
 
-const deleteUser = (e: Event) => {
-  e.preventDefault();
+function close(): void {
+  open.value = false;
+  form.clearErrors();
+  form.reset();
+}
 
-  form.delete(route("profile.destroy"), {
+function deleteUser(): void {
+  form.delete("/settings/profile", {
     preserveScroll: true,
-    onSuccess: () => closeModal(),
+    onSuccess: () => close(),
     onError: () => passwordInput.value?.focus(),
     onFinish: () => form.reset(),
   });
-};
-
-const closeModal = () => {
-  form.clearErrors();
-  form.reset();
-};
+}
 </script>
 
 <template>
-  <div class="space-y-6">
-    <HeadingSmall
-      :title="tr('profile.delete.title')"
-      :description="tr('profile.delete.subtitle')"
-    />
-    <div
-      class="space-y-4 rounded-lg border border-red-100 bg-red-50 p-4 dark:border-red-200/10 dark:bg-red-700/10"
-    >
-      <div class="relative space-y-0.5 text-red-700 dark:text-red-100">
-        <p class="font-medium">{{ tr("profile.delete.warning") }}</p>
-        <p class="text-sm">{{ tr("profile.delete.warningBody") }}</p>
-      </div>
-      <Dialog>
-        <DialogTrigger as-child>
-          <Button variant="destructive">{{
-            tr("profile.delete.title")
-          }}</Button>
-        </DialogTrigger>
-        <DialogContent>
-          <form class="space-y-6" @submit="deleteUser">
-            <DialogHeader class="space-y-3">
-              <DialogTitle>{{ tr("profile.delete.dialogTitle") }}</DialogTitle>
-              <DialogDescription>
-                {{ tr("profile.delete.dialogBody") }}
-              </DialogDescription>
-            </DialogHeader>
+  <section
+    class="account-block account-block--danger"
+    aria-labelledby="delete-account-title"
+  >
+    <h2 id="delete-account-title">{{ tr("profile.delete.title") }}</h2>
+    <p class="account-hint">
+      {{ tr("profile.delete.subtitle") }}
+      {{ tr("profile.delete.warningBody") }}
+    </p>
+    <div class="account-actions">
+      <button
+        type="button"
+        class="btn btn--ghost account-danger-button"
+        @click="open = true"
+      >
+        {{ tr("profile.delete.title") }}
+      </button>
+    </div>
 
-            <div class="grid gap-2">
-              <Label for="password" class="sr-only">{{
+    <Dialog :open="open" @update:open="(value) => (value ? null : close())">
+      <DialogPortal>
+        <DialogOverlay class="account-dialog-overlay" />
+        <DialogContent class="account-dialog" role="alertdialog">
+          <form @submit.prevent="deleteUser">
+            <DialogTitle as-child>
+              <h2>{{ tr("profile.delete.dialogTitle") }}</h2>
+            </DialogTitle>
+            <DialogDescription as-child>
+              <p class="account-hint">{{ tr("profile.delete.dialogBody") }}</p>
+            </DialogDescription>
+            <div class="field">
+              <label for="delete-password">{{
                 tr("profile.delete.password")
-              }}</Label>
-              <Input
-                id="password"
-                type="password"
-                name="password"
+              }}</label>
+              <input
+                id="delete-password"
                 ref="passwordInput"
                 v-model="form.password"
-                :placeholder="tr('profile.delete.password')"
+                type="password"
+                name="password"
+                autocomplete="current-password"
+                :aria-invalid="form.errors.password ? 'true' : undefined"
+                :aria-describedby="
+                  form.errors.password ? 'delete-password-error' : undefined
+                "
               />
-              <InputError :message="form.errors.password" />
+              <span
+                v-if="form.errors.password"
+                id="delete-password-error"
+                class="err"
+                >{{ form.errors.password }}</span
+              >
             </div>
-
-            <DialogFooter>
-              <DialogClose as-child>
-                <Button variant="secondary" @click="closeModal">
-                  {{ tr("profile.delete.cancel") }}
-                </Button>
-              </DialogClose>
-
-              <Button
+            <div class="account-actions">
+              <button type="button" class="btn btn--ghost" @click="close">
+                {{ tr("profile.delete.cancel") }}
+              </button>
+              <button
                 type="submit"
-                variant="destructive"
+                class="btn btn--primary account-danger-submit"
                 :disabled="form.processing"
               >
                 {{ tr("profile.delete.confirm") }}
-              </Button>
-            </DialogFooter>
+              </button>
+            </div>
           </form>
         </DialogContent>
-      </Dialog>
-    </div>
-  </div>
+      </DialogPortal>
+    </Dialog>
+  </section>
 </template>

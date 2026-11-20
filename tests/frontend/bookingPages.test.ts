@@ -44,6 +44,9 @@ vi.mock("@inertiajs/vue3", async () => {
       }),
     },
     usePage: () => inertia.page,
+    // The account page's forms; these tests only render it.
+    useForm: (data: Record<string, unknown>) =>
+      reactive({ ...data, errors: {}, processing: false }),
   };
 });
 
@@ -480,7 +483,7 @@ describe("customer booking navigation and profile handoff", () => {
     Element.prototype.scrollIntoView = vi.fn();
   });
 
-  it("adds My Bookings before Profile in the authenticated account menu, marks booking routes current, and closes on navigation", async () => {
+  it("adds My Bookings before My account in the authenticated account menu, marks booking routes current, and closes on navigation", async () => {
     const wrapper = mount(MainLayout, {
       slots: { default: "<p>content</p>" },
     });
@@ -488,14 +491,14 @@ describe("customer booking navigation and profile handoff", () => {
     await wrapper.get(".account-toggle").trigger("click");
 
     const accountLinks = wrapper.findAll("#account-menu a");
+    // One account page: the starter-kit settings link is gone.
     expect(accountLinks.map((link) => link.text())).toEqual([
       "My Bookings",
-      "Profile",
-      "Account settings",
+      "My account",
     ]);
     expect(accountLinks[0].attributes("href")).toBe("/bookings");
     expect(accountLinks[0].attributes("aria-current")).toBe("page");
-    expect(accountLinks[2].attributes("href")).toBe("/settings/profile");
+    expect(accountLinks[1].attributes("href")).toBe("/profile");
 
     accountLinks[0].element.addEventListener("click", (event) =>
       event.preventDefault(),
@@ -509,16 +512,16 @@ describe("customer booking navigation and profile handoff", () => {
     await wrapper.get(".account-toggle").trigger("click");
     expect(
       wrapper.findAll("#account-menu a").map((link) => link.text()),
-    ).toEqual(["Reservasi Saya", "Profil", "Pengaturan akun"]);
+    ).toEqual(["Reservasi Saya", "Akun saya"]);
   });
 
-  it("keeps Profile focused on account settings and points booking history to My Bookings", async () => {
+  it("keeps the account page on account settings and points booking history to My Bookings", async () => {
     inertia.page.url = "/profile";
     const wrapper = mount(Profile);
 
-    expect(wrapper.get("h1").text()).toBe("My Profile");
+    expect(wrapper.get("h1").text()).toBe("My Account");
     expect(wrapper.text()).toContain(
-      "Manage your account details. Your booking history is kept on a separate page.",
+      "Change your account name, email and password.",
     );
     expect(wrapper.text()).toContain("Booking history");
     expect(wrapper.get('a[href="/bookings"]').text()).toBe("View My Bookings");
@@ -529,7 +532,7 @@ describe("customer booking navigation and profile handoff", () => {
     await switchLocale(wrapper, "id");
 
     expect(wrapper.text()).toContain(
-      "Kelola detail akun Anda. Riwayat reservasi tersedia di halaman terpisah.",
+      "Ubah nama, email, dan kata sandi akun Anda.",
     );
     expect(wrapper.get('a[href="/bookings"]').text()).toBe(
       "Lihat Reservasi Saya",

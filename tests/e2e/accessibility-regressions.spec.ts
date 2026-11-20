@@ -491,7 +491,7 @@ test("account deletion wording explains retained booking details in both languag
   const email = "account-deletion-copy@example.com";
   await registerCustomer(page, email);
   await verifyCustomer(page, email);
-  await page.goto("/settings/profile");
+  await page.goto("/profile");
 
   const setLocale = async (locale: "id" | "en") => {
     const xsrf = (await page.context().cookies()).find(
@@ -503,7 +503,7 @@ test("account deletion wording explains retained booking details in both languag
       headers: { "X-XSRF-TOKEN": decodeURIComponent(xsrf!.value) },
     });
     expect(response.ok()).toBe(true);
-    await page.goto("/settings/profile");
+    await page.goto("/profile");
   };
   const openDialog = async (locale: "id" | "en") => {
     await setLocale(locale);
@@ -511,7 +511,7 @@ test("account deletion wording explains retained booking details in both languag
       .getByRole("button", { name: /delete account|hapus akun/i })
       .first()
       .click();
-    return page.getByRole("dialog");
+    return page.getByRole("alertdialog");
   };
 
   const indonesian = await openDialog("id");

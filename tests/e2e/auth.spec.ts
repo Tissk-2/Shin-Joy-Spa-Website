@@ -49,7 +49,8 @@ test("customer registers, verifies, logs out, and logs back in with a normalized
   await login(page, " AYU@EXAMPLE.COM ", customerPassword);
 
   await expect(page).toHaveURL("/profile");
-  await expect(page.getByText(email, { exact: true })).toBeVisible();
+  // The account page shows the email in its editable field.
+  await expect(page.locator("#email")).toHaveValue(email);
 });
 
 test("invalid credentials remain on login with a generic error", async ({
@@ -181,12 +182,18 @@ test("changing the password revokes another session but keeps the current one", 
     await pageB.goto("/bookings");
     await expect(pageB).toHaveURL(/\/bookings$/);
 
+    // The old settings address now leads to the password part of the account page.
     await pageA.goto("/settings/password");
-    await pageA.getByLabel(/^current password$/i).fill(customerPassword);
-    await pageA.getByLabel(/^new password$/i).fill(newPassword);
-    await pageA.getByLabel(/^confirm password$/i).fill(newPassword);
-    await pageA.getByRole("button", { name: /save password/i }).click();
-    await expect(pageA.getByText("Saved", { exact: true })).toBeVisible();
+    await expect(pageA).toHaveURL(/\/profile#password$/);
+    await pageA.locator("#password_current").fill(customerPassword);
+    await pageA.locator("#password_new").fill(newPassword);
+    await pageA.locator("#password_confirmation").fill(newPassword);
+    await pageA
+      .getByRole("button", { name: /simpan kata sandi|save password/i })
+      .click();
+    await expect(
+      pageA.getByText(/kata sandi tersimpan|password saved/i),
+    ).toBeVisible();
 
     await pageB.reload();
     await expect(pageB).toHaveURL(/\/login$/);

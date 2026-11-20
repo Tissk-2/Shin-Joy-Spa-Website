@@ -403,14 +403,14 @@ onUnmounted(() => {
               >
                 {{ tr("ad.panel") }}
               </Link>
-              <Link href="/profile" @click="setAccountMenu(false, false)">
-                {{ tr("nav.profile") }}
-              </Link>
               <Link
-                href="/settings/profile"
+                href="/profile"
+                :aria-current="
+                  currentUrl.path === '/profile' ? 'page' : undefined
+                "
                 @click="setAccountMenu(false, false)"
               >
-                {{ tr("nav.settings") }}
+                {{ tr("nav.profile") }}
               </Link>
               <button
                 type="button"
