@@ -28,7 +28,7 @@ import {
   type ServiceSelection,
 } from "@/lib/serviceSelection";
 import MainLayout from "@/layouts/MainLayout.vue";
-import type { AppPageProps, PackageData } from "@/types";
+import type { AppPageProps, PackageData, TreatmentMode } from "@/types";
 
 interface Details {
   name: string;
@@ -78,12 +78,14 @@ const initialCoverage = initialPackage
   : { min: 1, max: 4 };
 // Open on the package's first treatment type (Reguler when it has one), so its
 // durations show at once instead of behind an extra choice.
-const initialMode =
-  props.selection.mode ||
-  (["regular", "double_therapist"] as const).find((mode) =>
-    initialPackage?.variants.some((variant) => variant.mode === mode),
-  ) ||
-  "";
+function firstMode(item: PackageData | undefined): TreatmentMode | "" {
+  return (
+    (["regular", "double_therapist"] as const).find((mode) =>
+      item?.variants.some((variant) => variant.mode === mode),
+    ) ?? ""
+  );
+}
+const initialMode = props.selection.mode || firstMode(initialPackage);
 const bookingForm = useForm<BookingForm>({
   name: user?.name ?? "",
   phone: user?.phone ?? "",
@@ -169,6 +171,27 @@ const selected = computed<ServiceSelection>({
 const servicePackage = computed(() =>
   props.packages.find((item) => item.slug === selected.value.service),
 );
+// Booking buttons may open the form without a package: it is chosen here,
+// so nobody is sent back to the menu first.
+function choosePackage(slug: string): void {
+  const item = props.packages.find((candidate) => candidate.slug === slug);
+  if (!item || item.slug === selected.value.service) return;
+  selected.value = {
+    service: item.slug,
+    mode: firstMode(item),
+    duration: null,
+    extension: "",
+  };
+}
+function choiceName(item: PackageData): string {
+  return language.value === "id" ? item.nameId : item.nameEn;
+}
+function startingPrice(item: PackageData): string {
+  const prices = item.variants.map((variant) => variant.price);
+  return prices.length
+    ? `${tr("menu.from")} Rp ${Math.min(...prices).toLocaleString("id-ID")}`
+    : "";
+}
 const coverage = computed(() =>
   servicePackage.value
     ? guestCoverage(servicePackage.value)
@@ -344,7 +367,8 @@ const labels = computed(() =>
           "Pilih perawatan dan jadwal, lalu tinjau sebelum mengirim. Staf mengonfirmasi setiap reservasi.",
         back: "Menu perawatan",
         s1: "Paket dan perawatan",
-        s1sub: "Pilih jenis perawatan, durasi, dan tambahan bila perlu.",
+        s1sub: "Pilih paket, jenis perawatan, durasi, dan tambahan bila perlu.",
+        packageChoice: "Paket",
         s2: "Jadwal kunjungan",
         s2sub: "Pilih hari, waktu mulai, dan jumlah tamu.",
         s3: "Data tamu dan catatan",
@@ -380,7 +404,9 @@ const labels = computed(() =>
           "Choose a treatment and a time, then review before sending. Staff confirm every booking.",
         back: "Treatment menu",
         s1: "Package and treatment",
-        s1sub: "Choose the treatment type, duration and any extension.",
+        s1sub:
+          "Choose the package, treatment type, duration and any extension.",
+        packageChoice: "Package",
         s2: "Visit schedule",
         s2sub: "Choose the day, start time and number of guests.",
         s3: "Your details and notes",
@@ -725,6 +751,33 @@ function confirm(): void {
                 <span id="booking-service-error" class="err">{{
                   fieldError("service")
                 }}</span>
+                <fieldset
+                  v-if="props.packages.length"
+                  class="bk-packages"
+                  data-booking-package-choice
+                >
+                  <legend>{{ labels.packageChoice }}</legend>
+                  <label
+                    v-for="item in props.packages"
+                    :key="item.slug"
+                    class="bk-package"
+                    :class="{
+                      'bk-package--chosen': item.slug === selected.service,
+                    }"
+                  >
+                    <input
+                      type="radio"
+                      name="booking-package"
+                      :value="item.slug"
+                      :checked="item.slug === selected.service"
+                      @change="choosePackage(item.slug)"
+                    />
+                    <span class="bk-package__name">{{ choiceName(item) }}</span>
+                    <span class="bk-package__price">{{
+                      startingPrice(item)
+                    }}</span>
+                  </label>
+                </fieldset>
                 <div
                   v-if="servicePackage"
                   role="group"
@@ -754,7 +807,7 @@ function confirm(): void {
                     </li>
                   </ul>
                 </div>
-                <p v-else class="bk-step__empty">
+                <p v-else-if="!props.packages.length" class="bk-step__empty">
                   {{ labels.pickPrompt }}
                   <Link class="ulink" href="/services">{{
                     labels.pickLink
@@ -1045,6 +1098,59 @@ function confirm(): void {
 .bk-step__empty a {
   color: var(--rose-strong);
   font-weight: 600;
+}
+.bk-packages {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
+  gap: 0.75rem;
+  margin: 0 0 1rem;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.bk-packages legend {
+  margin-bottom: 0.5rem;
+  padding: 0;
+  color: var(--ink);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.bk-form .field .bk-package {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.15rem 0.65rem;
+  margin: 0;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  background: #fdfbf7;
+  color: var(--ink);
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.bk-form .field .bk-package--chosen {
+  border-color: var(--rose);
+  background: var(--rose-soft);
+}
+.bk-form .field .bk-package input {
+  grid-row: span 2;
+  width: 1.1rem;
+  height: 1.1rem;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--rose);
+}
+.bk-form .field .bk-package:focus-within {
+  outline: 2px solid var(--rose);
+  outline-offset: 2px;
+}
+.bk-package__price {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 500;
 }
 .bk-fields {
   display: grid;

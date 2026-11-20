@@ -644,6 +644,37 @@ describe("reviewed booking submission", () => {
     expect(wrapper.find('[aria-current="step"]').exists()).toBe(false);
   });
 
+  it("lets a visitor without a package choose one on the form instead of going back to the menu", async () => {
+    const wrapper = mount(Booking, {
+      props: {
+        packages,
+        selection: { service: "", mode: "", duration: null, extension: "" },
+        submissionKey,
+      },
+    });
+
+    const choices = wrapper.findAll<HTMLInputElement>(
+      '[data-booking-package-choice] input[type="radio"]',
+    );
+    expect(choices.map((choice) => choice.element.value)).toEqual(
+      packages.map((item) => item.slug),
+    );
+    expect(wrapper.find(".package-configurator").exists()).toBe(false);
+    expect(wrapper.find(".bk-step__empty").exists()).toBe(false);
+
+    await wrapper
+      .get('[data-booking-package-choice] input[value="nezuko"]')
+      .setValue(true);
+
+    expect(
+      wrapper.get('button[data-mode="regular"]').attributes("aria-checked"),
+    ).toBe("true");
+    expect(wrapper.findAll("button[data-duration]").length).toBeGreaterThan(0);
+    expect(wrapper.get(".summary-card__head h3").text()).not.toBe(
+      "Not selected yet",
+    );
+  });
+
   it("says once in the summary that no package is chosen yet", () => {
     const wrapper = mount(Booking, {
       props: {
