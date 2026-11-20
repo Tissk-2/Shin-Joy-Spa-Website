@@ -522,6 +522,13 @@ export default {
     "auth.verify.error":
       "Kami tidak dapat mengirim ulang email verifikasi. Silakan coba lagi sebentar lagi.",
     "auth.verify.logout": "Keluar",
+    "auth.verify.sentTo": "Dikirim ke",
+    "auth.verify.wrongEmail": "Salah alamat email?",
+    "auth.verify.changeHint":
+      "Masukkan alamat yang benar dan kata sandi akun ini. Tautan baru dikirim ke alamat tersebut.",
+    "auth.verify.newEmail": "Alamat email yang benar",
+    "auth.verify.change": "Ganti email dan kirim tautan",
+    "auth.verify.cancel": "Batal",
     "auth.name": "Nama lengkap",
     "auth.email": "Email",
     "auth.phone": "Nomor WhatsApp",
@@ -1560,6 +1567,13 @@ export default {
     "auth.verify.error":
       "We could not resend the verification email. Please try again shortly.",
     "auth.verify.logout": "Log out",
+    "auth.verify.sentTo": "Sent to",
+    "auth.verify.wrongEmail": "Wrong email address?",
+    "auth.verify.changeHint":
+      "Enter the correct address and this account's password. A new link goes to that address.",
+    "auth.verify.newEmail": "Correct email address",
+    "auth.verify.change": "Change email and send link",
+    "auth.verify.cancel": "Cancel",
     "auth.name": "Full name",
     "auth.email": "Email",
     "auth.phone": "WhatsApp number",

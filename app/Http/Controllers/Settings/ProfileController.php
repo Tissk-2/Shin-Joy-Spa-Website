@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 class ProfileController extends Controller
 {
@@ -22,18 +23,35 @@ class ProfileController extends Controller
      */
     public function update(ProfileUpdateRequest $request): RedirectResponse
     {
-        (new StaffAccessLock)->run(function () use ($request): void {
+        $emailChanged = false;
+        (new StaffAccessLock)->run(function () use ($request, &$emailChanged): void {
+            $emailChanged = false;
             $user = User::query()->whereKey($request->user()->getKey())->lockForUpdate()->firstOrFail();
             $attributes = $request->safe()->only(['name', 'email']);
             if ($user->email !== $attributes['email']) {
                 StaffAuthority::protectEmailChange($user);
                 Password::broker()->deleteToken($user);
                 $attributes = [...$attributes, 'email_verified_at' => null];
+                $emailChanged = true;
             }
             $user->forceFill($attributes)->save();
         });
 
-        return to_route('profile.edit');
+        if (! $emailChanged) {
+            return to_route('profile.edit');
+        }
+
+        // The new address gets its own link at once, and the account waits on the
+        // verify page, so a mistyped address can be fixed from there too.
+        try {
+            $request->user()->refresh()->sendEmailVerificationNotification();
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return to_route('verification.notice');
+        }
+
+        return to_route('verification.notice')->with('status', 'verification-link-sent');
     }
 
     /**

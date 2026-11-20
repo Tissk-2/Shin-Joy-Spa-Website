@@ -55,6 +55,9 @@ vi.mock("@inertiajs/vue3", async () => {
         wasTransformed: false,
         transform: vi.fn(),
         post: vi.fn(),
+        patch: vi.fn(),
+        defaults: vi.fn(),
+        clearErrors: vi.fn(),
         reset: vi.fn(),
       }) as FormDouble & { wasTransformed: boolean };
 
@@ -92,6 +95,20 @@ vi.mock("@inertiajs/vue3", async () => {
           }
           options?.onFinish?.();
         },
+      );
+      // The verify page's email correction: record the transformed payload.
+      (form.patch as ReturnType<typeof vi.fn>).mockImplementation(
+        (
+          url: string,
+          options?: { onSuccess?: () => void; onFinish?: () => void },
+        ) => {
+          inertia.posts.push({ url, data: form.lastPayload });
+          options?.onSuccess?.();
+          options?.onFinish?.();
+        },
+      );
+      (form.defaults as ReturnType<typeof vi.fn>).mockImplementation(
+        () => form,
       );
       form.reset.mockImplementation((...keys: string[]) => {
         keys.forEach((key) => {
@@ -436,6 +453,40 @@ describe("branded Laravel auth pages", () => {
     expect(indonesianWrapper.get("[role='alert']").text()).toBe(
       "Kami tidak dapat mengirim ulang email verifikasi. Silakan coba lagi sebentar lagi.",
     );
+  });
+
+  it("lets an unverified customer correct a mistyped email from the verify page", async () => {
+    inertia.page.props = {
+      ...inertia.page.props,
+      auth: { user: { name: "Ayu", email: "ayu@gmial.com" } },
+    } as typeof inertia.page.props;
+    const wrapper = mount(VerifyEmail, { attachTo: document.body });
+
+    expect(wrapper.get(".verify-address").text()).toContain("ayu@gmial.com");
+    expect(wrapper.find("[data-verify-change-form]").exists()).toBe(false);
+
+    await wrapper.get("[data-verify-change-email]").trigger("click");
+    await wrapper.vm.$nextTick();
+    expect(document.activeElement?.id).toBe("verify-new-email");
+    // The resend form steps aside while the address is being corrected.
+    expect(wrapper.find(".auth-forgot").exists()).toBe(false);
+
+    await wrapper.get("#verify-new-email").setValue(" Ayu@Gmail.com ");
+    await wrapper.get("#verify-password").setValue("calmspa9");
+    await wrapper.get("[data-verify-change-form]").trigger("submit");
+
+    expect(inertia.posts.at(-1)).toEqual({
+      url: "/settings/profile",
+      data: {
+        name: "Ayu",
+        email: "ayu@gmail.com",
+        current_password: "calmspa9",
+      },
+    });
+    await wrapper.vm.$nextTick();
+    expect(wrapper.find("[data-verify-change-form]").exists()).toBe(false);
+    wrapper.unmount();
+    delete (inertia.page.props as Record<string, unknown>).auth;
   });
 
   it("disables verification controls while processing and posts verification and logout actions", async () => {

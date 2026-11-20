@@ -4,11 +4,13 @@ namespace Tests\Feature\Settings;
 
 use App\Enums\UserRole;
 use App\Models\User;
+use App\Notifications\VerifyEmail;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Database\Query\Grammars\SQLiteGrammar;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Password;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
@@ -55,6 +57,7 @@ class ProfileUpdateTest extends TestCase
 
     public function test_profile_information_can_be_updated()
     {
+        Notification::fake();
         $user = User::factory()->create();
 
         $response = $this
@@ -65,15 +68,53 @@ class ProfileUpdateTest extends TestCase
                 'current_password' => 'password',
             ]);
 
+        // A new address gets its own link at once, and the account waits on the verify page.
         $response
             ->assertSessionHasNoErrors()
-            ->assertRedirect('/settings/profile');
+            ->assertRedirect('/verify-email')
+            ->assertSessionHas('status', 'verification-link-sent');
 
         $user->refresh();
 
         $this->assertSame('Test User', $user->name);
         $this->assertSame('test@example.com', $user->email);
         $this->assertNull($user->email_verified_at);
+        Notification::assertSentTo($user, VerifyEmail::class);
+    }
+
+    public function test_an_unverified_customer_can_fix_a_mistyped_email_and_gets_a_new_link()
+    {
+        Notification::fake();
+        $user = User::factory()->unverified()->create(['email' => 'ayu@gmial.com']);
+
+        $this->actingAs($user)->get('/profile')->assertRedirect('/verify-email');
+        $this->actingAs($user)->patch('/settings/profile', [
+            'name' => $user->name,
+            'email' => 'ayu@gmail.com',
+            'current_password' => 'password',
+        ])->assertSessionHasNoErrors()
+            ->assertRedirect('/verify-email')
+            ->assertSessionHas('status', 'verification-link-sent');
+
+        $this->assertSame('ayu@gmail.com', $user->refresh()->email);
+        Notification::assertSentTo(
+            $user,
+            VerifyEmail::class,
+            fn (VerifyEmail $notification, array $channels, User $notifiable): bool => $notifiable->email === 'ayu@gmail.com',
+        );
+    }
+
+    public function test_a_name_only_change_sends_no_verification_link()
+    {
+        Notification::fake();
+        $user = User::factory()->create();
+
+        $this->actingAs($user)->patch('/settings/profile', [
+            'name' => 'Renamed',
+            'email' => $user->email,
+        ])->assertSessionHasNoErrors()->assertRedirect('/settings/profile');
+
+        Notification::assertNothingSent();
     }
 
     public function test_email_verification_status_is_unchanged_when_the_email_address_is_unchanged()
