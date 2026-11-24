@@ -6,6 +6,7 @@ use App\Models\User;
 use Illuminate\Auth\Events\Verified;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\URL;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
@@ -131,6 +132,34 @@ class EmailVerificationTest extends TestCase
             ->assertForbidden();
 
         $this->assertFalse($user->fresh()->hasVerifiedEmail());
+    }
+
+    // Flow review F1: the email link opened on a signed-out phone asked for a sign-in, then
+    // showed the verify page again and left the account unverified.
+    public function test_email_link_opened_while_signed_out_verifies_right_after_sign_in(): void
+    {
+        $user = User::factory()->unverified()->create(['password' => Hash::make('calmspa9')]);
+        $link = $this->verificationUrlFor($user);
+
+        $this->get($link)->assertRedirect(route('login', absolute: false));
+
+        $this->post(route('login.store'), ['email' => $user->email, 'password' => 'calmspa9'])
+            ->assertRedirect(substr($link, strlen('http://localhost')));
+
+        $this->get($link)->assertRedirect(route('profile', absolute: false).'?verified=1');
+        $this->assertTrue($user->fresh()->hasVerifiedEmail());
+    }
+
+    public function test_another_accounts_email_link_still_goes_to_the_verify_page_after_sign_in(): void
+    {
+        $user = User::factory()->unverified()->create(['password' => Hash::make('calmspa9')]);
+        $other = User::factory()->unverified()->create();
+
+        $this->get($this->verificationUrlFor($other))->assertRedirect(route('login', absolute: false));
+
+        $this->post(route('login.store'), ['email' => $user->email, 'password' => 'calmspa9'])
+            ->assertRedirect(route('verification.notice', absolute: false));
+        $this->assertFalse($other->fresh()->hasVerifiedEmail());
     }
 
     private function verificationUrlFor(User $user): string
