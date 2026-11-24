@@ -456,6 +456,33 @@ p {
 .site-header--overlay:not(.scrolled) .brand .wordmark span {
   color: var(--gold);
 }
+/* The smallest phones: tighten the header so the wordmark stays on one line. */
+@media (max-width: 360px) {
+  .site-header .bar {
+    gap: 0.75rem;
+  }
+  .site-header .header-actions {
+    gap: 0.5rem;
+  }
+  .site-header .brand {
+    gap: 0.5rem;
+  }
+  .site-header .brand .mark {
+    width: 30px;
+    height: 30px;
+  }
+  .site-header .brand .wordmark span {
+    letter-spacing: 0.3em;
+  }
+}
+@media (max-width: 340px) {
+  .site-header .bar {
+    gap: 0.5rem;
+  }
+  .site-header .brand .wordmark span {
+    letter-spacing: 0.22em;
+  }
+}
 
 .nav {
   display: flex;

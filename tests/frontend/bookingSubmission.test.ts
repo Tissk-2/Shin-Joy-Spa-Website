@@ -451,6 +451,16 @@ describe("reviewed booking submission", () => {
     },
   );
 
+  it("labels a one-guest estimate in the singular", async () => {
+    const wrapper = mountBooking(verifiedPerPerson);
+    await completeDetails(wrapper, "1");
+    expect(wrapper.get(".summary-total").text()).toContain("For 1 guest");
+    expect(wrapper.get(".summary-total").text()).not.toContain("guests");
+    expect(wrapper.get(".package-configurator__total").text()).toContain(
+      "For 1 guest:",
+    );
+  });
+
   it("shows one guest, empty notes, and Indonesian estimate scope in the review", async () => {
     inertia.page.props.locale = "id";
     const wrapper = mountBooking();
@@ -716,6 +726,29 @@ describe("reviewed booking submission", () => {
         .text()
         .match(/Not selected yet/g),
     ).toHaveLength(1);
+  });
+
+  it("leaves the extension row empty until a length is chosen", async () => {
+    const wrapper = mount(Booking, {
+      props: {
+        packages,
+        selection: {
+          service: "nezuko",
+          mode: "",
+          duration: null,
+          extension: "",
+        },
+        submissionKey,
+      },
+    });
+    const extensionRow = () =>
+      wrapper
+        .findAll(".summary-card .summary-row")
+        .find((row) => row.text().startsWith("Extension"))!;
+    expect(extensionRow().text()).toBe("Extension—");
+
+    await wrapper.get('button[data-duration="90"]').trigger("click");
+    expect(extensionRow().text()).toBe("ExtensionNo extension");
   });
 
   it("shows every distinct server selection error in the associated configuration group", async () => {

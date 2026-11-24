@@ -35,7 +35,9 @@ const total = computed(() =>
 );
 const pricingBasisLabel = computed(() => {
   if (!props.servicePackage.pricingVerified) return "";
-  return tr("b.totalGuests", { count: props.guests });
+  return tr(props.guests === 1 ? "b.totalGuest" : "b.totalGuests", {
+    count: props.guests,
+  });
 });
 const href = computed(() => bookingUrl(selection.value));
 const isValid = computed(() => total.value.duration > 0);

@@ -222,7 +222,9 @@ const pricingVerified = computed(
   () => servicePackage.value?.pricingVerified === true,
 );
 const pricingBasisLabel = computed(() =>
-  tr("b.totalGuests", { count: bookingForm.guests }),
+  tr(bookingForm.guests === 1 ? "b.totalGuest" : "b.totalGuests", {
+    count: bookingForm.guests,
+  }),
 );
 const availabilityEnabled = computed(() => props.availabilityEnabled === true);
 const availabilityQuery = computed(() => {
@@ -428,9 +430,10 @@ const extensionLabel = computed(() => {
   const extension = servicePackage.value?.extensions.find(
     (item) => item.code === selected.value.extension,
   );
-  return extension
-    ? `${extension.duration} ${tr("d.min")} · Rp ${extension.price.toLocaleString("id-ID")}`
-    : labels.value.noExtension;
+  if (extension)
+    return `${extension.duration} ${tr("d.min")} · Rp ${extension.price.toLocaleString("id-ID")}`;
+  // Nothing to add to until a length is chosen, like the other empty rows.
+  return selected.value.duration ? labels.value.noExtension : "—";
 });
 const reviewPhone = computed(
   () => bookingForm.phone.trim() || labels.value.notProvided,
