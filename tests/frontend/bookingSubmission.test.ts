@@ -675,6 +675,32 @@ describe("reviewed booking submission", () => {
     );
   });
 
+  it("keeps the running total in the phone bar once a duration is chosen", async () => {
+    const wrapper = mount(Booking, {
+      props: {
+        packages,
+        selection: {
+          service: "nezuko",
+          mode: "",
+          duration: null,
+          extension: "",
+        },
+        submissionKey,
+      },
+    });
+    expect(wrapper.find("[data-booking-phone-total]").exists()).toBe(false);
+
+    await wrapper.get('button[data-duration="90"]').trigger("click");
+
+    const bar = wrapper.get("[data-booking-phone-total]");
+    expect(bar.text()).toContain("90 min");
+    expect(bar.get("strong").text()).toBe("Estimated total: Rp 265.000");
+    // It sits right above the submit button, inside the form.
+    expect(bar.element.nextElementSibling).toBe(
+      wrapper.get('form button[type="submit"]').element,
+    );
+  });
+
   it("says once in the summary that no package is chosen yet", () => {
     const wrapper = mount(Booking, {
       props: {

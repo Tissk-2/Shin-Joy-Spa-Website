@@ -941,6 +941,21 @@ function confirm(): void {
               </p>
             </section>
 
+            <p
+              v-if="total.duration"
+              class="bk-phone-total"
+              data-booking-phone-total
+            >
+              <span
+                >{{ packageName }} · {{ total.duration }}
+                {{ tr("d.min") }}</span
+              >
+              <strong
+                >{{ tr("b.total") }}: Rp
+                {{ total.price.toLocaleString("id-ID") }}</strong
+              >
+            </p>
+
             <button
               type="submit"
               class="btn btn--primary btn--lg btn--block bk-submit"
@@ -1221,6 +1236,42 @@ function confirm(): void {
 .bk-submit__icon {
   width: 1rem;
   height: 1rem;
+}
+.bk-phone-total {
+  display: none;
+}
+/* The summary drops below the form here, so the total stays in view instead. */
+@media (max-width: 900px) {
+  /* A sticky grid item could not leave its own row. */
+  .bk-form {
+    display: flex;
+    flex-direction: column;
+  }
+  .bk-phone-total {
+    position: sticky;
+    bottom: 0;
+    z-index: 10;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.1rem 1rem;
+    margin: 0 calc(var(--gutter) * -1);
+    padding: 0.7rem var(--gutter) calc(0.7rem + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--line);
+    background: var(--bg);
+    color: var(--text-muted);
+    font-size: 0.85rem;
+  }
+  .bk-phone-total strong {
+    color: var(--ink);
+    font-size: 1rem;
+    font-variant-numeric: tabular-nums;
+  }
+  /* Keyboard focus must not land behind the bar, and typing needs the room. */
+  .bk-form:has(:focus-visible, select:focus) .bk-phone-total {
+    position: static;
+  }
 }
 .bk-review__actions {
   display: flex;
