@@ -216,8 +216,10 @@ const labels = computed(() =>
         @click="chooseDuration(variant.duration)"
         @keydown="nextRadio($event, selectDurationFromKeyboard)"
       >
-        {{ variant.duration }} min · Rp
-        {{ variant.price.toLocaleString("id-ID") }}
+        {{ variant.duration }} {{ tr("d.min") }} ·
+        <span class="price-amount"
+          >Rp {{ variant.price.toLocaleString("id-ID") }}</span
+        >
       </button>
     </div>
 
@@ -231,7 +233,7 @@ const labels = computed(() =>
         :checked="selection.extension === extension.code"
         @change="toggleExtension(($event.target as HTMLInputElement).checked)"
       />
-      {{ labels.extension }} +{{ extension.duration }} min · Rp
+      {{ labels.extension }} +{{ extension.duration }} {{ tr("d.min") }} · Rp
       {{ extension.price.toLocaleString("id-ID") }}
     </label>
 
@@ -240,7 +242,7 @@ const labels = computed(() =>
         {{ labels.total
         }}<template v-if="pricingBasisLabel">
           · {{ pricingBasisLabel }}</template
-        >: {{ total.duration }} min · Rp
+        >: {{ total.duration }} {{ tr("d.min") }} · Rp
         {{ total.price.toLocaleString("id-ID") }}
       </p>
       <p v-else class="package-configurator__guidance">

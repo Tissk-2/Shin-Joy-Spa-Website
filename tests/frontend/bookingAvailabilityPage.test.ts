@@ -338,12 +338,31 @@ describe("booking page availability integration", () => {
     expect(wrapper.find("#f-time input:checked").exists()).toBe(false);
     wrapper.unmount();
   });
+  it("asks only for the choice still missing before showing rooms", async () => {
+    const wrapper = mountPage(true);
+    const status = () => wrapper.get("#room-availability-status").text();
+    expect(status()).toBe("Choose a date to see availability.");
+    inertia.forms[0].duration = null;
+    await flushPromises();
+    expect(status()).toBe(
+      "Choose a treatment and its length to see availability.",
+    );
+    inertia.page.props.locale = "id";
+    await flushPromises();
+    expect(status()).toBe(
+      "Pilih perawatan dan durasinya untuk melihat ketersediaan.",
+    );
+    inertia.forms[0].duration = 90;
+    await flushPromises();
+    expect(status()).toBe("Pilih tanggal untuk melihat ketersediaan.");
+    wrapper.unmount();
+  });
   it("shows localized incomplete/empty/incompatible/rate limit/auth/error and explicit recovery", async () => {
     const wrapper = mountPage(true);
-    expect(wrapper.text()).toContain("Choose treatment");
+    expect(wrapper.text()).toContain("Choose a date");
     inertia.page.props.locale = "id";
     await wrapper.vm.$nextTick();
-    expect(wrapper.text()).toContain("Pilih perawatan");
+    expect(wrapper.text()).toContain("Pilih tanggal");
     vi.mocked(fetch).mockResolvedValueOnce(ok({ ...data, slots: [] }));
     await wrapper.get("#f-date").setValue("2099-09-06");
     await flushPromises();

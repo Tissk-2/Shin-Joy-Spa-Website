@@ -884,6 +884,7 @@ function confirm(): void {
                 :slots="roomSlots"
                 :selected-time="bookingForm.time"
                 :generated-at="availabilityGeneratedAt"
+                :needs="availabilityQuery ? 'date' : 'treatment'"
                 @refresh="refreshAvailability"
               />
             </section>
@@ -1262,6 +1263,9 @@ function confirm(): void {
     background: var(--bg);
     color: var(--text-muted);
     font-size: 0.85rem;
+    /* Back a moment after focus leaves a field, so the press that moved focus
+       still lands on the control under the bar instead of on the bar. */
+    transition: visibility 0s linear 0.4s;
   }
   .bk-phone-total strong {
     color: var(--ink);
@@ -1270,7 +1274,8 @@ function confirm(): void {
   }
   /* Keyboard focus must not land behind the bar, and typing needs the room. */
   .bk-form:has(:focus-visible, select:focus) .bk-phone-total {
-    position: static;
+    visibility: hidden;
+    transition: none;
   }
 }
 .bk-review__actions {

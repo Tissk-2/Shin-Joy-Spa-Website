@@ -249,6 +249,13 @@ describe("PackageConfigurator", () => {
     expect(document.activeElement).toBe(
       configurator().get('button[data-duration="120"]').element,
     );
+    // Indonesian durations read "menit", like the rest of the booking flow.
+    expect(configurator().get('button[data-duration="120"]').text()).toMatch(
+      /^120 menit · Rp/,
+    );
+    expect(configurator().get(".package-configurator__total").text()).toContain(
+      "120 menit · Rp",
+    );
   });
 
   it.each([

@@ -50,7 +50,7 @@ test("Nezuko VIP double therapist plus 30 minutes totals 90 minutes and Rp450.00
   await configurator.getByRole("checkbox", { name: /30/ }).check();
 
   await expect(
-    configurator.getByText("Total: 90 min · Rp 450.000"),
+    configurator.getByText("Total: 90 menit · Rp 450.000"),
   ).toBeVisible();
 });
 
@@ -161,9 +161,9 @@ test("hostile booking query values clear selection and cannot alter official tot
     "/booking?service=nezuko&mode=regular&duration=999&extension=nezuko-vip-double-extra-30",
   );
   await expect(page.getByText("Rp 340.000", { exact: true })).toHaveCount(0);
-  await expect(
-    page.getByText("Total: 0 min · Rp 0", { exact: true }),
-  ).toHaveCount(0);
+  await expect(page.getByText(/^Total: 0 (?:menit|min) · Rp 0$/)).toHaveCount(
+    0,
+  );
   await expect(page.getByRole("status")).toContainText(
     /choose a (treatment type|duration) first|pilih (jenis perawatan|durasi) terlebih dahulu/i,
   );

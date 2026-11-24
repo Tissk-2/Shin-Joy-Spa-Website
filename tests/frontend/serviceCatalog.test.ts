@@ -184,7 +184,7 @@ describe("official menu homepage", () => {
       expect(wrapper.find(".package-configurator__total").exists()).toBe(false);
       await wrapper.get('[data-duration="60"]').trigger("click");
       expect(wrapper.get(".package-configurator__total").text()).toBe(
-        "Total: 60 min · Rp 199.000",
+        `Total: 60 ${locale === "id" ? "menit" : "min"} · Rp 199.000`,
       );
       expect(wrapper.findAll(".package-configurator__cta")).toHaveLength(1);
       expect(wrapper.get("a.package-configurator__cta").text()).toBe(book);

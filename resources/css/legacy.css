@@ -1458,7 +1458,6 @@ p {
   border: 1px solid var(--line);
   border-radius: var(--r-lg);
   padding: 1.8rem;
-  box-shadow: var(--shadow-card);
   position: sticky;
   top: 100px;
 }
@@ -1708,6 +1707,7 @@ p {
 }
 .account-hint {
   margin: 0;
+  max-width: 65ch;
   color: var(--text-muted);
   font-size: 0.9rem;
   line-height: 1.6;

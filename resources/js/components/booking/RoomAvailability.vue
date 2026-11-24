@@ -17,6 +17,8 @@ const props = defineProps<{
   generatedAt: string | null;
   // On the review step the time cannot be changed here, so say how to go on.
   reviewing?: boolean;
+  // What is still missing, so the prompt does not ask for a choice already made.
+  needs?: "treatment" | "date";
 }>();
 defineEmits<{ refresh: [] }>();
 const copy = computed(() =>
@@ -27,6 +29,8 @@ const copy = computed(() =>
         refresh: "Muat ulang ketersediaan",
         incomplete:
           "Pilih perawatan, tanggal, dan jumlah tamu untuk melihat ketersediaan.",
+        treatment: "Pilih perawatan dan durasinya untuk melihat ketersediaan.",
+        date: "Pilih tanggal untuk melihat ketersediaan.",
         loading: "Memuat ketersediaan ruangan…",
         invalid:
           "Pilihan tidak valid. Periksa perawatan, tanggal, dan jumlah tamu, lalu muat ulang.",
@@ -56,6 +60,8 @@ const copy = computed(() =>
         refresh: "Refresh availability",
         incomplete:
           "Choose treatment, date and guest count to see availability.",
+        treatment: "Choose a treatment and its length to see availability.",
+        date: "Choose a date to see availability.",
         loading: "Loading room availability…",
         invalid:
           "Invalid selection. Check treatment, date and guests, then refresh.",
@@ -83,6 +89,8 @@ const selected = computed(() =>
   ),
 );
 const message = computed(() => {
+  if (props.status === "incomplete" && props.needs)
+    return copy.value[props.needs];
   if (props.status !== "success")
     return props.status === "disabled" ? "" : copy.value[props.status];
   if (!props.slots.length) return copy.value.empty;

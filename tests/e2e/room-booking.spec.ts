@@ -64,7 +64,7 @@ test("customer observes real availability, keyboard time selection, safe review,
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
   await page.goto("/booking?service=b3j-treatment&mode=regular&duration=90");
   const availability = page.locator("[data-room-availability]");
-  await expect(availability).toContainText("Choose treatment");
+  await expect(availability).toContainText("Choose a date");
   const apiResponse = page.waitForResponse(
     (response) =>
       response.url().includes("/booking/availability?") &&

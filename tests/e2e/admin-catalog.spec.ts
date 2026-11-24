@@ -25,7 +25,7 @@ const servicePackage = {
   basePrice: 199_000,
   extensionPrice: 75_000,
 };
-const bookingTotal = "Total: 120 min · Rp 274.000";
+const bookingTotal = /^Total: 120 (?:menit|min) · Rp 274\.000$/;
 const bookingPrice = "Rp 274.000";
 
 function packageRow(page: Page): Locator {
@@ -249,7 +249,7 @@ async function createBookingWithPublishedPrice(page: Page): Promise<void> {
   await page.goto(
     `/booking?service=${servicePackage.slug}&mode=regular&duration=60&extension=${servicePackage.extensionCode}`,
   );
-  await expect(page.getByText(bookingTotal, { exact: true })).toBeVisible();
+  await expect(page.getByText(bookingTotal)).toBeVisible();
   await page.getByLabel(/^tanggal$|^date$/i).fill(futureDate(40));
   await page
     .getByRole("radiogroup", { name: /^waktu$|^time$/i })

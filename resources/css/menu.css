@@ -60,7 +60,7 @@
 }
 .menu-policy {
   margin: 2rem auto 0;
-  max-width: 52rem;
+  max-width: 65ch;
 }
 .menu-comparison__inner {
   display: grid;
@@ -84,7 +84,6 @@
   color: var(--config-ink);
   border: 1px solid var(--config-border);
   border-radius: var(--r-lg);
-  box-shadow: var(--shadow-card);
 }
 .package-configurator.package-configurator--vip {
   border-color: var(--line);
@@ -520,6 +519,7 @@
 
 .booking-status-note {
   margin: 0 0 1.5rem;
+  max-width: 65ch;
   color: var(--ink);
   font-weight: 700;
 }
@@ -568,6 +568,11 @@
 .booking-changes-panel,
 .booking-actions {
   grid-column: 1 / -1;
+}
+
+.booking-notes-panel p,
+.booking-changes-panel p {
+  max-width: 65ch;
 }
 
 .booking-changes-panel__contact {
