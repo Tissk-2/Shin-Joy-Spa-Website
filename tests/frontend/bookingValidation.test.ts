@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -8,6 +10,7 @@ import {
   validateBooking,
 } from "../../resources/js/lib/booking";
 import { isValidPhoneNumber } from "../../resources/js/lib/phone";
+import translations from "../../resources/js/data/translations";
 import type { PackageData } from "../../resources/js/types";
 
 const packages: PackageData[] = [
@@ -305,5 +308,27 @@ describe("booking validation helpers", () => {
         "2026-08-20",
       ),
     ).toEqual({ date: "b.err.dateTooFar" });
+  });
+});
+
+// Flow review F2: three of these keys had no message, so the form showed "b.err.duration".
+describe("booking form messages", () => {
+  it("has a message in both languages for every error the form can raise", () => {
+    const source = readFileSync(
+      resolve(import.meta.dirname, "../../resources/js/lib/booking.ts"),
+      "utf8",
+    );
+    const keys = [...new Set(source.match(/b\.err\.[A-Za-z]+/g))];
+    expect(keys).toEqual(
+      expect.arrayContaining([
+        "b.err.mode",
+        "b.err.duration",
+        "b.err.extension",
+      ]),
+    );
+    for (const key of keys) {
+      expect(translations.id[key], `id ${key}`).toBeTruthy();
+      expect(translations.en[key], `en ${key}`).toBeTruthy();
+    }
   });
 });
