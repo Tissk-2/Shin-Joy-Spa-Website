@@ -70,8 +70,17 @@ const statusNote = computed(() =>
     ? tr(`bookings.statusNote.${props.booking.status}`)
     : null,
 );
-const canStillChange = computed(() =>
-  ["pending", "awaiting_payment", "confirmed"].includes(props.booking.status),
+// Paying at the spa and changing the visit only make sense before it starts;
+// staff may mark a finished visit done later.
+const visitAhead = computed(() => {
+  const { date, time, timezone } = props.booking.appointment;
+  if (timezone !== "Asia/Jakarta") return true;
+  return new Date(`${date}T${time}:00+07:00`).getTime() > Date.now();
+});
+const canStillChange = computed(
+  () =>
+    visitAhead.value &&
+    ["pending", "awaiting_payment", "confirmed"].includes(props.booking.status),
 );
 // Opens the booking form on the same treatment; the form checks it against
 // today's menu and lets the customer change any part of it.

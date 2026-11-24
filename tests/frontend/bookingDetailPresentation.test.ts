@@ -1,5 +1,5 @@
 import { mount, type VueWrapper } from "@vue/test-utils";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 
 import Show from "@/pages/bookings/Show.vue";
@@ -81,6 +81,29 @@ describe("customer booking presentation", () => {
   beforeEach(() => {
     setLocale("en");
     document.body.innerHTML = "";
+    // The fixture visit is 1 December 2026, 09:00 WIB: keep it in the future.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-20T00:00:00Z"));
+  });
+  afterEach(() => vi.useRealTimers());
+
+  // Flow review F3: a visit that had already happened still said "pay at the spa"
+  // and offered to change or cancel it until staff marked it done.
+  it("drops paying at the spa and the change panel once the visit has started.", () => {
+    vi.setSystemTime(new Date("2026-12-01T02:00:01Z")); // 09:00:01 WIB
+    const wrapper = mount(Show, {
+      props: {
+        booking: {
+          ...detail,
+          status: "confirmed",
+          paymentPreference: "at_spa",
+        },
+      },
+    });
+
+    expect(wrapper.find("[data-booking-pay-at-spa]").exists()).toBe(false);
+    expect(wrapper.find("[data-booking-changes]").exists()).toBe(false);
+    expect(wrapper.get("[data-booking-again]").exists()).toBe(true);
   });
 
   it("explains a pending request and how to change or cancel it.", () => {
