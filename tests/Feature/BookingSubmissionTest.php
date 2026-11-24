@@ -436,7 +436,7 @@ class BookingSubmissionTest extends TestCase
         $this->actingAs($user)
             ->post('/bookings', $payload)
             ->assertStatus(429)
-            ->assertSee('Too Many Requests');
+            ->assertSee('Terlalu banyak permintaan');
     }
 
     // Production break caught: the shared IP bucket must throttle even when each authenticated user is below 6/minute.
@@ -455,7 +455,7 @@ class BookingSubmissionTest extends TestCase
             ->withServerVariables(['REMOTE_ADDR' => '203.0.113.77'])
             ->post('/bookings', $payload)
             ->assertStatus(429)
-            ->assertSee('Too Many Requests');
+            ->assertSee('Terlalu banyak permintaan');
     }
 
     // Production break caught: malformed scalar and array submission keys must fail at the HTTP boundary.
