@@ -195,7 +195,6 @@ export default {
     "hero.cta2": "Lihat layanan",
     "hero.m2l": "Rata-rata ulasan",
     "hero.m3l": "Tamu dimanjakan",
-    "hero.scroll": "Geser ke bawah",
     "cats.eyebrow": "Telusuri Berdasarkan Kategori",
     "cats.title": "Temukan perawatan Anda",
     "cats.sub":
@@ -409,7 +408,7 @@ export default {
     "bookings.emptyPast":
       "Riwayat reservasi akan muncul di sini setelah kunjungan Anda.",
     "bookings.reserveTreatment": "Reservasi perawatan",
-    "bookings.reserveAnother": "Reservasi perawatan lain",
+    "bookings.bookAgain": "Pesan perawatan ini lagi",
     "bookings.backToBookings": "Kembali ke Reservasi Saya",
     "bookings.downloadCard": "Unduh ringkasan (PNG)",
     "bookings.downloadError":
@@ -1243,7 +1242,6 @@ export default {
     "hero.cta2": "Browse services",
     "hero.m2l": "Average rating",
     "hero.m3l": "Guests pampered",
-    "hero.scroll": "Scroll down",
     "cats.eyebrow": "Browse by category",
     "cats.title": "Find your treatment",
     "cats.sub":
@@ -1456,7 +1454,7 @@ export default {
       "No upcoming bookings yet. Choose a treatment when you are ready.",
     "bookings.emptyPast": "Past bookings will appear here after your visit.",
     "bookings.reserveTreatment": "Reserve a treatment",
-    "bookings.reserveAnother": "Reserve another treatment",
+    "bookings.bookAgain": "Book this treatment again",
     "bookings.backToBookings": "Back to My Bookings",
     "bookings.downloadCard": "Download booking card (PNG)",
     "bookings.downloadError":

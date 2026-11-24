@@ -307,8 +307,11 @@ describe("customer booking detail", () => {
     expect(wrapper.get('.booking-actions a[href="/bookings"]').text()).toBe(
       "Back to My Bookings",
     );
-    expect(wrapper.get('.booking-actions a[href="/booking"]').text()).toBe(
-      "Reserve another treatment",
+    // Booking again opens the form on the same treatment, extension included.
+    const again = wrapper.get("[data-booking-again]");
+    expect(again.text()).toBe("Book this treatment again");
+    expect(again.attributes("href")).toBe(
+      "/booking?service=nezuko-vip&mode=double_therapist&duration=60&extension=nezuko-vip-double-extra-30",
     );
 
     await switchLocale(wrapper, "id");
@@ -323,8 +326,8 @@ describe("customer booking detail", () => {
     expect(wrapper.get('.booking-actions a[href="/bookings"]').text()).toBe(
       "Kembali ke Reservasi Saya",
     );
-    expect(wrapper.get('.booking-actions a[href="/booking"]').text()).toBe(
-      "Reservasi perawatan lain",
+    expect(wrapper.get("[data-booking-again]").text()).toBe(
+      "Pesan perawatan ini lagi",
     );
   });
 

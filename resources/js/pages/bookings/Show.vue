@@ -6,6 +6,7 @@ import { useContactInformation } from "@/composables/useContactInformation";
 import { useLanguage } from "@/composables/useLanguage";
 import MainLayout from "@/layouts/MainLayout.vue";
 import { downloadBookingCard } from "@/lib/bookingCard";
+import { bookingUrl } from "@/lib/serviceSelection";
 import type {
   BookingChoiceData,
   BookingDetailData,
@@ -71,6 +72,16 @@ const statusNote = computed(() =>
 );
 const canStillChange = computed(() =>
   ["pending", "awaiting_payment", "confirmed"].includes(props.booking.status),
+);
+// Opens the booking form on the same treatment; the form checks it against
+// today's menu and lets the customer change any part of it.
+const bookAgainUrl = computed(() =>
+  bookingUrl({
+    service: props.booking.package.slug,
+    mode: props.booking.treatmentMode,
+    duration: props.booking.base.durationMinutes,
+    extension: props.booking.extension?.choiceCode ?? "",
+  }),
 );
 
 function modeLabel(): string {
@@ -311,9 +322,12 @@ async function downloadCard(): Promise<void> {
           <Link class="btn btn--ghost" href="/bookings">{{
             tr("bookings.backToBookings")
           }}</Link>
-          <Link class="btn btn--primary" href="/booking">{{
-            tr("bookings.reserveAnother")
-          }}</Link>
+          <Link
+            class="btn btn--primary"
+            :href="bookAgainUrl"
+            data-booking-again
+            >{{ tr("bookings.bookAgain") }}</Link
+          >
         </div>
         <p v-if="downloadError" class="booking-download-error" role="alert">
           {{ tr("bookings.downloadError") }}

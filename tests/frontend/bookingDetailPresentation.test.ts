@@ -174,8 +174,9 @@ describe("customer booking presentation", () => {
     expect(wrapper.find("[data-booking-changes]").exists()).toBe(false);
     // Review fix: a cancelled booking has nothing left to pay at the spa.
     expect(wrapper.find("[data-booking-pay-at-spa]").exists()).toBe(false);
-    expect(wrapper.find('.booking-actions a[href="/booking"]').exists()).toBe(
-      true,
+    // A cancelled booking can still be booked again, without an extension here.
+    expect(wrapper.get("[data-booking-again]").attributes("href")).toBe(
+      "/booking?service=nezuko&mode=regular&duration=90",
     );
   });
 

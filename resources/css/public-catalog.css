@@ -96,10 +96,8 @@
 .package-menu-card__type {
   margin: 0;
   color: var(--rose);
-  font-size: 0.72rem;
+  font-size: 0.8rem;
   font-weight: 700;
-  letter-spacing: 0.11em;
-  text-transform: uppercase;
 }
 
 .package-menu-card__header h3 {

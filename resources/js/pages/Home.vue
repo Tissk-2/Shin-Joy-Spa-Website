@@ -201,10 +201,6 @@ function loadMap(): void {
           }}</Link>
         </div>
       </div>
-      <span class="hero__scroll" aria-hidden="true">
-        <span>{{ tr("hero.scroll") }}</span>
-        <span class="dot"></span>
-      </span>
     </section>
 
     <section
