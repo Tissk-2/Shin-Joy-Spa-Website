@@ -259,7 +259,7 @@ function submit() {
           >
             <legend class="sr-only">{{ tr("ad.settings.hours") }}</legend>
             <h2 class="font-bold">{{ tr("ad.settings.hours") }}</h2>
-            <p class="text-sm text-[var(--admin-muted)]">
+            <p class="max-w-[70ch] text-sm text-[var(--admin-muted)]">
               {{ tr("ad.settings.hoursHelp") }}
             </p>
             <p v-if="!values.review_intervals.length" class="text-sm">

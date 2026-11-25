@@ -117,6 +117,16 @@ it("lists safe staff, owners, verification and pagination, disabling only inelig
     "/admin/staff?page=2",
   );
 });
+// Staff review 2026-11-25: revoking looked the same as granting.
+it("marks revoke apart from grant", () => {
+  const wrapper = screen();
+  const revoke = wrapper.get("[data-staff-id='4'] button");
+  const grant = wrapper.get("[data-staff-id='2'] button");
+  expect(revoke.text()).toBe("Revoke booking management");
+  expect(revoke.classes()).toContain("admin-button--danger");
+  expect(grant.text()).toBe("Grant booking management");
+  expect(grant.classes()).not.toContain("admin-button--danger");
+});
 it("shows empty state and owner-only navigation", () => {
   const wrapper = screen({
     ...page,

@@ -527,14 +527,19 @@ function paginationLabel(label: string, index: number): string {
                   >{{ tr(`ad.status.${booking.status}`) }}</span
                 >
               </div>
+              <!-- Each "·" stays with the item before it, so no line starts with one. -->
               <p class="admin-booking-list__meta">
                 <span>{{
                   formatDay(booking.appointment.date, language, "short")
-                }}</span>
-                · <span>{{ appointmentTime(booking) }}</span> ·
-                <span>{{ packageName(booking, language) }}</span>
-                · <span>{{ tr("ad.list.guests", { n: booking.guests }) }}</span>
-                ·
+                }}</span
+                >&nbsp;· <span>{{ appointmentTime(booking) }}</span
+                >&nbsp;·
+                <span class="admin-booking-list__package">{{
+                  packageName(booking, language)
+                }}</span
+                >&nbsp;·
+                <span>{{ tr("ad.list.guests", { n: booking.guests }) }}</span
+                >&nbsp;·
                 <span class="admin-price">{{
                   formatPrice(booking.totalPriceIdr)
                 }}</span>

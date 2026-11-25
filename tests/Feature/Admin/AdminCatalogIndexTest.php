@@ -71,7 +71,7 @@ class AdminCatalogIndexTest extends TestCase
         );
         $this->assertSame([
             'version', 'slug', 'categorySlug', 'nameId', 'nameEn', 'image', 'isVip',
-            'status', 'variantCount', 'extensionCount', 'optionCount', 'displayOrder', 'can',
+            'status', 'variantCount', 'extensionCount', 'displayOrder', 'can',
         ], array_keys($packages[0]));
         $this->assertSame(
             ['update', 'publish', 'archive', 'restore', 'delete'],
@@ -81,7 +81,6 @@ class AdminCatalogIndexTest extends TestCase
         $this->assertSame('http://localhost/storage/catalog/packages/first-cover.jpg', $packages[0]['image']);
         $this->assertSame(2, $packages[0]['variantCount']);
         $this->assertSame(1, $packages[0]['extensionCount']);
-        $this->assertSame(3, $packages[0]['optionCount']);
         $this->assertSame('archived', $packages[0]['status']);
         $this->assertTrue($packages[0]['isVip']);
         $this->assertSame(13, $packages[0]['version']);

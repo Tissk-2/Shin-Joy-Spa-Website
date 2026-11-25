@@ -86,7 +86,9 @@ function confirm(): void {
     :key="action"
     type="button"
     class="catalog-control"
-    :class="{ 'catalog-control--danger': action === 'delete' }"
+    :class="{
+      'catalog-control--danger': action === 'delete' || action === 'archive',
+    }"
     :disabled="disabled || processing"
     :data-catalog-action="`${record.slug}-${action}`"
     @click="open(action, $event)"

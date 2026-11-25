@@ -125,9 +125,11 @@ export default {
     "ad.blocks.confirmTermination": "Konfirmasi tindakan",
     "ad.blocks.terminationHelp":
       "Tindakan ini bersifat tetap untuk periode ini. Ketersediaan masih bergantung pada pemeliharaan lain, ruangan aktif, kecocokan, reservasi dan pembersihan.",
-    "ad.blocks.title": "Periode Pemeliharaan",
+    "ad.blocks.title": "Periode pemeliharaan",
     "ad.blocks.subtitle":
       "Penutupan ruangan aktif dan mendatang dalam waktu Jakarta.",
+    "ad.blocks.subtitle_history":
+      "Penutupan ruangan yang sudah berakhir atau dibatalkan, dalam waktu Jakarta.",
     "ad.blocks.create": "Tambah periode pemeliharaan",
     "ad.blocks.edit": "Ubah periode pemeliharaan",
     "ad.blocks.staffOnly":
@@ -143,6 +145,8 @@ export default {
     "ad.blocks.unavailable":
       "Penyuntingan pemeliharaan belum tersedia karena data kewenangan atau jadwal belum lengkap.",
     "ad.blocks.empty": "Tidak ada periode pemeliharaan aktif atau mendatang.",
+    "ad.blocks.empty_history":
+      "Belum ada periode pemeliharaan yang berakhir atau dibatalkan.",
     "ad.blocks.pagination": "Halaman pemeliharaan",
     "ad.blocks.pageOf": "Halaman {page} dari {lastPage}",
     "ad.blocks.previous": "Sebelumnya",
@@ -608,7 +612,7 @@ export default {
     "ad.schedule.unassignedHelp":
       "Permintaan yang menunggu belum memesan ruangan. Ruangan dipesan saat staf menyetujui.",
     "ad.schedule.none": "Tidak ada.",
-    "ad.rooms.title": "Inventaris Ruangan",
+    "ad.rooms.title": "Inventaris ruangan",
     "ad.rooms.create": "Tambah ruangan",
     "ad.rooms.edit": "Edit ruangan",
     "ad.rooms.formSubtitle":
@@ -753,7 +757,6 @@ export default {
     "ad.catalog.status.archived": "Diarsipkan",
     "ad.catalog.categoryCount": "{count} kategori",
     "ad.catalog.packageCount": "{count} paket",
-    "ad.catalog.optionCount": "{count} opsi",
     "ad.catalog.variantCount": "{count} pilihan utama",
     "ad.catalog.extensionCount": "{count} tambahan",
     "ad.catalog.vip": "VIP",
@@ -945,7 +948,6 @@ export default {
       "Ketersediaan terapis dan kesesuaian operasional dikonfirmasi pada",
     "ad.confirm.operational":
       "Saya memastikan terapis yang sesuai tersedia untuk perawatan ini dan seluruh tamu.",
-    "ad.detail.noNotes": "Tidak ada catatan.",
     "ad.detail.noPhone": "Tidak ada nomor WhatsApp.",
     "ad.detail.noEmail": "Tidak ada email.",
     "ad.detail.noExtension": "Tanpa tambahan durasi.",
@@ -1182,6 +1184,8 @@ export default {
       "This action is permanent for this period. Availability still depends on other maintenance, active rooms, compatibility, reservations and cleaning.",
     "ad.blocks.title": "Maintenance periods",
     "ad.blocks.subtitle": "Current and future room closures, in Jakarta time.",
+    "ad.blocks.subtitle_history":
+      "Room closures that have ended or were cancelled, in Jakarta time.",
     "ad.blocks.create": "Add maintenance period",
     "ad.blocks.edit": "Edit maintenance period",
     "ad.blocks.staffOnly":
@@ -1197,6 +1201,7 @@ export default {
     "ad.blocks.unavailable":
       "Maintenance editing is unavailable while authority or schedule data is incomplete.",
     "ad.blocks.empty": "No current or future maintenance periods.",
+    "ad.blocks.empty_history": "No ended or cancelled maintenance periods yet.",
     "ad.blocks.pagination": "Maintenance pages",
     "ad.blocks.pageOf": "Page {page} of {lastPage}",
     "ad.blocks.previous": "Previous",
@@ -1659,7 +1664,7 @@ export default {
     "ad.schedule.unassignedHelp":
       "Pending requests don't hold a room yet. A room is reserved when staff approve.",
     "ad.schedule.none": "None.",
-    "ad.rooms.title": "Room Inventory",
+    "ad.rooms.title": "Room inventory",
     "ad.rooms.create": "Add room",
     "ad.rooms.edit": "Edit room",
     "ad.rooms.formSubtitle":
@@ -1736,8 +1741,7 @@ export default {
     "ad.rooms.noBlocks": "None",
     "ad.rooms.blockWindow":
       "Showing up to 10 maintenance periods per room that are current or start within the next 30 days. Counts include periods not displayed.",
-    "ad.rooms.omittedBlocks":
-      "{count} more maintenance periods are not displayed.",
+    "ad.rooms.omittedBlocks": "Maintenance periods not displayed: {count}.",
     "ad.rooms.minutes": "mins",
     "ad.rooms.map": "Room map",
     "ad.rooms.mapGuest": "Guest inside",
@@ -1802,7 +1806,6 @@ export default {
     "ad.catalog.status.archived": "Archived",
     "ad.catalog.categoryCount": "{count} categories",
     "ad.catalog.packageCount": "{count} packages",
-    "ad.catalog.optionCount": "{count} options",
     "ad.catalog.variantCount": "{count} base options",
     "ad.catalog.extensionCount": "{count} extensions",
     "ad.catalog.vip": "VIP",
@@ -1993,7 +1996,6 @@ export default {
       "Therapist availability and operational suitability confirmed at",
     "ad.confirm.operational":
       "I confirm suitable therapists are available for this treatment and the whole group.",
-    "ad.detail.noNotes": "No notes were added.",
     "ad.detail.noPhone": "No WhatsApp number was added.",
     "ad.detail.noEmail": "No email was added.",
     "ad.detail.noExtension": "No extension selected.",

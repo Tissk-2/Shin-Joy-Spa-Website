@@ -240,11 +240,12 @@ describe("admin booking detail", () => {
         history: [],
       });
       for (const value of [
-        "No notes were added.",
         "No extension selected.",
         "There are no status changes yet.",
       ])
         expect(wrapper.text()).toContain(value);
+      // Staff review 2026-11-25: an empty notes panel only said there was nothing to read.
+      expect(wrapper.find("[data-booking-notes]").exists()).toBe(false);
       expect(
         wrapper
           .find("[data-next-status], form[data-status-confirmation]")
@@ -530,7 +531,6 @@ describe("admin booking detail", () => {
       "Ritual Relaksasi",
       "Dua terapis",
       "7 Oktober 2026",
-      "Tidak ada catatan.",
       "Tanpa tambahan durasi.",
       "Riwayat status",
       "Tidak ada alasan yang dicatat.",
@@ -849,7 +849,11 @@ describe("notifications", () => {
     // booking), so the line must say so.
     [null, "No staff Telegram message is recorded for this booking."],
   ])("says what the staff chat shows: %j", (telegramMessage, expected) => {
-    const wrapper = mountPage({ ...booking, telegramMessage });
+    const wrapper = mountPage({
+      ...booking,
+      telegramMessage,
+      notifications: [notice({ channel: "telegram" })],
+    });
     const text = wrapper.get("[data-telegram-message]").text();
     expect(text).toContain(expected);
     expect(text).not.toContain("ad.notify");
@@ -862,9 +866,8 @@ describe("notifications", () => {
     );
     expect(wrapper.find("[data-notice]").exists()).toBe(false);
     expect(wrapper.find("[data-contact-task]").exists()).toBe(false);
-    expect(wrapper.get("[data-telegram-message]").text()).toContain(
-      "No staff Telegram message is recorded for this booking.",
-    );
+    // Staff review 2026-11-25: one "nothing recorded" line, not a second one for Telegram.
+    expect(wrapper.find("[data-telegram-message]").exists()).toBe(false);
   });
 
   it("translates the section into Indonesian", async () => {

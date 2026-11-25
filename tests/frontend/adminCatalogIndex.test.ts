@@ -48,7 +48,6 @@ const packages = [
     status: "published" as const,
     variantCount: 2,
     extensionCount: 1,
-    optionCount: 3,
     displayOrder: 1,
     can: {
       update: true,
@@ -69,7 +68,6 @@ const packages = [
     status: "published" as const,
     variantCount: 1,
     extensionCount: 0,
-    optionCount: 1,
     displayOrder: 2,
     can: {
       update: false,
@@ -125,7 +123,12 @@ describe("admin catalog index", () => {
     expect(wrapper.get('[data-catalog-package="warm-stone"]').text()).toContain(
       "Warm Stone",
     );
-    expect(wrapper.text()).toContain("3 options");
+    // Staff review 2026-11-25: the total repeated what the two counts already say.
+    const count = wrapper.get(
+      '[data-catalog-package="warm-stone"] .catalog-count',
+    );
+    expect(count.text()).toMatch(/^2 base options · 1 /);
+    expect(count.text()).not.toContain("3");
     expect(wrapper.text()).toContain("VIP");
 
     inertia.page.props.locale = "id";
@@ -133,7 +136,29 @@ describe("admin catalog index", () => {
     expect(wrapper.get('[data-catalog-package="warm-stone"]').text()).toContain(
       "Batu Hangat",
     );
-    expect(wrapper.text()).toContain("3 opsi");
+    expect(
+      wrapper.get('[data-catalog-package="warm-stone"] .catalog-count').text(),
+    ).toBe("2 pilihan utama · 1 tambahan");
+  });
+
+  // Staff review 2026-11-25: Katalog showed "Nezuko / Nezuko".
+  it("shows the second name only when it differs", () => {
+    const wrapper = mountIndex({
+      packages: [
+        packages[0],
+        { ...packages[1], nameId: "Calm Facial", nameEn: "Calm Facial" },
+      ],
+    });
+    expect(
+      wrapper
+        .find('[data-catalog-package="warm-stone"] .catalog-secondary')
+        .text(),
+    ).toBe("Batu Hangat");
+    expect(
+      wrapper
+        .find('[data-catalog-package="calm-facial"] .catalog-secondary')
+        .exists(),
+    ).toBe(false);
   });
 
   it("renders a single package without relying on a many-record layout", () => {
@@ -240,5 +265,18 @@ describe("admin catalog index", () => {
     const remove = wrapper.get('[data-catalog-action="new-draft-delete"]');
     expect(publish.classes()).not.toContain("catalog-control--danger");
     expect(remove.classes()).toContain("catalog-control--danger");
+  });
+
+  // Staff review 2026-11-25: Arsipkan looked like Ubah paket although it takes the package off the site.
+  it("marks archive apart from edit", () => {
+    const wrapper = mountIndex();
+    expect(
+      wrapper.get('[data-catalog-action="warm-stone-archive"]').classes(),
+    ).toContain("catalog-control--danger");
+    expect(
+      wrapper
+        .get('[data-catalog-package="warm-stone"] a.catalog-control')
+        .classes(),
+    ).not.toContain("catalog-control--danger");
   });
 });

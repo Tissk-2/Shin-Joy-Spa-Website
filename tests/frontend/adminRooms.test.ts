@@ -261,7 +261,7 @@ describe("read-only staff room inventory", () => {
     const wrapper = render();
     expect(wrapper.text()).toContain("1 current");
     expect(wrapper.text()).toContain("11 upcoming");
-    expect(wrapper.text()).toContain("11 more maintenance periods");
+    expect(wrapper.text()).toContain("Maintenance periods not displayed: 11.");
     expect(wrapper.text()).toContain("30 days");
     expect(wrapper.text()).toContain("Upcoming");
     expect(wrapper.find('tbody tr[data-room-id="3"]').text()).not.toContain(

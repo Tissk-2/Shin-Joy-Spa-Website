@@ -228,16 +228,12 @@ async function copyReference(): Promise<void> {
           {{ page.props.flash.status }}
         </p>
         <section
+          v-if="booking.notes?.trim()"
           class="admin-guest-note"
-          :class="{ 'admin-guest-note--empty': !booking.notes?.trim() }"
           aria-labelledby="admin-notes-title"
         >
           <h2 id="admin-notes-title">{{ tr("ad.detail.notes") }}</h2>
-          <p data-booking-notes>
-            {{
-              booking.notes?.trim() ? booking.notes : tr("ad.detail.noNotes")
-            }}
-          </p>
+          <p data-booking-notes>{{ booking.notes }}</p>
         </section>
         <div class="admin-detail-grid">
           <section
@@ -469,7 +465,10 @@ async function copyReference(): Promise<void> {
             data-notifications
           >
             <h2 id="admin-notify-title">{{ tr("ad.notify.title") }}</h2>
-            <p data-telegram-message>
+            <p
+              v-if="booking.telegramMessage || notifications.length"
+              data-telegram-message
+            >
               <strong>{{ tr("ad.notify.channel.telegram") }}:</strong>
               {{ tr(telegramMessageKey) }}
             </p>

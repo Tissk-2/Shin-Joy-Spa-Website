@@ -302,6 +302,12 @@ describe("admin booking console", () => {
         expect(record.find("script").exists()).toBe(false);
       }
     }
+    // Staff review 2026-11-25: a phone line could start with "· Rp". Each "·" is glued to the item before it.
+    for (const item of items) {
+      const meta = item.get(".admin-booking-list__meta").element.textContent!;
+      expect(meta.match(/·/g)).toHaveLength(4);
+      expect(meta).not.toMatch(/[^\u00a0]·|·\S/);
+    }
     expect(rows[0].text()).toContain("Double therapist");
     expect(rows[0].text()).toContain("90 min");
     expect(rows[1].text()).toContain("Regular");

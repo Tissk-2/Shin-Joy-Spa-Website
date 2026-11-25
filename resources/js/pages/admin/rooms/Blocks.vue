@@ -23,7 +23,13 @@ const display = (value: string) =>
   <div class="admin-shell">
     <AdminLayout
       :title="tr('ad.blocks.title')"
-      :subtitle="tr('ad.blocks.subtitle')"
+      :subtitle="
+        tr(
+          schedule.view === 'history'
+            ? 'ad.blocks.subtitle_history'
+            : 'ad.blocks.subtitle',
+        )
+      "
     >
       <template
         v-if="
@@ -118,7 +124,13 @@ const display = (value: string) =>
         </p>
         <template v-else>
           <p v-if="!schedule.blocks.length" class="admin-empty">
-            {{ tr("ad.blocks.empty") }}
+            {{
+              tr(
+                schedule.view === "history"
+                  ? "ad.blocks.empty_history"
+                  : "ad.blocks.empty",
+              )
+            }}
           </p>
           <ol class="space-y-3">
             <li

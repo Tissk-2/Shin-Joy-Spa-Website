@@ -237,7 +237,9 @@ function submit(): void {
           {{ telegramMessages.join(" ") }}
         </p>
         <section class="admin-filter-panel" :aria-label="tr('ad.staff.title')">
-          <p class="mb-4 text-sm">{{ tr("ad.staff.explanation") }}</p>
+          <p class="mb-4 max-w-[70ch] text-sm">
+            {{ tr("ad.staff.explanation") }}
+          </p>
           <p v-if="!staff.data.length" role="status">
             {{ tr("ad.staff.empty") }}
           </p>
@@ -280,6 +282,9 @@ function submit(): void {
                   <button
                     type="button"
                     class="admin-button"
+                    :class="{
+                      'admin-button--danger': member.canManageBookings,
+                    }"
                     :disabled="
                       form.processing ||
                       (!member.verified && !member.canManageBookings)

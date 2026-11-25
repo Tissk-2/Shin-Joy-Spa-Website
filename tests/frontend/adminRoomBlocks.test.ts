@@ -12,8 +12,9 @@ vi.mock("@inertiajs/vue3", () => ({
 }));
 vi.mock("@/layouts/admin/AdminLayout.vue", () => ({
   default: {
-    props: ["title"],
-    template: "<main><h1>{{ title }}</h1><slot /></main>",
+    props: ["title", "subtitle"],
+    template:
+      "<main><h1>{{ title }}</h1><p data-subtitle>{{ subtitle }}</p><slot /></main>",
   },
 }));
 const access = {
@@ -69,6 +70,42 @@ describe("room maintenance", () => {
     expect(list.get('a[href="/admin/room-blocks/8/edit"]').text()).toBe(
       "View details",
     );
+  });
+  // Staff review 2026-11-25: the Riwayat tab kept the active tab's subtitle and empty text.
+  it.each([
+    [
+      "active",
+      "Current and future room closures, in Jakarta time.",
+      "No current or future maintenance periods.",
+    ],
+    [
+      "history",
+      "Room closures that have ended or were cancelled, in Jakarta time.",
+      "No ended or cancelled maintenance periods yet.",
+    ],
+  ] as const)("describes the %s tab", (view, subtitle, empty) => {
+    const w = mount(Blocks, {
+      props: {
+        schedule: {
+          state: "ready",
+          generatedAt: saved.startsAt,
+          view,
+          roomId: null,
+          rooms,
+          blockManagement: access,
+          blocks: [],
+          pagination: {
+            page: 1,
+            lastPage: 1,
+            total: 0,
+            previous: null,
+            next: null,
+          },
+        },
+      },
+    });
+    expect(w.get("[data-subtitle]").text()).toBe(subtitle);
+    expect(w.get(".admin-empty").text()).toBe(empty);
   });
   it("lists far-future blocks in fixed WIB with filter-preserving pagination and escaped reasons", () => {
     const w = mount(Blocks, {

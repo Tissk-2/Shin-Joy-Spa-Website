@@ -59,14 +59,13 @@ function otherName(record: AdminCatalogPackageData): string {
                     tr("ad.catalog.vip")
                   }}</span>
                 </div>
-                <p class="catalog-secondary">{{ otherName(packageItem) }}</p>
+                <p
+                  v-if="otherName(packageItem) !== localizedName(packageItem)"
+                  class="catalog-secondary"
+                >
+                  {{ otherName(packageItem) }}
+                </p>
                 <p class="catalog-count">
-                  {{
-                    tr("ad.catalog.optionCount", {
-                      count: packageItem.optionCount,
-                    })
-                  }}
-                  <span aria-hidden="true">·</span>
                   {{
                     tr("ad.catalog.variantCount", {
                       count: packageItem.variantCount,

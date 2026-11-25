@@ -1204,6 +1204,10 @@
 .admin-booking-list__meta .admin-price {
   color: var(--admin-ink);
 }
+/* Short items stay whole; only the package name may wrap. */
+.admin-booking-list__meta > span:not(.admin-booking-list__package) {
+  white-space: nowrap;
+}
 .admin-booking-list__actions {
   display: flex;
   flex-wrap: wrap;
@@ -1344,19 +1348,6 @@
   margin: 0;
   max-width: 70ch;
   white-space: pre-wrap;
-}
-.admin-guest-note--empty {
-  border-color: var(--admin-line);
-  background: transparent;
-}
-.admin-guest-note--empty h2,
-.admin-guest-note--empty p {
-  display: inline;
-  color: var(--admin-muted);
-  font-size: 0.875rem;
-}
-.admin-guest-note--empty h2::after {
-  content: ": ";
 }
 .admin-reference {
   display: flex;
@@ -1730,7 +1721,7 @@ a.admin-slot__body:hover .admin-slot__name {
 }
 .admin-notes p {
   margin: 0;
-  max-width: 80ch;
+  max-width: 70ch;
 }
 .admin-observed {
   display: flex;

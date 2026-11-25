@@ -46,7 +46,6 @@ export interface AdminCatalogPackageData {
   readonly status: CatalogStatus;
   readonly variantCount: number;
   readonly extensionCount: number;
-  readonly optionCount: number;
   readonly displayOrder: number;
   readonly can: Readonly<AdminCatalogAbilities>;
 }

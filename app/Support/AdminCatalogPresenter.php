@@ -99,7 +99,6 @@ final class AdminCatalogPresenter
             'status' => $service->catalogStatus()->value,
             'variantCount' => $service->variants->count(),
             'extensionCount' => $service->extensions->count(),
-            'optionCount' => $service->variants->count() + $service->extensions->count(),
             'displayOrder' => (int) $service->display_order,
             'can' => $this->abilities($service),
         ];

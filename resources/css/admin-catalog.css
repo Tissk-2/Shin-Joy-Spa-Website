@@ -232,6 +232,7 @@
   line-height: 1.5;
 }
 .catalog-help {
+  max-width: 70ch;
   color: var(--admin-muted);
 }
 .catalog-error {
