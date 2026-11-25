@@ -81,10 +81,11 @@ class StaffBookingTest extends TestCase
         $this->assertDatabaseCount('outbox_messages', 0);
     }
 
-    // Production break caught: a staff-typed email must never attach an existing customer account.
-    public function test_contact_email_is_normalized_and_never_links_an_account(): void
+    // Production break caught: a staff-typed email alone must never attach an existing customer account,
+    // or one typo would show a stranger's booking (name, WhatsApp number, notes) in someone's account.
+    public function test_contact_email_is_normalized_and_alone_never_links_an_account(): void
     {
-        $customer = User::factory()->create(['email' => 'ayu@example.test']);
+        $customer = User::factory()->create(['email' => 'ayu@example.test', 'phone' => '+6289900001111']);
         $staff = User::factory()->bookingStaff()->create();
 
         $this->actingAs($staff)->post('/admin/bookings', $this->httpPayload([
@@ -96,6 +97,33 @@ class StaffBookingTest extends TestCase
         $this->assertSame('ayu@example.test', $booking->customer_email);
         $this->assertNull($booking->user_id);
         $this->assertSame(0, $customer->bookings()->count());
+    }
+
+    // Flow review F15: when both the email and the WhatsApp number match one verified account,
+    // the booking joins it, so the customer sees it under Reservasi Saya.
+    public function test_a_matching_email_and_phone_link_the_booking_to_that_verified_account(): void
+    {
+        $customer = User::factory()->create(['email' => 'ayu@example.test', 'phone' => '+6281211112222']);
+        $unverified = User::factory()->unverified()->create(['email' => 'budi@example.test', 'phone' => '+6281233334444']);
+        $staff = User::factory()->bookingStaff()->create();
+
+        $this->actingAs($staff)->post('/admin/bookings', $this->httpPayload([
+            'email' => 'Ayu@Example.test',
+            'phone' => '+62 812-1111-2222',
+        ]))->assertStatus(303);
+        $this->actingAs($staff)->post('/admin/bookings', $this->httpPayload([
+            'email' => 'budi@example.test',
+            'phone' => '+62 812-3333-4444',
+            'submission_key' => '018f2f7c-9d0a-7b1b-9a45-3c1f9d0b5a21',
+            'time' => '13:30',
+        ]))->assertStatus(303);
+
+        $linked = $customer->bookings()->sole();
+        $this->assertSame('ayu@example.test', $linked->customer_email);
+        $this->assertSame($staff->id, $linked->created_by_staff_id);
+        $this->assertSame(0, $unverified->bookings()->count());
+
+        $this->actingAs($customer)->get('/bookings/'.$linked->reference)->assertOk();
     }
 
     // Production break caught: a network retry must return the same booking without rerunning approval.

@@ -59,9 +59,17 @@ final class CreateStaffBooking
                 ]);
             }
 
+            // The booking joins a customer's account only when both the email and the WhatsApp number
+            // match that verified account: one typo must not show a guest's details to a stranger.
+            $customerId = $data['email'] === null || $data['phone'] === '' ? null : User::query()
+                ->where('email', $data['email'])
+                ->where('phone', $data['phone'])
+                ->whereNotNull('email_verified_at')
+                ->value('id');
+
             $booking = (new Booking)->forceFill([
                 ...$attributes,
-                'user_id' => null,
+                'user_id' => $customerId,
                 'created_by_staff_id' => $lockedActor->id,
                 'reference' => CreateBooking::reference(),
                 'submission_key' => (string) $data['submission_key'],
