@@ -11,7 +11,6 @@ use App\Models\ServiceExtension;
 use App\Models\ServiceVariant;
 use App\Support\Catalog\CatalogCollisionReporter;
 use App\Support\Catalog\CatalogImageStorage;
-use App\Support\Catalog\ManagedCatalogPath;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -24,7 +23,6 @@ final class SaveCatalogPackage
 {
     public function __construct(
         private readonly CatalogImageStorage $images,
-        private readonly ManagedCatalogPath $managedPaths,
         private readonly CatalogCollisionReporter $collisions,
     ) {}
 
@@ -33,13 +31,13 @@ final class SaveCatalogPackage
         $this->validateDraft($data);
         $this->ensureUniqueChoiceIdentities($data->variants, new Collection, 'variants');
         $this->ensureUniqueChoiceIdentities($data->extensions, new Collection, 'extensions');
-        [$newCover, $newGallery, $newPaths] = $this->storeUploads($data);
+        [$newCover, $newPaths] = $this->storeUploads($data);
 
         try {
-            return DB::transaction(function () use ($data, $newCover, $newGallery, $newPaths): Service {
+            return DB::transaction(function () use ($data, $newCover, $newPaths): Service {
                 $this->compensateUploadsAfterRollback($newPaths);
                 $service = new Service;
-                $this->fillPackage($service, $data, $newCover, $newGallery);
+                $this->fillPackage($service, $data, $newCover);
                 $service->duration_minutes = null;
                 $service->price_idr = null;
                 $service->popularity = 0;
@@ -64,7 +62,7 @@ final class SaveCatalogPackage
 
     public function update(Service $service, int $version, CatalogPackageData $data): Service
     {
-        [$newCover, $newGallery, $newPaths] = $this->storeUploads($data);
+        [$newCover, $newPaths] = $this->storeUploads($data);
 
         try {
             return DB::transaction(function () use (
@@ -72,7 +70,6 @@ final class SaveCatalogPackage
                 $version,
                 $data,
                 $newCover,
-                $newGallery,
                 $newPaths,
             ): Service {
                 $this->compensateUploadsAfterRollback($newPaths);
@@ -89,22 +86,14 @@ final class SaveCatalogPackage
                 $this->ensureUniqueChoiceIdentities($data->extensions, $existingExtensions, 'extensions');
 
                 $oldCover = $locked->image_path;
-                $oldGallery = $locked->gallery_paths ?? [];
-                $retainedGallery = $this->managedPaths->resolveRetained($oldGallery, $data->retainedGalleryIds);
                 $nextCover = $newCover ?? ($data->removeCover ? null : $oldCover);
-                $nextGallery = [...$retainedGallery, ...$newGallery];
-                if (count($nextGallery) > 6) {
-                    throw ValidationException::withMessages([
-                        'galleryUploads' => __('validation.max.array', ['attribute' => 'galleryUploads', 'max' => 6]),
-                    ]);
-                }
 
                 if ($locked->published_at !== null && $locked->is_active) {
-                    ChangePackageLifecycle::validatePublishableData($category, $data, $nextCover, $nextGallery);
+                    ChangePackageLifecycle::validatePublishableData($category, $data, $nextCover);
                 }
 
                 $pricingChanged = $this->pricingChanged($locked, $existingVariants, $existingExtensions, $data);
-                $this->fillPackage($locked, $data, $nextCover, $nextGallery);
+                $this->fillPackage($locked, $data, $nextCover);
                 if ($pricingChanged && $locked->pricing_verified_at !== null) {
                     $locked->pricing_verified_at = null;
                     $locked->pricing_verified_by = null;
@@ -114,12 +103,8 @@ final class SaveCatalogPackage
                 $locked->lock_version++;
                 $locked->save();
 
-                $removedPaths = array_values(array_unique([
-                    ...($oldCover !== null && $oldCover !== $nextCover ? [$oldCover] : []),
-                    ...array_diff($oldGallery, $nextGallery),
-                ]));
-                if ($removedPaths !== []) {
-                    DB::afterCommit(fn () => $this->images->deleteManaged($removedPaths));
+                if ($oldCover !== null && $oldCover !== $nextCover) {
+                    DB::afterCommit(fn () => $this->images->deleteManaged([$oldCover]));
                 }
 
                 return $locked;
@@ -148,39 +133,21 @@ final class SaveCatalogPackage
             'nameId' => $data->nameId,
             'nameEn' => $data->nameEn,
             'displayOrder' => $data->displayOrder,
-            'retainedGalleryIds' => $data->retainedGalleryIds,
         ], [
             'categoryId' => ['required', 'integer', 'exists:service_categories,id'],
             'slug' => ['required', 'string'],
             'nameId' => ['required', 'string'],
             'nameEn' => ['required', 'string'],
             'displayOrder' => ['integer', 'min:0'],
-            'retainedGalleryIds' => ['size:0'],
         ])->validate();
     }
 
-    /** @return array{0: ?string, 1: list<string>, 2: list<string>} */
+    /** @return array{0: ?string, 1: list<string>} */
     private function storeUploads(CatalogPackageData $data): array
     {
-        $cover = null;
-        $gallery = [];
-        $paths = [];
+        $cover = $data->cover === null ? null : $this->images->store($data->cover, 'packages');
 
-        try {
-            if ($data->cover !== null) {
-                $cover = $this->images->store($data->cover, 'packages');
-                $paths[] = $cover;
-            }
-            foreach ($data->galleryUploads as $upload) {
-                $gallery[] = $this->images->store($upload, 'packages');
-                $paths[] = $gallery[array_key_last($gallery)];
-            }
-        } catch (Throwable $exception) {
-            $this->images->deleteManaged($paths);
-            throw $exception;
-        }
-
-        return [$cover, $gallery, $paths];
+        return [$cover, $cover === null ? [] : [$cover]];
     }
 
     /** @param list<string> $paths */
@@ -191,8 +158,9 @@ final class SaveCatalogPackage
         }
     }
 
-    /** @param list<string> $gallery */
-    private function fillPackage(Service $service, CatalogPackageData $data, ?string $cover, array $gallery): void
+    // The long descriptions and gallery_paths columns are left as they are: no public page shows them,
+    // so the staff editor no longer asks for them.
+    private function fillPackage(Service $service, CatalogPackageData $data, ?string $cover): void
     {
         $service->category_id = $data->categoryId;
         $service->slug = $data->slug;
@@ -200,8 +168,6 @@ final class SaveCatalogPackage
         $service->name_en = $data->nameEn;
         $service->description_id = $data->descId;
         $service->description_en = $data->descEn;
-        $service->long_description_id = $data->longId;
-        $service->long_description_en = $data->longEn;
         $service->good_for_id = $data->benefitId;
         $service->good_for_en = $data->benefitEn;
         $service->is_vip = $data->isVip;
@@ -210,7 +176,6 @@ final class SaveCatalogPackage
         $service->min_guests = $data->minGuests;
         $service->max_guests = $data->maxGuests;
         $service->image_path = $cover;
-        $service->gallery_paths = $gallery;
     }
 
     /**

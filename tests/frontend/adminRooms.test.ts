@@ -139,7 +139,7 @@ describe("read-only staff room inventory", () => {
     expect(codes(wrapper)).toEqual(["1", "2", "3"]);
     expect(wrapper.text()).toContain("Real <script>room</script>");
     expect(wrapper.find("tbody tr").text()).toContain("Enabled");
-    expect(wrapper.find("tbody tr").text()).toContain("Currently blocked");
+    expect(wrapper.find("tbody tr").text()).toContain("Under maintenance");
     expect(wrapper.text()).toContain("10:00");
     expect(wrapper.text()).toContain("WIB");
     expect(wrapper.text()).toContain("Massage");
@@ -155,17 +155,16 @@ describe("read-only staff room inventory", () => {
     expect(JSON.stringify(data)).toBe(original);
   });
 
-  it("filters status independently of blocks and keeps full inventory statistics", async () => {
+  it("filters status independently of blocks", async () => {
     const wrapper = render();
-    const stats = wrapper.find("dl").text();
+    // The stat row only repeated the map legend (staff review 2026-11-25).
+    expect(wrapper.find("dl").exists()).toBe(false);
     await wrapper.get("#room-status").setValue("enabled");
     expect(codes(wrapper)).toEqual(["1", "2"]);
     await wrapper.get("#room-status").setValue("blocked");
     expect(codes(wrapper)).toEqual(["1", "3"]);
     await wrapper.get("#room-status").setValue("disabled");
     expect(codes(wrapper)).toEqual(["3"]);
-    expect(wrapper.find("dl").text()).toBe(stats);
-    expect(stats).toContain("5"); // enabled capacity excludes disabled room's seven spaces
   });
 
   it("distinguishes unset types from actual sentinel-like strings and searches code/name", async () => {
@@ -202,10 +201,22 @@ describe("read-only staff room inventory", () => {
       expect(wrapper.text()).toContain(
         locale === "id" ? "Katalog tidak aktif" : "Inactive catalog",
       );
-      expect(wrapper.text()).toContain(
+      // One line names the active rooms with no treatment, instead of an empty box per room.
+      expect(wrapper.get("[data-rooms-without-treatments]").text()).toContain(
         locale === "id"
-          ? "Tidak ada perawatan kompatibel"
-          : "No compatible treatments",
+          ? "tidak bisa menerima reservasi saat penjadwalan ruangan aktif: Future room."
+          : "cannot take bookings once room scheduling is on: Future room.",
+      );
+      expect(
+        wrapper.get("[data-rooms-without-treatments]").classes(),
+      ).not.toContain("admin-callout--warning");
+      expect(
+        render({ ...inventory(), schedulingEnabled: true })
+          .get("[data-rooms-without-treatments]")
+          .classes(),
+      ).toContain("admin-callout--warning");
+      expect(wrapper.get('[data-room-card="2"]').text()).not.toContain(
+        locale === "id" ? "Perawatan kompatibel" : "Compatible treatments",
       );
       const empty = render({ ...inventory(), rooms: [] });
       expect(empty.text()).toContain(
@@ -250,7 +261,7 @@ describe("read-only staff room inventory", () => {
     const wrapper = render();
     expect(wrapper.text()).toContain("1 current");
     expect(wrapper.text()).toContain("11 upcoming");
-    expect(wrapper.text()).toContain("11 more saved blocks");
+    expect(wrapper.text()).toContain("11 more maintenance periods");
     expect(wrapper.text()).toContain("30 days");
     expect(wrapper.text()).toContain("Upcoming");
     expect(wrapper.find('tbody tr[data-room-id="3"]').text()).not.toContain(
@@ -260,7 +271,11 @@ describe("read-only staff room inventory", () => {
       ...inventory(),
       rooms: [{ ...inventory().rooms[1], upcomingBlockCount: 0, blocks: [] }],
     });
-    expect(noBlocks.text()).toContain("No blocks in this window");
+    expect(noBlocks.get('tbody tr[data-room-id="2"]').text()).toContain("None");
+    expect(noBlocks.get('[data-room-card="2"]').text()).not.toContain(
+      "0 current",
+    );
+    expect(noBlocks.text()).not.toContain("Showing up to 10");
   });
 });
 
@@ -339,7 +354,7 @@ describe("room map", () => {
     expect(cleaning.text()).not.toContain("Budi");
     expect(disabled.text()).toContain("Disabled");
     expect(open.text()).toContain("Free");
-    expect(closed.text()).toContain("Currently blocked");
+    expect(closed.text()).toContain("Under maintenance");
     // Phones turn the real plan a quarter clockwise (never mirror it): with reception at
     // the bottom, rooms 1-4 run down the right column and 5-8 down the left.
     expect(tiles(wrapper)[0].attributes("style")).toContain(

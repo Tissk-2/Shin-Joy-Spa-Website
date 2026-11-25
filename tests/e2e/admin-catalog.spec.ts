@@ -195,14 +195,6 @@ async function fillPackageForm(page: Page): Promise<void> {
     .getByLabel(/^deskripsi bahasa inggris$|^english description$/i)
     .fill("A calm massage with a signature rhythm that restores the body.");
   await page
-    .getByLabel(
-      /deskripsi panjang bahasa indonesia|indonesian long description/i,
-    )
-    .fill("Perawatan E2E lengkap untuk tubuh yang membutuhkan istirahat.");
-  await page
-    .getByLabel(/deskripsi panjang bahasa inggris|english long description/i)
-    .fill("A complete E2E treatment for a body that needs deep rest.");
-  await page
     .getByLabel(/^manfaat bahasa indonesia$|^indonesian benefit$/i)
     .fill("Membantu tubuh terasa ringan.");
   await page
@@ -212,9 +204,6 @@ async function fillPackageForm(page: Page): Promise<void> {
   await page
     .getByLabel(/foto sampul|cover image/i)
     .setInputFiles(catalogFixture("cover.png"));
-  await page
-    .getByLabel(/galeri foto|image gallery/i)
-    .setInputFiles(catalogFixture("gallery.webp"));
 
   const variant = page
     .getByRole("group", { name: /pilihan utama|base options/i })

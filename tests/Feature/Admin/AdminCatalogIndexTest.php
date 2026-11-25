@@ -8,7 +8,6 @@ use App\Models\ServiceExtension;
 use App\Models\ServiceVariant;
 use App\Models\User;
 use App\Support\AdminCatalogPresenter;
-use App\Support\Catalog\ManagedCatalogPath;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -71,28 +70,15 @@ class AdminCatalogIndexTest extends TestCase
             array_column($packages, 'slug'),
         );
         $this->assertSame([
-            'version', 'slug', 'categorySlug', 'nameId', 'nameEn', 'image', 'gallery', 'isVip',
+            'version', 'slug', 'categorySlug', 'nameId', 'nameEn', 'image', 'isVip',
             'status', 'variantCount', 'extensionCount', 'optionCount', 'displayOrder', 'can',
         ], array_keys($packages[0]));
-        $this->assertSame(
-            ['retentionId', 'url'],
-            array_keys($packages[0]['gallery'][0]),
-        );
         $this->assertSame(
             ['update', 'publish', 'archive', 'restore', 'delete'],
             array_keys($packages[0]['can']),
         );
 
         $this->assertSame('http://localhost/storage/catalog/packages/first-cover.jpg', $packages[0]['image']);
-        $this->assertSame('http://localhost/storage/catalog/packages/first-detail.jpg', $packages[0]['gallery'][0]['url']);
-        $this->assertMatchesRegularExpression('/\A[0-9a-f]{64}\z/', $packages[0]['gallery'][0]['retentionId']);
-        $this->assertSame(
-            ['catalog/packages/first-detail.jpg'],
-            app(ManagedCatalogPath::class)->resolveRetained(
-                ['catalog/packages/first-detail.jpg'],
-                [$packages[0]['gallery'][0]['retentionId']],
-            ),
-        );
         $this->assertSame(2, $packages[0]['variantCount']);
         $this->assertSame(1, $packages[0]['extensionCount']);
         $this->assertSame(3, $packages[0]['optionCount']);
@@ -102,7 +88,7 @@ class AdminCatalogIndexTest extends TestCase
 
         $this->assertForbiddenKeysAreAbsent(['packages' => $packages]);
         $this->assertStringNotContainsString('PRIVATE-BOOKING-CUSTOMER-CANARY', json_encode($packages, JSON_THROW_ON_ERROR));
-        $this->assertStringNotContainsString('catalog/packages/first-detail.jpg', $packages[0]['gallery'][0]['retentionId']);
+        $this->assertStringNotContainsString('first-detail.jpg', json_encode($packages, JSON_THROW_ON_ERROR));
 
     }
 

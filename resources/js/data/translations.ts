@@ -131,7 +131,7 @@ export default {
     "ad.blocks.create": "Tambah periode pemeliharaan",
     "ad.blocks.edit": "Ubah periode pemeliharaan",
     "ad.blocks.staffOnly":
-      "Alasan hanya terlihat oleh staf. Reservasi booking dan pembersihan tidak berubah.",
+      "Alasan hanya terlihat oleh staf. Reservasi yang sudah tersimpan dan waktu bersihnya tidak berubah.",
     "ad.blocks.limits":
       "Ubah atau akhiri periode tersimpan satu per satu. Waktu selesai suntingan harus tetap di masa depan.",
     "ad.blocks.allHelp":
@@ -144,6 +144,7 @@ export default {
       "Penyuntingan pemeliharaan belum tersedia karena data kewenangan atau jadwal belum lengkap.",
     "ad.blocks.empty": "Tidak ada periode pemeliharaan aktif atau mendatang.",
     "ad.blocks.pagination": "Halaman pemeliharaan",
+    "ad.blocks.pageOf": "Halaman {page} dari {lastPage}",
     "ad.blocks.previous": "Sebelumnya",
     "ad.blocks.next": "Berikutnya",
     "ad.blocks.future": "Mendatang",
@@ -619,18 +620,18 @@ export default {
     "ad.rooms.physicalDetails": "Detail fisik ruangan",
     "ad.rooms.optional": "(opsional)",
     "ad.rooms.typeHelp":
-      "Kosongkan jika tidak ada tipe khusus. Awali dengan huruf atau angka, lalu gunakan huruf, angka, spasi, garis bawah, atau tanda hubung.",
+      "Contoh: VIP atau Pasangan. Kosongkan jika tidak perlu.",
     "ad.rooms.capacityHelp":
       "Jumlah tamu yang dapat dilayani di ruangan ini secara bersamaan. Batas tamu pemesanan diatur terpisah.",
     "ad.rooms.cleaningHelp":
-      "0 sampai 720 menit. Perubahan hanya berlaku untuk alokasi berikutnya, bukan reservasi tersimpan.",
-    "ad.rooms.enableRoom": "Aktifkan ruangan untuk alokasi",
+      "0 sampai 720 menit. Perubahan berlaku untuk reservasi berikutnya, bukan yang sudah tersimpan.",
+    "ad.rooms.enableRoom": "Aktifkan ruangan untuk reservasi",
     "ad.rooms.activeHelp":
       "Ruangan baru dinonaktifkan secara bawaan. Aktifkan setelah detail fisiknya diperiksa.",
     "ad.rooms.compatibilityHelp":
-      "Pilih semua perawatan yang sesuai untuk ruangan ini. Pilihan draf dan arsip tetap dapat dikonfigurasi. Alokasi memerlukan katalog yang dipublikasikan.",
+      "Pilih semua perawatan yang sesuai untuk ruangan ini. Perawatan draf dan arsip juga bisa dipilih, tetapi reservasi hanya memakai perawatan yang dipublikasikan.",
     "ad.rooms.emptyCompatibility":
-      "Tanpa perawatan kompatibel, ruangan ini tidak dapat dialokasikan.",
+      "Tanpa perawatan kompatibel, ruangan ini tidak bisa dipakai untuk reservasi.",
     "ad.rooms.noCatalogChoices":
       "Belum ada varian perawatan dengan induk katalog yang lengkap.",
     "ad.rooms.writeUnavailable":
@@ -643,17 +644,13 @@ export default {
     "ad.rooms.published": "Dipublikasikan",
     "ad.rooms.archived": "Diarsipkan",
     "ad.rooms.subtitle":
-      "Catatan ruangan, kecocokan perawatan, dan periode blokir tersimpan.",
-    "ad.rooms.totalRooms": "Total ruangan",
-    "ad.rooms.enabledRooms": "Ruangan diaktifkan",
-    "ad.rooms.blockedRooms": "Sedang diblokir",
-    "ad.rooms.enabledCapacity": "Kapasitas diaktifkan",
+      "Catatan ruangan, kecocokan perawatan, dan periode pemeliharaan.",
     "ad.rooms.guests": "tamu",
     "ad.rooms.search": "Cari ruangan",
     "ad.rooms.searchPlaceholder": "Cari kode atau nama ruangan...",
     "ad.rooms.filterAll": "Semua status",
     "ad.rooms.enabled": "Diaktifkan",
-    "ad.rooms.blocked": "Sedang diblokir",
+    "ad.rooms.blocked": "Dalam pemeliharaan",
     "ad.rooms.disabled": "Dinonaktifkan",
     "ad.rooms.typeAll": "Semua tipe",
     "ad.rooms.unsetType": "Tipe belum ditetapkan",
@@ -664,30 +661,33 @@ export default {
     "ad.rooms.cleaning": "Jeda bersih",
     "ad.rooms.treatments": "Perawatan kompatibel",
     "ad.rooms.status": "Status",
-    "ad.rooms.blocks": "Periode blokir tersimpan",
+    "ad.rooms.blocks": "Pemeliharaan",
     "ad.rooms.empty":
       "Tidak ada ruangan yang cocok dengan pencarian dan filter.",
     "ad.rooms.emptyInventory": "Belum ada ruangan yang ditambahkan.",
     "ad.rooms.unavailable": "Catatan ruangan belum tersedia.",
     "ad.rooms.readOnly":
-      "Tampilan ini hanya untuk membaca catatan ruangan dan periode blokir tersimpan.",
+      "Tampilan ini hanya untuk membaca catatan ruangan dan periode pemeliharaan.",
     "ad.rooms.availabilityNote":
-      "Status ruangan menunjukkan inventaris dan blokir. Ketersediaan pemesanan bergantung pada perawatan, tanggal, dan waktu yang dipilih.",
+      "Status ruangan menunjukkan inventaris dan pemeliharaan. Ketersediaan pemesanan bergantung pada perawatan, tanggal, dan waktu yang dipilih.",
+    "ad.rooms.schedulingOffNote":
+      "Penjadwalan ruangan belum aktif, jadi reservasi belum memakai ruangan. Pengaturan di halaman ini baru berlaku setelah penjadwalan ruangan dinyalakan.",
+    "ad.rooms.noTreatmentsSummary":
+      "Ruangan aktif tanpa perawatan kompatibel tidak bisa menerima reservasi saat penjadwalan ruangan aktif: {rooms}.",
     "ad.rooms.observed": "Diamati pada",
     "ad.rooms.refresh": "Muat ulang",
-    "ad.rooms.schedulingOff": "Penjadwalan ruangan belum aktif.",
-    "ad.rooms.noTreatments": "Tidak ada perawatan kompatibel.",
+    "ad.rooms.noTreatments": "Belum ada",
     "ad.rooms.regular": "Reguler",
     "ad.rooms.doubleTherapist": "Dua terapis",
     "ad.rooms.inactiveCatalog": "Katalog tidak aktif",
     "ad.rooms.blockCounts": "{current} berlangsung · {upcoming} mendatang",
     "ad.rooms.current": "Berlangsung",
     "ad.rooms.upcoming": "Mendatang",
-    "ad.rooms.noBlocks": "Tidak ada blokir dalam rentang ini.",
+    "ad.rooms.noBlocks": "Tidak ada",
     "ad.rooms.blockWindow":
-      "Menampilkan hingga 10 blokir tersimpan per ruangan yang sedang berlangsung atau dimulai dalam 30 hari setelah waktu pengamatan. Jumlah mencakup blokir yang tidak ditampilkan.",
+      "Menampilkan hingga 10 periode pemeliharaan per ruangan yang sedang berlangsung atau dimulai dalam 30 hari ke depan. Jumlahnya mencakup periode yang tidak ditampilkan.",
     "ad.rooms.omittedBlocks":
-      "{count} blokir tersimpan lainnya tidak ditampilkan.",
+      "{count} periode pemeliharaan lainnya tidak ditampilkan.",
     "ad.rooms.minutes": "menit",
     "ad.rooms.map": "Denah ruangan",
     "ad.rooms.mapGuest": "Ada tamu",
@@ -786,7 +786,6 @@ export default {
     "ad.catalog.form.details": "Detail paket",
     "ad.catalog.form.photos": "Foto",
     "ad.catalog.form.cover": "Foto sampul",
-    "ad.catalog.form.gallery": "Galeri foto",
     "ad.catalog.upload.help":
       "Unggah gambar yang jelas dan sesuai untuk menu perawatan.",
     "ad.catalog.processing": "Menyimpan katalog...",
@@ -821,8 +820,6 @@ export default {
     "ad.catalog.form.isVip": "Paket VIP",
     "ad.catalog.form.descId": "Deskripsi Bahasa Indonesia",
     "ad.catalog.form.descEn": "Deskripsi Bahasa Inggris",
-    "ad.catalog.form.longId": "Deskripsi panjang Bahasa Indonesia",
-    "ad.catalog.form.longEn": "Deskripsi panjang Bahasa Inggris",
     "ad.catalog.form.benefitId": "Manfaat Bahasa Indonesia",
     "ad.catalog.form.benefitEn": "Manfaat Bahasa Inggris",
     "ad.catalog.form.variants": "Pilihan utama",
@@ -857,10 +854,6 @@ export default {
     "ad.catalog.form.addRow": "Tambah pilihan",
     "ad.catalog.form.removeRow": "Hapus pilihan",
     "ad.catalog.form.saveDraft": "Simpan draf",
-    "ad.catalog.form.galleryHelp":
-      "Tambahkan hingga enam gambar JPEG, PNG, atau WebP.",
-    "ad.catalog.form.galleryLimit": "Galeri maksimal enam gambar.",
-    "ad.catalog.form.galleryTypeError": "Pilih gambar JPEG, PNG, atau WebP.",
     "ad.catalog.lifecycle.category.publish.title": "Publikasikan kategori?",
     "ad.catalog.lifecycle.category.publish.body":
       "Publikasikan kategori {name} agar dapat tampil di menu publik bersama paket yang sudah dipublikasikan.",
@@ -966,7 +959,7 @@ export default {
     "ad.manual.new": "Reservasi baru",
     "ad.manual.title": "Reservasi baru",
     "ad.manual.subtitle":
-      "Catat reservasi datang langsung, telepon, atau WhatsApp untuk tamu tanpa akun.",
+      "Catat reservasi datang langsung, telepon, atau WhatsApp. Jika email dan nomor WhatsApp cocok dengan akun tamu, reservasi masuk ke akun itu.",
     "ad.manual.back": "Kembali ke reservasi",
     "ad.manual.source": "Sumber",
     "ad.manual.name": "Nama tamu",
@@ -1192,7 +1185,7 @@ export default {
     "ad.blocks.create": "Add maintenance period",
     "ad.blocks.edit": "Edit maintenance period",
     "ad.blocks.staffOnly":
-      "Reasons are visible to staff only. Booking and cleaning reservations remain unchanged.",
+      "Reasons are visible to staff only. Saved bookings and their cleaning time stay as they are.",
     "ad.blocks.limits":
       "Edit or end saved periods individually. An edited end must remain in the future.",
     "ad.blocks.allHelp":
@@ -1205,6 +1198,7 @@ export default {
       "Maintenance editing is unavailable while authority or schedule data is incomplete.",
     "ad.blocks.empty": "No current or future maintenance periods.",
     "ad.blocks.pagination": "Maintenance pages",
+    "ad.blocks.pageOf": "Page {page} of {lastPage}",
     "ad.blocks.previous": "Previous",
     "ad.blocks.next": "Next",
     "ad.blocks.future": "Future",
@@ -1677,18 +1671,18 @@ export default {
     "ad.rooms.physicalDetails": "Physical room details",
     "ad.rooms.optional": "(optional)",
     "ad.rooms.typeHelp":
-      "Leave blank if no special type applies. Start with a letter or number, then use letters, numbers, spaces, underscores or hyphens.",
+      "For example VIP or Couple. Leave empty if not needed.",
     "ad.rooms.capacityHelp":
       "The number of guests this room can serve at the same time. The booking guest limit is separate.",
     "ad.rooms.cleaningHelp":
-      "0 to 720 minutes. Changes affect later allocations only, never saved reservations.",
-    "ad.rooms.enableRoom": "Enable room for allocation",
+      "0 to 720 minutes. Changes apply to later bookings, not saved ones.",
+    "ad.rooms.enableRoom": "Use this room for bookings",
     "ad.rooms.activeHelp":
       "New rooms start disabled. Enable after checking their physical details.",
     "ad.rooms.compatibilityHelp":
-      "Select every treatment suitable for this room. Draft and archived choices remain configurable. Allocation requires a published catalog.",
+      "Select every treatment suitable for this room. Draft and archived treatments can be selected too, but bookings only use published ones.",
     "ad.rooms.emptyCompatibility":
-      "With no compatible treatments, this room cannot be allocated.",
+      "With no compatible treatments, this room cannot be used for bookings.",
     "ad.rooms.noCatalogChoices":
       "No treatment variants with complete catalog parents exist yet.",
     "ad.rooms.writeUnavailable":
@@ -1701,17 +1695,13 @@ export default {
     "ad.rooms.published": "Published",
     "ad.rooms.archived": "Archived",
     "ad.rooms.subtitle":
-      "Room records, configured treatments, and saved block periods.",
-    "ad.rooms.totalRooms": "Total rooms",
-    "ad.rooms.enabledRooms": "Enabled rooms",
-    "ad.rooms.blockedRooms": "Currently blocked rooms",
-    "ad.rooms.enabledCapacity": "Enabled capacity",
+      "Room records, configured treatments, and maintenance periods.",
     "ad.rooms.guests": "guests",
     "ad.rooms.search": "Search rooms",
     "ad.rooms.searchPlaceholder": "Search room code or name...",
     "ad.rooms.filterAll": "All statuses",
     "ad.rooms.enabled": "Enabled",
-    "ad.rooms.blocked": "Currently blocked",
+    "ad.rooms.blocked": "Under maintenance",
     "ad.rooms.disabled": "Disabled",
     "ad.rooms.typeAll": "All types",
     "ad.rooms.unsetType": "Unset type",
@@ -1722,28 +1712,32 @@ export default {
     "ad.rooms.cleaning": "Cleaning buffer",
     "ad.rooms.treatments": "Compatible treatments",
     "ad.rooms.status": "Status",
-    "ad.rooms.blocks": "Saved block periods",
+    "ad.rooms.blocks": "Maintenance",
     "ad.rooms.empty": "No rooms match the search and filters.",
     "ad.rooms.emptyInventory": "No rooms have been added.",
     "ad.rooms.unavailable": "Room records are not available yet.",
     "ad.rooms.readOnly":
-      "This is a read-only view of room records and saved block periods.",
+      "This is a read-only view of room records and maintenance periods.",
     "ad.rooms.availabilityNote":
-      "Room status describes inventory and blocks. Booking availability depends on the selected treatment, date, and time.",
+      "Room status describes inventory and maintenance. Booking availability depends on the selected treatment, date, and time.",
+    "ad.rooms.schedulingOffNote":
+      "Room scheduling is off, so bookings do not use rooms yet. What you set here takes effect once room scheduling is turned on.",
+    "ad.rooms.noTreatmentsSummary":
+      "Active rooms with no compatible treatment cannot take bookings once room scheduling is on: {rooms}.",
     "ad.rooms.observed": "Observed at",
     "ad.rooms.refresh": "Refresh",
-    "ad.rooms.schedulingOff": "Room scheduling is not active yet.",
-    "ad.rooms.noTreatments": "No compatible treatments.",
+    "ad.rooms.noTreatments": "None yet",
     "ad.rooms.regular": "Regular",
     "ad.rooms.doubleTherapist": "Double therapist",
     "ad.rooms.inactiveCatalog": "Inactive catalog",
     "ad.rooms.blockCounts": "{current} current · {upcoming} upcoming",
     "ad.rooms.current": "Current",
     "ad.rooms.upcoming": "Upcoming",
-    "ad.rooms.noBlocks": "No blocks in this window.",
+    "ad.rooms.noBlocks": "None",
     "ad.rooms.blockWindow":
-      "Showing up to 10 saved blocks per room that are current or start within 30 days of the observation. Counts include blocks not displayed.",
-    "ad.rooms.omittedBlocks": "{count} more saved blocks are not displayed.",
+      "Showing up to 10 maintenance periods per room that are current or start within the next 30 days. Counts include periods not displayed.",
+    "ad.rooms.omittedBlocks":
+      "{count} more maintenance periods are not displayed.",
     "ad.rooms.minutes": "mins",
     "ad.rooms.map": "Room map",
     "ad.rooms.mapGuest": "Guest inside",
@@ -1842,7 +1836,6 @@ export default {
     "ad.catalog.form.details": "Package details",
     "ad.catalog.form.photos": "Photos",
     "ad.catalog.form.cover": "Cover image",
-    "ad.catalog.form.gallery": "Image gallery",
     "ad.catalog.upload.help":
       "Upload clear images that suit the treatment menu.",
     "ad.catalog.processing": "Saving catalog...",
@@ -1877,8 +1870,6 @@ export default {
     "ad.catalog.form.isVip": "VIP package",
     "ad.catalog.form.descId": "Indonesian description",
     "ad.catalog.form.descEn": "English description",
-    "ad.catalog.form.longId": "Indonesian long description",
-    "ad.catalog.form.longEn": "English long description",
     "ad.catalog.form.benefitId": "Indonesian benefit",
     "ad.catalog.form.benefitEn": "English benefit",
     "ad.catalog.form.variants": "Base options",
@@ -1913,10 +1904,6 @@ export default {
     "ad.catalog.form.addRow": "Add option",
     "ad.catalog.form.removeRow": "Remove option",
     "ad.catalog.form.saveDraft": "Save draft",
-    "ad.catalog.form.galleryHelp": "Add up to six JPEG, PNG, or WebP images.",
-    "ad.catalog.form.galleryLimit":
-      "The gallery can contain at most six images.",
-    "ad.catalog.form.galleryTypeError": "Choose a JPEG, PNG, or WebP image.",
     "ad.catalog.lifecycle.category.publish.title": "Publish category?",
     "ad.catalog.lifecycle.category.publish.body":
       "Publish {name} so the category can appear on the public menu alongside its published packages.",
@@ -2020,7 +2007,7 @@ export default {
     "ad.manual.new": "New booking",
     "ad.manual.title": "New booking",
     "ad.manual.subtitle":
-      "Record a walk-in, phone or WhatsApp booking for a guest without an account.",
+      "Record a walk-in, phone or WhatsApp booking. If the email and WhatsApp number match a guest's account, the booking joins that account.",
     "ad.manual.back": "Back to bookings",
     "ad.manual.source": "Source",
     "ad.manual.name": "Guest name",

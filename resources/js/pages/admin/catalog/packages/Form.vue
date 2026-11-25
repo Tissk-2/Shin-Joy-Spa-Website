@@ -5,7 +5,6 @@ import { ChevronLeft } from "lucide-vue-next";
 import CatalogImageInput from "@/components/admin/catalog/CatalogImageInput.vue";
 import CatalogLifecycleActions from "@/components/admin/catalog/CatalogLifecycleActions.vue";
 import PackageChoiceRows from "@/components/admin/catalog/PackageChoiceRows.vue";
-import PackageGalleryInput from "@/components/admin/catalog/PackageGalleryInput.vue";
 import { useLanguage } from "@/composables/useLanguage";
 import AdminLayout from "@/layouts/admin/AdminLayout.vue";
 import type {
@@ -39,8 +38,6 @@ const values = ref({
   nameEn: packageItem.nameEn,
   descId: packageItem.descId ?? "",
   descEn: packageItem.descEn ?? "",
-  longId: packageItem.longId ?? "",
-  longEn: packageItem.longEn ?? "",
   benefitId: packageItem.benefitId ?? "",
   benefitEn: packageItem.benefitEn ?? "",
   isVip: packageItem.isVip,
@@ -59,8 +56,6 @@ const extensions = ref<readonly CatalogChoiceInput[]>(
 );
 const cover = ref<File | null>(null);
 const removeCover = ref(false);
-const retained = ref([...packageItem.gallery]);
-const uploads = ref<readonly File[]>([]);
 // Attestation saves only basis/coverage; every other edit must be saved first.
 function otherDraftState(): string {
   return JSON.stringify({
@@ -72,15 +67,11 @@ function otherDraftState(): string {
     variants: variants.value,
     extensions: extensions.value,
     removeCover: removeCover.value,
-    retained: retained.value,
   });
 }
 const initialOtherDraftState = otherDraftState();
 const hasOtherEdits = computed(
-  () =>
-    cover.value !== null ||
-    uploads.value.length > 0 ||
-    otherDraftState() !== initialOtherDraftState,
+  () => cover.value !== null || otherDraftState() !== initialOtherDraftState,
 );
 const processing = ref(false);
 const errors = ref<Record<string, string>>({});
@@ -114,8 +105,6 @@ const extraErrors = computed(() =>
         "nameEn",
         "descId",
         "descEn",
-        "longId",
-        "longEn",
         "benefitId",
         "benefitEn",
         "isVip",
@@ -125,8 +114,6 @@ const extraErrors = computed(() =>
         "maxGuests",
         "pricing",
         "cover",
-        "galleryUploads",
-        "retainedGalleryIds",
         "removeCover",
       ].includes(field) && !renderedChoiceError(field),
   ),
@@ -166,8 +153,6 @@ function submit(): void {
     "nameEn",
     "descId",
     "descEn",
-    "longId",
-    "longEn",
     "benefitId",
     "benefitEn",
     "displayOrder",
@@ -179,10 +164,6 @@ function submit(): void {
   data.append("isVip", values.value.isVip ? "1" : "0");
   data.append("removeCover", removeCover.value ? "1" : "0");
   if (cover.value) data.append("cover", cover.value);
-  retained.value.forEach((item) =>
-    data.append("retainedGalleryIds[]", item.retentionId),
-  );
-  uploads.value.forEach((file) => data.append("galleryUploads[]", file));
   appendChoiceRows(data, "variants", variants.value);
   appendChoiceRows(data, "extensions", extensions.value);
   errors.value = {};
@@ -229,11 +210,6 @@ function attest(): void {
     },
   );
 }
-function retainedIds(ids: readonly string[]): void {
-  retained.value = retained.value.filter((item) =>
-    ids.includes(item.retentionId),
-  );
-}
 </script>
 
 <template>
@@ -274,8 +250,6 @@ function retainedIds(ids: readonly string[]): void {
                 'nameEn',
                 'descId',
                 'descEn',
-                'longId',
-                'longEn',
                 'benefitId',
                 'benefitEn',
                 'displayOrder',
@@ -306,13 +280,9 @@ function retainedIds(ids: readonly string[]): void {
                 </option>
               </select>
               <textarea
-                v-else-if="
-                  ['descId', 'descEn', 'longId', 'longEn'].includes(field)
-                "
+                v-else-if="['descId', 'descEn'].includes(field)"
                 :id="`catalog-package-${field}`"
-                v-model="
-                  values[field as 'descId' | 'descEn' | 'longId' | 'longEn']
-                "
+                v-model="values[field as 'descId' | 'descEn']"
                 :name="field"
                 :disabled="processing"
                 :aria-invalid="!!fieldError(field)"
@@ -363,14 +333,6 @@ function retainedIds(ids: readonly string[]): void {
               error-id="catalog-package-cover-error"
               :error="errors.cover"
               @change="cover = $event"
-            />
-            <PackageGalleryInput
-              :retained="retained"
-              :uploads="uploads"
-              :disabled="processing"
-              :error="errors.galleryUploads ?? errors.retainedGalleryIds"
-              @update:retained="retainedIds"
-              @update:uploads="uploads = $event"
             />
           </div>
           <section

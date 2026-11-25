@@ -1732,29 +1732,6 @@ a.admin-slot__body:hover .admin-slot__name {
   margin: 0;
   max-width: 80ch;
 }
-.admin-summary {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem 2rem;
-  margin: 0;
-}
-.admin-summary > div {
-  display: flex;
-  flex-direction: column-reverse;
-}
-.admin-summary dt {
-  color: var(--admin-muted);
-  font-size: 0.8125rem;
-}
-.admin-summary dd {
-  margin: 0;
-  font-size: 1.125rem;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-.admin-summary__alert {
-  color: var(--admin-warning);
-}
 .admin-observed {
   display: flex;
   flex-wrap: wrap;

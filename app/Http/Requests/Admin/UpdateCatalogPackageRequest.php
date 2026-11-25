@@ -10,11 +10,9 @@ use App\Models\Service;
 use App\Models\ServiceExtension;
 use App\Models\ServiceVariant;
 use App\Support\BookingSelectionLimits;
-use App\Support\Catalog\ManagedCatalogPath;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\File;
-use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\Validator;
 
 class UpdateCatalogPackageRequest extends FormRequest
@@ -22,10 +20,9 @@ class UpdateCatalogPackageRequest extends FormRequest
     /** @var list<string> */
     private const TOP_LEVEL_FIELDS = [
         'version', 'categoryId', 'slug', 'nameId', 'nameEn', 'descId', 'descEn',
-        'longId', 'longEn', 'benefitId', 'benefitEn', 'isVip', 'displayOrder',
+        'benefitId', 'benefitEn', 'isVip', 'displayOrder',
         'pricingBasis', 'minGuests', 'maxGuests',
-        'cover', 'removeCover', 'retainedGalleryIds', 'galleryUploads', 'variants',
-        'extensions',
+        'cover', 'removeCover', 'variants', 'extensions',
     ];
 
     /** @var list<string> */
@@ -37,7 +34,7 @@ class UpdateCatalogPackageRequest extends FormRequest
     {
         $normalized = [];
 
-        foreach (['slug', 'nameId', 'nameEn', 'descId', 'descEn', 'longId', 'longEn', 'benefitId', 'benefitEn'] as $field) {
+        foreach (['slug', 'nameId', 'nameEn', 'descId', 'descEn', 'benefitId', 'benefitEn'] as $field) {
             if (! $this->exists($field)) {
                 continue;
             }
@@ -45,7 +42,7 @@ class UpdateCatalogPackageRequest extends FormRequest
             $value = $this->input($field);
             if (is_string($value)) {
                 $value = trim($value);
-                if ($value === '' && in_array($field, ['descId', 'descEn', 'longId', 'longEn', 'benefitId', 'benefitEn'], true)) {
+                if ($value === '' && in_array($field, ['descId', 'descEn', 'benefitId', 'benefitEn'], true)) {
                     $value = null;
                 }
             }
@@ -106,8 +103,6 @@ class UpdateCatalogPackageRequest extends FormRequest
             'nameEn' => ['required', 'string', 'max:255'],
             'descId' => ['present', 'nullable', 'string', 'max:10000'],
             'descEn' => ['present', 'nullable', 'string', 'max:10000'],
-            'longId' => ['present', 'nullable', 'string', 'max:20000'],
-            'longEn' => ['present', 'nullable', 'string', 'max:20000'],
             'benefitId' => ['present', 'nullable', 'string', 'max:255'],
             'benefitEn' => ['present', 'nullable', 'string', 'max:255'],
             'isVip' => ['required', 'boolean'],
@@ -117,10 +112,6 @@ class UpdateCatalogPackageRequest extends FormRequest
             'maxGuests' => ['present', 'nullable', 'integer', 'min:1', 'max:4'],
             'cover' => ['nullable', $this->imageRule()],
             'removeCover' => ['sometimes', 'boolean'],
-            'retainedGalleryIds' => ['sometimes', 'array', 'max:6'],
-            'retainedGalleryIds.*' => ['string', 'size:64', 'regex:/\A[0-9a-f]{64}\z/'],
-            'galleryUploads' => ['sometimes', 'array', 'max:6'],
-            'galleryUploads.*' => ['required', $this->imageRule()],
             'variants' => ['present', 'array'],
             'extensions' => ['present', 'array'],
             ...$this->choiceRules('variants', BookingSelectionLimits::BASE_DURATION_MINUTES),
@@ -144,7 +135,6 @@ class UpdateCatalogPackageRequest extends FormRequest
             $this->rejectUnknownChoiceFields($validator, 'extensions');
             $this->validateBenefitPair($validator);
             $this->validatePricing($validator);
-            $this->validateGallery($validator);
             $this->validateChoices($validator, 'variants', ServiceVariant::class);
             $this->validateChoices($validator, 'extensions', ServiceExtension::class);
             $this->validatePublishedIdentifiers($validator);
@@ -163,8 +153,6 @@ class UpdateCatalogPackageRequest extends FormRequest
             nameEn: $validated['nameEn'],
             descId: $validated['descId'],
             descEn: $validated['descEn'],
-            longId: $validated['longId'],
-            longEn: $validated['longEn'],
             benefitId: $validated['benefitId'],
             benefitEn: $validated['benefitEn'],
             isVip: (bool) $validated['isVip'],
@@ -176,8 +164,6 @@ class UpdateCatalogPackageRequest extends FormRequest
             maxGuests: $validated['maxGuests'] === null ? null : (int) $validated['maxGuests'],
             cover: $validated['cover'] ?? null,
             removeCover: (bool) ($validated['removeCover'] ?? false),
-            retainedGalleryIds: array_values($validated['retainedGalleryIds'] ?? []),
-            galleryUploads: array_values($validated['galleryUploads'] ?? []),
             variants: $this->choiceData($validated['variants']),
             extensions: $this->choiceData($validated['extensions']),
         );
@@ -263,30 +249,6 @@ class UpdateCatalogPackageRequest extends FormRequest
         }
         if (is_numeric($min) && is_numeric($max) && (int) $min > (int) $max) {
             $validator->errors()->add('maxGuests', __('validation.booking.guest_coverage'));
-        }
-    }
-
-    private function validateGallery(Validator $validator): void
-    {
-        $retained = $this->input('retainedGalleryIds', []);
-        $uploads = $this->file('galleryUploads', []);
-        if (is_array($retained) && is_array($uploads) && count($retained) + count($uploads) > 6) {
-            $validator->errors()->add('galleryUploads', __('validation.max.array', ['attribute' => 'galleryUploads', 'max' => 6]));
-        }
-
-        $service = $this->route('service');
-        if (! $this->isCreate() && $service instanceof Service && is_array($retained)) {
-            try {
-                app(ManagedCatalogPath::class)->resolveRetained($service->gallery_paths ?? [], $retained);
-            } catch (ValidationException $exception) {
-                foreach ($exception->errors() as $field => $messages) {
-                    foreach ($messages as $message) {
-                        $validator->errors()->add($field, $message);
-                    }
-                }
-            }
-        } elseif ($this->isCreate() && is_array($retained) && $retained !== []) {
-            $validator->errors()->add('retainedGalleryIds', __('admin.catalog.validation.gallery_reference'));
         }
     }
 

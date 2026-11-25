@@ -37,7 +37,9 @@ test("staff reads persisted room inventory, filters it, and sees the same detail
   await expect(first).toContainText("B3D future cleaning");
   await expect(first).toContainText("Katalog tidak aktif");
   await expect(
-    page.getByText("Penjadwalan ruangan belum aktif."),
+    page.getByText(
+      /Penjadwalan ruangan belum aktif, jadi reservasi belum memakai ruangan\./,
+    ),
   ).toBeVisible();
   await expect(
     page.getByRole("button", {
@@ -54,7 +56,7 @@ test("staff reads persisted room inventory, filters it, and sees the same detail
   await page.locator("#room-status").selectOption("disabled");
   await expect(page.locator("tbody tr")).toHaveCount(1);
   await expect(page.locator("tbody tr")).toContainText("B3D-B");
-  await expect(page.locator("tbody tr")).toContainText("Sedang diblokir");
+  await expect(page.locator("tbody tr")).toContainText("Dalam pemeliharaan");
   await page.locator("#room-search").fill("no-such-room");
   await expect(page.getByRole("status")).toContainText(
     "Tidak ada ruangan yang cocok",

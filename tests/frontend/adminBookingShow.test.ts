@@ -181,16 +181,17 @@ describe("admin booking detail", () => {
       "VIP",
       "Double therapist",
       "90 min",
-      "DT60",
       "60 min",
       "Rp 350.000",
-      "DT30",
       "30 min",
       "Rp 100.000",
       "Rp 450.000",
       "Please use light pressure.",
     ])
       expect(wrapper.text()).toContain(value);
+    // Internal choice codes mean nothing to staff (staff review 2026-11-25).
+    expect(wrapper.text()).not.toContain("DT60");
+    expect(wrapper.text()).not.toContain("DT30");
     expect(wrapper.get("a[data-back-bookings]").attributes("href")).toBe(
       backUrl,
     );
@@ -251,6 +252,16 @@ describe("admin booking detail", () => {
       ).toBe(false);
     },
   );
+
+  // Staff review 2026-11-25: detail used Setujui | Tolak while Hari ini and Reservasi use Tolak | Setujui.
+  it("puts the main action last, matching the request lists", () => {
+    const pending = mountPage();
+    expect(
+      pending
+        .findAll("[data-next-status]")
+        .map((node) => node.attributes("data-next-status")),
+    ).toEqual(["cancelled", "confirmed"]);
+  });
 
   // Catches unsupported client-generated transitions and native browser confirmation.
   it("offers only server-approved actions and focuses the real alert dialog", async () => {

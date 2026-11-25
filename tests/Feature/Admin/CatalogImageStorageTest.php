@@ -220,62 +220,6 @@ class CatalogImageStorageTest extends TestCase
         );
     }
 
-    public function test_retention_ids_are_stable_opaque_and_bound_to_the_application_key(): void
-    {
-        $paths = new ManagedCatalogPath;
-        $path = 'catalog/packages/8b16caa7-8007-41f1-8928-22f93b38f9c0/cover.webp';
-
-        $retentionId = $paths->retentionId($path);
-
-        $this->assertSame($retentionId, $paths->retentionId($path));
-        $this->assertMatchesRegularExpression('/\A[0-9a-f]{64}\z/', $retentionId);
-        $this->assertStringNotContainsString('catalog', $retentionId);
-        $this->assertStringNotContainsString('cover.webp', $retentionId);
-
-        config(['app.key' => 'base64:BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=']);
-
-        $this->assertNotSame($retentionId, $paths->retentionId($path));
-    }
-
-    public function test_retained_ids_resolve_only_against_current_paths_in_submitted_order(): void
-    {
-        $paths = new ManagedCatalogPath;
-        $currentPaths = [
-            'catalog/packages/first/image.jpg',
-            '/img/legacy-gallery.jpg',
-        ];
-
-        $resolved = $paths->resolveRetained($currentPaths, [
-            $paths->retentionId($currentPaths[1]),
-            $paths->retentionId($currentPaths[0]),
-        ]);
-
-        $this->assertSame([$currentPaths[1], $currentPaths[0]], $resolved);
-    }
-
-    public function test_duplicate_retained_ids_are_rejected_with_the_catalog_validation_error(): void
-    {
-        $paths = new ManagedCatalogPath;
-        $path = 'catalog/packages/current/image.jpg';
-        $retentionId = $paths->retentionId($path);
-
-        $this->assertGalleryReferenceValidationFailure(
-            fn (): array => $paths->resolveRetained([$path], [$retentionId, $retentionId]),
-        );
-    }
-
-    public function test_unknown_or_malformed_retained_ids_are_rejected_with_the_catalog_validation_error(): void
-    {
-        $paths = new ManagedCatalogPath;
-        $currentPath = 'catalog/packages/current/image.jpg';
-
-        foreach ([['foreign-retention-id'], [null]] as $submittedIds) {
-            $this->assertGalleryReferenceValidationFailure(
-                fn (): array => $paths->resolveRetained([$currentPath], $submittedIds),
-            );
-        }
-    }
-
     #[DataProvider('managedPathProvider')]
     public function test_only_generated_catalog_image_paths_are_managed(?string $path, bool $expected): void
     {
@@ -315,19 +259,6 @@ class CatalogImageStorageTest extends TestCase
         yield 'https URL' => ['https://example.test/catalog/packages/image.jpg', false];
         yield 'protocol-relative URL' => ['//example.test/catalog/packages/image.jpg', false];
         yield 'windows absolute path' => ['C:\\catalog\\packages\\image.jpg', false];
-    }
-
-    private function assertGalleryReferenceValidationFailure(callable $operation): void
-    {
-        try {
-            $operation();
-            $this->fail('Expected retained gallery validation to fail.');
-        } catch (ValidationException $exception) {
-            $this->assertSame(
-                [__('admin.catalog.validation.gallery_reference')],
-                $exception->errors()['retainedGalleryIds'] ?? [],
-            );
-        }
     }
 
     private function assertValidationFailure(string $field, callable $operation): void

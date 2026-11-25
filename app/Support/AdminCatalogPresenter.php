@@ -5,15 +5,12 @@ namespace App\Support;
 use App\Enums\CatalogStatus;
 use App\Models\Service;
 use App\Models\ServiceCategory;
-use App\Support\Catalog\ManagedCatalogPath;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 
 final class AdminCatalogPresenter
 {
-    public function __construct(private readonly ManagedCatalogPath $managedPath) {}
-
     /**
      * @param  Collection<int, ServiceCategory>  $categories
      * @return array{packages: list<array<string, mixed>>}
@@ -48,17 +45,11 @@ final class AdminCatalogPresenter
                 'nameEn' => $service->name_en,
                 'descId' => $service->description_id,
                 'descEn' => $service->description_en,
-                'longId' => $service->long_description_id,
-                'longEn' => $service->long_description_en,
                 'benefitId' => $service->good_for_id,
                 'benefitEn' => $service->good_for_en,
                 'isVip' => (bool) $service->is_vip,
                 'displayOrder' => (int) $service->display_order,
                 'cover' => $this->publicImageUrl($service->image_path),
-                'gallery' => collect($service->gallery_paths ?? [])->map(fn (string $path): array => [
-                    'retentionId' => $this->managedPath->retentionId($path),
-                    'url' => $this->publicImageUrl($path),
-                ])->values()->all(),
                 'variants' => $service->variants->map(fn ($choice): array => $this->packageChoice($choice))->values()->all(),
                 'extensions' => $service->extensions->map(fn ($choice): array => $this->packageChoice($choice))->values()->all(),
                 'pricingBasis' => $service->pricing_basis?->value,
@@ -104,13 +95,6 @@ final class AdminCatalogPresenter
             'nameId' => $service->name_id,
             'nameEn' => $service->name_en,
             'image' => $this->publicImageUrl($service->image_path),
-            'gallery' => collect($service->gallery_paths ?? [])
-                ->map(fn (string $path): array => [
-                    'retentionId' => $this->managedPath->retentionId($path),
-                    'url' => $this->publicImageUrl($path),
-                ])
-                ->values()
-                ->all(),
             'isVip' => (bool) $service->is_vip,
             'status' => $service->catalogStatus()->value,
             'variantCount' => $service->variants->count(),

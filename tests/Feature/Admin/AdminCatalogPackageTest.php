@@ -14,7 +14,6 @@ use App\Models\ServiceExtension;
 use App\Models\ServiceVariant;
 use App\Models\User;
 use App\Support\Catalog\CatalogCollisionReporter;
-use App\Support\Catalog\ManagedCatalogPath;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Illuminate\Http\UploadedFile;
@@ -160,6 +159,7 @@ class AdminCatalogPackageTest extends TestCase
     }
 
     // Production break caught: a full form save must reconcile media and children as one versioned aggregate.
+    // The long descriptions and gallery are no longer edited (no public page shows them), so a save leaves them as stored.
     public function test_update_reconciles_the_complete_normalized_aggregate_and_exposes_safe_edit_props(): void
     {
         Storage::fake('public');
@@ -167,10 +167,13 @@ class AdminCatalogPackageTest extends TestCase
         $category = $this->category();
         $oldGallery = 'catalog/packages/11111111-1111-4111-8111-111111111111/22222222-2222-4222-8222-222222222222.jpg';
         Storage::disk('public')->put($oldGallery, 'gallery');
-        $service = $this->service($category, ['gallery_paths' => [$oldGallery]]);
+        $service = $this->service($category, [
+            'gallery_paths' => [$oldGallery],
+            'long_description_id' => 'Panjang',
+            'long_description_en' => 'Long',
+        ]);
         $variant = $this->variant($service, 'draft-regular-60', 60);
 
-        $retentionId = app(ManagedCatalogPath::class)->retentionId($oldGallery);
         $this->actingAs($admin)->post("/admin/catalog/packages/{$service->slug}", [
             '_method' => 'PATCH',
             ...$this->payload($category, [
@@ -179,8 +182,6 @@ class AdminCatalogPackageTest extends TestCase
                 'isVip' => '1',
                 'displayOrder' => '4',
                 'cover' => self::fakeImage('cover.webp', 600, 400),
-                'retainedGalleryIds' => [$retentionId],
-                'galleryUploads' => [self::fakeImage('detail.png', 800, 500)],
                 'variants' => [$this->choice([
                     'id' => $variant->id,
                     'code' => 'updated-regular-60',
@@ -199,9 +200,10 @@ class AdminCatalogPackageTest extends TestCase
         $this->assertTrue($updated->is_vip);
         $this->assertSame(4, $updated->display_order);
         $this->assertSame(1, $updated->lock_version);
-        $this->assertCount(2, $updated->gallery_paths);
-        $this->assertSame($oldGallery, $updated->gallery_paths[0]);
-        Storage::disk('public')->assertExists([$updated->image_path, ...$updated->gallery_paths]);
+        $this->assertSame([$oldGallery], $updated->gallery_paths);
+        $this->assertSame('Panjang', $updated->long_description_id);
+        $this->assertSame('Long', $updated->long_description_en);
+        Storage::disk('public')->assertExists([$updated->image_path, $oldGallery]);
         $this->assertDatabaseHas('service_variants', ['id' => $variant->id, 'code' => 'updated-regular-60', 'price_idr' => 225000]);
         $this->assertDatabaseHas('service_extensions', ['service_id' => $service->id, 'code' => 'extra-regular-30']);
 
@@ -211,7 +213,9 @@ class AdminCatalogPackageTest extends TestCase
             ->has('categories')
             ->where('package.version', 1)
             ->where('package.status', 'draft')
-            ->where('package.gallery.0.retentionId', $retentionId));
+            ->missing('package.gallery')
+            ->missing('package.longId')
+            ->missing('package.longEn'));
 
         $serialized = json_encode($response->inertiaProps('package'), JSON_THROW_ON_ERROR);
         foreach (['image_path', 'gallery_paths', 'published_at', 'lock_version', 'bookings', 'customer', $oldGallery] as $forbidden) {
@@ -308,8 +312,6 @@ class AdminCatalogPackageTest extends TestCase
             ...$this->payload($category, [
                 'descId' => null,
                 'descEn' => 'Description',
-                'longId' => 'Panjang',
-                'longEn' => 'Long',
                 'variants' => [$this->choice(['id' => $variant->id, 'code' => $variant->code])],
             ]),
             'version' => 0,
@@ -349,7 +351,7 @@ class AdminCatalogPackageTest extends TestCase
     }
 
     // Production break caught: a surrounding rollback must restore DB references and remove every newly stored file.
-    public function test_outer_rollback_compensates_new_cover_and_gallery_and_preserves_old_media(): void
+    public function test_outer_rollback_compensates_a_new_cover_and_preserves_old_media(): void
     {
         Storage::fake('public');
         $oldCover = 'catalog/packages/11111111-1111-4111-8111-111111111111/22222222-2222-4222-8222-222222222222.jpg';
@@ -358,12 +360,12 @@ class AdminCatalogPackageTest extends TestCase
         Storage::disk('public')->put($oldGallery, 'gallery');
         $category = $this->category();
         $service = $this->service($category, ['image_path' => $oldCover, 'gallery_paths' => [$oldGallery]]);
-        $data = $this->packageData($category, cover: self::fakeImage('new-cover.jpg', 600, 400), gallery: [self::fakeImage('new-gallery.png', 600, 400)]);
+        $data = $this->packageData($category, cover: self::fakeImage('new-cover.jpg', 600, 400));
 
         DB::beginTransaction();
         try {
             $updated = app(SaveCatalogPackage::class)->update($service, 0, $data);
-            $newPaths = [$updated->image_path, ...$updated->gallery_paths];
+            $newPaths = [$updated->image_path];
             DB::rollBack();
         } finally {
             if (DB::transactionLevel() > 0) {
@@ -461,23 +463,13 @@ class AdminCatalogPackageTest extends TestCase
         }
     }
 
-    // Production break caught: gallery references and the shared six-image boundary must reject forged or excess input.
-    public function test_gallery_references_counts_and_image_boundaries_are_enforced(): void
+    // Production break caught: a cover below the minimum size must be refused without saving anything.
+    public function test_cover_image_boundaries_are_enforced(): void
     {
         Storage::fake('public');
         $admin = User::factory()->admin()->create();
         $category = $this->category();
-        $service = $this->service($category, ['gallery_paths' => ['/img/legacy.jpg']]);
-
-        $this->actingAs($admin)->patchJson("/admin/catalog/packages/{$service->slug}", [
-            ...$this->payload($category), 'version' => 0, 'retainedGalleryIds' => [str_repeat('a', 64)],
-        ])->assertUnprocessable()->assertJsonValidationErrors('retainedGalleryIds');
-
-        $this->actingAs($admin)->patchJson("/admin/catalog/packages/{$service->slug}", [
-            ...$this->payload($category),
-            'version' => 0,
-            'galleryUploads' => array_map(fn (int $index) => self::fakeImage("{$index}.jpg", 600, 400), range(1, 7)),
-        ])->assertUnprocessable()->assertJsonValidationErrors('galleryUploads');
+        $service = $this->service($category);
 
         $this->actingAs($admin)->patchJson("/admin/catalog/packages/{$service->slug}", [
             ...$this->payload($category),
@@ -485,9 +477,41 @@ class AdminCatalogPackageTest extends TestCase
             'cover' => self::fakeImage('small.jpg', 599, 400),
         ])->assertUnprocessable()->assertJsonValidationErrors('cover');
 
+        $this->assertSame(0, $service->fresh()->lock_version);
+    }
+
+    // Staff review 2026-11-25: the long descriptions and gallery never reached a public page, so the editor
+    // dropped them. The server now refuses those fields, and a live package stays saveable without them.
+    public function test_retired_long_description_and_gallery_fields_are_refused_and_not_needed_to_stay_live(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $category = $this->category(['published_at' => now(), 'is_active' => true, 'image_path' => '/img/category.jpg']);
+        $service = $this->service($category, [
+            'description_id' => 'Deskripsi', 'description_en' => 'Description',
+            'image_path' => '/img/package.jpg', 'gallery_paths' => ['/img/legacy.jpg'],
+            'published_at' => now(), 'is_active' => true,
+        ]);
+        $variant = $this->variant($service, 'stable-regular-60', 60, ['published_at' => now()]);
+        $live = $this->payload($category, [
+            'descId' => 'Deskripsi',
+            'descEn' => 'Description',
+            'variants' => [$this->choice(['id' => $variant->id, 'code' => $variant->code])],
+        ]);
+
+        foreach (['longId' => 'Panjang', 'longEn' => 'Long', 'retainedGalleryIds' => [], 'galleryUploads' => []] as $field => $value) {
+            $this->actingAs($admin)->patchJson("/admin/catalog/packages/{$service->slug}", [
+                ...$live, 'version' => 0, $field => $value,
+            ])->assertUnprocessable()->assertJsonValidationErrors($field);
+        }
+
+        $this->actingAs($admin)->patch("/admin/catalog/packages/{$service->slug}", [...$live, 'version' => 0])
+            ->assertStatus(303)
+            ->assertSessionHasNoErrors();
+
         $fresh = $service->fresh();
+        $this->assertSame(1, $fresh->lock_version);
+        $this->assertNull($fresh->long_description_id);
         $this->assertSame(['/img/legacy.jpg'], $fresh->gallery_paths);
-        $this->assertSame(0, $fresh->lock_version);
     }
 
     // Production break caught: a new choice code must stay within the identifier length every booking accepts.
@@ -673,8 +697,6 @@ class AdminCatalogPackageTest extends TestCase
                 'nameId' => 'Renamed Package',
                 'descId' => 'Deskripsi',
                 'descEn' => 'Description',
-                'longId' => 'Panjang',
-                'longEn' => 'Long',
                 'variants' => [$this->choice(['id' => $variant->id, 'code' => $longCode])],
             ]),
             'version' => 0,
@@ -770,8 +792,6 @@ class AdminCatalogPackageTest extends TestCase
             'nameEn' => 'Balinese Signature',
             'descId' => null,
             'descEn' => null,
-            'longId' => null,
-            'longEn' => null,
             'benefitId' => null,
             'benefitEn' => null,
             'isVip' => false,
@@ -780,7 +800,6 @@ class AdminCatalogPackageTest extends TestCase
             'minGuests' => null,
             'maxGuests' => null,
             'removeCover' => false,
-            'retainedGalleryIds' => [],
             'variants' => [],
             'extensions' => [],
             ...$overrides,
@@ -804,7 +823,6 @@ class AdminCatalogPackageTest extends TestCase
     }
 
     /**
-     * @param  list<UploadedFile>  $gallery
      * @param  list<CatalogChoiceData>|null  $variants
      * @param  list<CatalogChoiceData>|null  $extensions
      */
@@ -812,7 +830,6 @@ class AdminCatalogPackageTest extends TestCase
         ServiceCategory $category,
         string $slug = 'data-package',
         ?UploadedFile $cover = null,
-        array $gallery = [],
         ?array $variants = null,
         ?array $extensions = null,
     ): CatalogPackageData {
@@ -823,8 +840,6 @@ class AdminCatalogPackageTest extends TestCase
             nameEn: 'Data Package',
             descId: null,
             descEn: null,
-            longId: null,
-            longEn: null,
             benefitId: null,
             benefitEn: null,
             isVip: false,
@@ -834,8 +849,6 @@ class AdminCatalogPackageTest extends TestCase
             maxGuests: null,
             cover: $cover,
             removeCover: false,
-            retainedGalleryIds: [],
-            galleryUploads: $gallery,
             variants: $variants ?? [],
             extensions: $extensions ?? [],
         );

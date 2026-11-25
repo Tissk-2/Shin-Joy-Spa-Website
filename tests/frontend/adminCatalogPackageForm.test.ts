@@ -4,7 +4,6 @@ import { nextTick } from "vue";
 
 import PackageChoiceRows from "@/components/admin/catalog/PackageChoiceRows.vue";
 import CatalogImageInput from "@/components/admin/catalog/CatalogImageInput.vue";
-import PackageGalleryInput from "@/components/admin/catalog/PackageGalleryInput.vue";
 import PackageForm from "@/pages/admin/catalog/packages/Form.vue";
 
 type Options = {
@@ -46,8 +45,6 @@ const draftPackage = {
   nameEn: "",
   descId: null,
   descEn: null,
-  longId: null,
-  longEn: null,
   benefitId: null,
   benefitEn: null,
   isVip: false,
@@ -58,7 +55,6 @@ const draftPackage = {
   pricingVerified: false,
   pricingVerifiedBy: null,
   cover: null,
-  gallery: [],
   variants: [],
   extensions: [],
   status: "draft",
@@ -158,8 +154,6 @@ describe("admin package form", () => {
       nameEn: "Warm Stone",
       descId: "",
       descEn: "",
-      longId: "",
-      longEn: "",
       benefitId: "",
       benefitEn: "",
       isVip: "1",
@@ -290,7 +284,7 @@ describe("admin package form", () => {
     expect(owner.find("[data-pricing-attest]").exists()).toBe(true);
   });
 
-  it.each(["variant", "extension", "metadata", "cover", "gallery"])(
+  it.each(["variant", "extension", "metadata", "cover"])(
     "requires saving unsaved %s edits before attesting stored prices",
     async (edit) => {
       const row = {
@@ -317,14 +311,10 @@ describe("admin package form", () => {
         await wrapper.get(`[name="${edit}s.0.priceIdr"]`).setValue("200000");
       } else if (edit === "metadata") {
         await wrapper.get('[name="nameEn"]').setValue("Changed package");
-      } else if (edit === "cover") {
+      } else {
         wrapper
           .getComponent(CatalogImageInput)
           .vm.$emit("change", new File(["x"], "cover.png"));
-      } else {
-        wrapper
-          .getComponent(PackageGalleryInput)
-          .vm.$emit("update:uploads", [new File(["x"], "gallery.png")]);
       }
       await nextTick();
       const button = wrapper.get<HTMLButtonElement>("[data-pricing-attest]");
@@ -458,29 +448,6 @@ describe("admin package form", () => {
     expect(
       wrapper.get('[name="variants.0.isActive"]').attributes("aria-invalid"),
     ).toBe("true");
-  });
-
-  it("caps gallery uploads, keeps opaque retained IDs separate, and revokes only local previews", async () => {
-    const wrapper = mount(PackageGalleryInput, {
-      attachTo: document.body,
-      props: {
-        retained: [{ retentionId: "a".repeat(64), url: "/server.jpg" }],
-        uploads: [],
-      },
-    });
-    wrappers.push(wrapper);
-    const input = wrapper.get<HTMLInputElement>('input[type="file"]');
-    Object.defineProperty(input.element, "files", {
-      configurable: true,
-      value: [new File(["a"], "a.jpg", { type: "image/jpeg" })],
-    });
-    await input.trigger("change");
-    expect(wrapper.emitted("update:uploads")?.[0]?.[0]).toHaveLength(1);
-    await wrapper.get("[data-gallery-remove-upload]").trigger("click");
-    expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:preview-1");
-    await wrapper.get("[data-gallery-remove-retained]").trigger("click");
-    expect(wrapper.emitted("update:retained")?.[0]?.[0]).toEqual([]);
-    expect(URL.revokeObjectURL).not.toHaveBeenCalledWith("/server.jpg");
   });
 
   it("keeps stale nested errors visible and locks repeat submission while processing", async () => {

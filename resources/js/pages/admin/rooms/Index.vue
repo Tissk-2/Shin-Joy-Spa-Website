@@ -34,15 +34,14 @@ const typeChoices = computed(() =>
       label: type ?? tr("ad.rooms.unsetType"),
     })),
 );
-const stats = computed(() => ({
-  total: props.inventory.rooms.length,
-  enabled: props.inventory.rooms.filter((room) => room.isActive).length,
-  blocked: props.inventory.rooms.filter((room) => room.currentBlockCount > 0)
-    .length,
-  capacity: props.inventory.rooms
-    .filter((room) => room.isActive)
-    .reduce((sum, room) => sum + room.capacity, 0),
-}));
+// One line instead of an empty "compatible treatments" box on every room.
+const roomsWithoutTreatments = computed(() =>
+  props.inventory.rooms
+    .filter((room) => room.isActive && room.compatibleVariants.length === 0)
+    .map((room) => room.name),
+);
+const hasBlocks = (room: AdminRoomInventory["rooms"][number]) =>
+  room.currentBlockCount + room.upcomingBlockCount > 0;
 const filteredRooms = computed(() =>
   props.inventory.rooms.filter((room) => {
     const search = searchQuery.value.toLowerCase();
@@ -109,10 +108,27 @@ const observation = computed(
             {{ tr("ad.rooms.writeUnavailable") }}
           </p>
           <p>
-            {{ tr("ad.rooms.availabilityNote") }}
-            <template v-if="!inventory.schedulingEnabled">
-              {{ tr("ad.rooms.schedulingOff") }}</template
-            >
+            {{
+              tr(
+                inventory.schedulingEnabled
+                  ? "ad.rooms.availabilityNote"
+                  : "ad.rooms.schedulingOffNote",
+              )
+            }}
+          </p>
+          <p
+            v-if="roomsWithoutTreatments.length > 0"
+            :class="{
+              'admin-callout admin-callout--warning':
+                inventory.schedulingEnabled,
+            }"
+            data-rooms-without-treatments
+          >
+            {{
+              tr("ad.rooms.noTreatmentsSummary", {
+                rooms: roomsWithoutTreatments.join(", "),
+              })
+            }}
           </p>
         </div>
         <p
@@ -123,26 +139,6 @@ const observation = computed(
           {{ tr("ad.rooms.unavailable") }}
         </p>
         <template v-else>
-          <dl class="admin-summary">
-            <div>
-              <dt>{{ tr("ad.rooms.totalRooms") }}</dt>
-              <dd>{{ stats.total }}</dd>
-            </div>
-            <div>
-              <dt>{{ tr("ad.rooms.enabledRooms") }}</dt>
-              <dd>{{ stats.enabled }}</dd>
-            </div>
-            <div>
-              <dt>{{ tr("ad.rooms.blockedRooms") }}</dt>
-              <dd :class="{ 'admin-summary__alert': stats.blocked > 0 }">
-                {{ stats.blocked }}
-              </dd>
-            </div>
-            <div>
-              <dt>{{ tr("ad.rooms.enabledCapacity") }}</dt>
-              <dd>{{ stats.capacity }} {{ tr("ad.rooms.guests") }}</dd>
-            </div>
-          </dl>
           <p
             v-if="inventory.rooms.length === 0"
             class="admin-empty"
@@ -324,7 +320,7 @@ const observation = computed(
                   {{ tr("ad.rooms.cleaning") }} {{ room.cleaningMinutes }}
                   {{ tr("ad.rooms.minutes") }}
                 </p>
-                <section>
+                <section v-if="room.compatibleVariants.length > 0">
                   <h3 class="admin-room-card__label">
                     {{ tr("ad.rooms.treatments") }}
                   </h3>
@@ -334,7 +330,7 @@ const observation = computed(
                     section="treatments"
                   />
                 </section>
-                <section>
+                <section v-if="hasBlocks(room)">
                   <h3 class="admin-room-card__label">
                     {{ tr("ad.rooms.blocks") }}
                   </h3>
@@ -356,7 +352,9 @@ const observation = computed(
                 </p>
               </li>
             </ul>
-            <p class="admin-loading">{{ tr("ad.rooms.blockWindow") }}</p>
+            <p v-if="inventory.rooms.some(hasBlocks)" class="admin-loading">
+              {{ tr("ad.rooms.blockWindow") }}
+            </p>
           </template>
         </template>
       </div>

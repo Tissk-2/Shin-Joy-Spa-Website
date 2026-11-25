@@ -96,6 +96,16 @@ function formatDate(value: string, includeTime = false): string {
   }).format(new Date(includeTime ? value : `${value}T00:00:00Z`));
 }
 
+// The main action goes last, as on Hari ini and Reservasi (Tolak, then Setujui), so the
+// same thumb position always means the same answer.
+const actions = computed(() =>
+  [...props.booking.allowedTransitions].sort(
+    (a, b) =>
+      Number(a === "confirmed" || a === "completed") -
+      Number(b === "confirmed" || b === "completed"),
+  ),
+);
+
 function actionClass(next: BookingStatus): string {
   if (next === "cancelled") return "admin-button admin-button--danger";
   if (next === "confirmed" || next === "completed")
@@ -184,7 +194,7 @@ async function copyReference(): Promise<void> {
             :aria-label="tr('ad.table.action')"
           >
             <button
-              v-for="status in booking.allowedTransitions"
+              v-for="status in actions"
               :key="status"
               :class="actionClass(status)"
               type="button"
@@ -279,12 +289,9 @@ async function copyReference(): Promise<void> {
                   {{ tr(`bookings.treatmentMode.${booking.treatmentMode}`) }} ·
                   {{ booking.base.durationMinutes }}
                   {{ tr("bookings.minutes") }}
-                  <span class="admin-record-secondary"
-                    >{{ formatPrice(booking.base.priceIdr) }} ·
-                    <span class="admin-code">{{
-                      booking.base.choiceCode
-                    }}</span></span
-                  >
+                  <span class="admin-record-secondary">{{
+                    formatPrice(booking.base.priceIdr)
+                  }}</span>
                 </dd>
               </div>
               <div>
@@ -292,12 +299,9 @@ async function copyReference(): Promise<void> {
                 <dd v-if="booking.extension">
                   {{ booking.extension.durationMinutes }}
                   {{ tr("bookings.minutes") }}
-                  <span class="admin-record-secondary"
-                    >{{ formatPrice(booking.extension.priceIdr) }} ·
-                    <span class="admin-code">{{
-                      booking.extension.choiceCode
-                    }}</span></span
-                  >
+                  <span class="admin-record-secondary">{{
+                    formatPrice(booking.extension.priceIdr)
+                  }}</span>
                 </dd>
                 <dd v-else>{{ tr("ad.detail.noExtension") }}</dd>
               </div>

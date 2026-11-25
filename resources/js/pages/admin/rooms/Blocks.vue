@@ -163,6 +163,7 @@ const display = (value: string) =>
             </li>
           </ol>
           <nav
+            v-if="schedule.pagination.lastPage > 1"
             class="flex flex-wrap items-center gap-4"
             :aria-label="tr('ad.blocks.pagination')"
           >
@@ -173,9 +174,12 @@ const display = (value: string) =>
               >{{ tr("ad.blocks.previous") }}</a
             >
             <p>
-              {{ schedule.pagination.page }} /
-              {{ schedule.pagination.lastPage }} ·
-              {{ schedule.pagination.total }}
+              {{
+                tr("ad.blocks.pageOf", {
+                  page: schedule.pagination.page,
+                  lastPage: schedule.pagination.lastPage,
+                })
+              }}
             </p>
             <a
               v-if="schedule.pagination.next"

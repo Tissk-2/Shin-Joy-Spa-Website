@@ -42,7 +42,6 @@ export interface AdminCatalogPackageData {
   readonly nameId: string;
   readonly nameEn: string;
   readonly image: string | null;
-  readonly gallery: readonly Readonly<{ retentionId: string; url: string }>[];
   readonly isVip: boolean;
   readonly status: CatalogStatus;
   readonly variantCount: number;
@@ -58,11 +57,6 @@ export interface AdminCatalogCategoryOption {
   readonly nameId: string;
   readonly nameEn: string;
   readonly status: CatalogStatus;
-}
-
-export interface AdminCatalogGalleryItem {
-  readonly retentionId: string;
-  readonly url: string;
 }
 
 export interface AdminCatalogChoiceData {
@@ -96,8 +90,6 @@ export interface AdminCatalogPackageFormData {
   readonly nameEn: string;
   readonly descId: string | null;
   readonly descEn: string | null;
-  readonly longId: string | null;
-  readonly longEn: string | null;
   readonly benefitId: string | null;
   readonly benefitEn: string | null;
   readonly isVip: boolean;
@@ -108,7 +100,6 @@ export interface AdminCatalogPackageFormData {
   readonly pricingVerified: boolean;
   readonly pricingVerifiedBy: AdminCatalogPricingVerifier | null;
   readonly cover: string | null;
-  readonly gallery: readonly AdminCatalogGalleryItem[];
   readonly variants: readonly AdminCatalogChoiceData[];
   readonly extensions: readonly AdminCatalogChoiceData[];
   readonly status: CatalogStatus;

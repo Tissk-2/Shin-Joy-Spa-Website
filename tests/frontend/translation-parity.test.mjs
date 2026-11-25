@@ -94,7 +94,6 @@ test("catalog navigation, forms and lifecycle actions require paired functional 
       "form.packageNameEn",
       "form.packageSlug",
       "form.cover",
-      "form.gallery",
       "upload.help",
       "processing",
       "form.createTitle",
@@ -123,8 +122,6 @@ test("catalog navigation, forms and lifecycle actions require paired functional 
       "form.isVip",
       "form.descId",
       "form.descEn",
-      "form.longId",
-      "form.longEn",
       "form.benefitId",
       "form.benefitEn",
       "form.variants",
@@ -140,9 +137,6 @@ test("catalog navigation, forms and lifecycle actions require paired functional 
       "form.addRow",
       "form.removeRow",
       "form.saveDraft",
-      "form.galleryHelp",
-      "form.galleryLimit",
-      "form.galleryTypeError",
       ...["category", "package"].flatMap((record) =>
         ["publish", "archive", "restore", "delete"].flatMap((action) => [
           `lifecycle.${record}.${action}.title`,

@@ -134,7 +134,6 @@ function submit() {
               : 'ad.blocks.create',
         )
       "
-      :subtitle="tr('ad.blocks.subtitle')"
     >
       <div class="admin-content max-w-4xl space-y-5">
         <a href="/admin/room-blocks" class="admin-back-link"

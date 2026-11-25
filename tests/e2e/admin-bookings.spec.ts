@@ -246,12 +246,10 @@ test("administrator finds and confirms a real customer booking", async ({
   await expect(page.getByText(customerEmail, { exact: true })).toBeVisible();
   await expect(page.getByText(customerPhone, { exact: true })).toBeVisible();
   await expect(page.getByText("Nezuko", { exact: true })).toBeVisible();
-  await expect(
-    page.getByText(/regular · 90 min.*Rp 265\.000.*nezuko-regular-90/i),
-  ).toBeVisible();
-  await expect(
-    page.getByText(/60 min.*Rp 75\.000.*nezuko-regular-extra-60/i),
-  ).toBeVisible();
+  await expect(page.getByText(/regular · 90 min.*Rp 265\.000/i)).toBeVisible();
+  await expect(page.getByText(/60 min.*Rp 75\.000/i)).toBeVisible();
+  // Internal choice codes are not shown to staff (staff review 2026-11-25).
+  await expect(page.getByText(/nezuko-regular-/)).toHaveCount(0);
   await expect(page.getByText(/150 min/i)).toBeVisible();
   await expect(page.getByText("Rp 340.000", { exact: true })).toBeVisible();
 

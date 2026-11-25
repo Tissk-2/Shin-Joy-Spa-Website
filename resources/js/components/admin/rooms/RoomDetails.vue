@@ -96,7 +96,13 @@ const dateTime = (value: string) =>
     </ul>
   </div>
   <div v-else class="admin-room-details">
-    <p class="admin-room-details__count">
+    <p
+      v-if="room.currentBlockCount + room.upcomingBlockCount === 0"
+      class="admin-record-secondary"
+    >
+      {{ tr("ad.rooms.noBlocks") }}
+    </p>
+    <p v-else class="admin-room-details__count">
       {{
         tr("ad.rooms.blockCounts", {
           current: room.currentBlockCount,
@@ -104,13 +110,7 @@ const dateTime = (value: string) =>
         })
       }}
     </p>
-    <p
-      v-if="room.currentBlockCount + room.upcomingBlockCount === 0"
-      class="admin-record-secondary"
-    >
-      {{ tr("ad.rooms.noBlocks") }}
-    </p>
-    <ul v-else role="list" class="admin-room-blocks">
+    <ul v-if="room.blocks.length > 0" role="list" class="admin-room-blocks">
       <li v-for="block in room.blocks" :key="block.id">
         <p class="admin-room-blocks__when">
           {{

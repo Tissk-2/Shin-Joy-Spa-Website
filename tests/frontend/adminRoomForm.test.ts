@@ -70,7 +70,7 @@ it("requires explicit physical values, defaults inactive and explains empty comp
   for (const field of ["code", "name", "capacity", "cleaningMinutes"])
     expect(wrapper.get(`#${field}`).element).toHaveProperty("value", "");
   expect(wrapper.get("#isActive").element).toHaveProperty("checked", false);
-  expect(wrapper.text()).toContain("cannot be allocated");
+  expect(wrapper.text()).toContain("cannot be used for bookings");
   expect(wrapper.text()).toContain("Massage");
   expect(wrapper.text()).toContain("Draft");
   expect(wrapper.text()).toContain("Archived");
