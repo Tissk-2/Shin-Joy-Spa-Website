@@ -21,7 +21,8 @@ function close(): void {
 
 function deleteUser(): void {
   form.delete("/settings/profile", {
-    preserveScroll: true,
+    // Stay in place for a wrong password; a deleted account opens the home page at the top.
+    preserveScroll: "errors",
     onSuccess: () => close(),
     onError: () => passwordInput.value?.focus(),
     onFinish: () => form.reset(),

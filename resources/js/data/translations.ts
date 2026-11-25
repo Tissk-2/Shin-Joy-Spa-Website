@@ -182,6 +182,8 @@ export default {
     "nav.breadcrumb": "Jejak navigasi",
     "nav.menu": "Buka menu",
     "nav.close": "Tutup menu",
+    "account.deleted": "Akun Anda telah dihapus.",
+    "account.deletedClose": "Tutup pemberitahuan",
     "lang.id": "ID",
     "lang.en": "EN",
     skip: "Lewati ke konten utama",
@@ -378,7 +380,6 @@ export default {
     "profile.duration": "Durasi",
     "profile.guests": "Tamu",
     "profile.contact": "Kontak reservasi",
-    "profile.notProvided": "Belum diisi",
     "profile.historyUnavailable":
       "Riwayat reservasi tidak dapat dimuat dari penyimpanan browser. Silakan coba lagi.",
     "profile.bookingsTitle": "Riwayat reservasi",
@@ -454,6 +455,9 @@ export default {
       "Disetujui staf. Janji Anda sudah terkonfirmasi.",
     "bookings.statusNote.cancelled":
       "Reservasi ini dibatalkan. Untuk berkunjung, buat reservasi baru.",
+    "bookings.statusNote.expired":
+      "Staf belum sempat mengonfirmasi permintaan ini sebelum jadwalnya, jadi permintaan ini kedaluwarsa. Untuk berkunjung, buat reservasi baru.",
+    "bookings.cancelReason": "Alasan dari spa",
     "bookings.room": "Ruangan",
     "bookings.priceFixed":
       "Harga ini ditetapkan saat permintaan dikirim. Perubahan menu setelahnya tidak memengaruhinya.",
@@ -997,6 +1001,7 @@ export default {
     "ad.notify.channel.telegram": "Pesan Telegram staf",
     "ad.notify.channel.customer": "Email tamu",
     "ad.notify.event.booking.created": "Reservasi baru",
+    "ad.notify.event.booking.received": "Permintaan diterima",
     "ad.notify.event.booking.approved": "Disetujui",
     "ad.notify.event.booking.confirmed": "Pembayaran dikonfirmasi",
     "ad.notify.event.booking.cancelled": "Dibatalkan",
@@ -1025,6 +1030,12 @@ export default {
       "Tidak ada pesan Telegram staf yang tercatat untuk reservasi ini.",
     "ad.confirm.body": "Ubah status dari {from} menjadi {to}?",
     "ad.confirm.reason": "Alasan (opsional)",
+    "ad.action.notYet.completed":
+      "Bisa ditandai selesai setelah jadwal perawatan dimulai.",
+    "ad.action.notYet.no_show":
+      "Tidak hadir bisa dicatat setelah jadwal perawatan berakhir.",
+    "ad.confirm.reasonGuest": "Alasan untuk tamu (opsional)",
+    "ad.confirm.reasonGuestHint": "Tamu dapat membaca alasan ini.",
     "ad.action.pending.confirmed": "Setujui",
     "ad.action.pending.cancelled": "Tolak",
     "ad.action.awaiting_payment.confirmed": "Konfirmasi",
@@ -1232,6 +1243,8 @@ export default {
     "nav.breadcrumb": "Breadcrumb",
     "nav.menu": "Open menu",
     "nav.close": "Close menu",
+    "account.deleted": "Your account has been deleted.",
+    "account.deletedClose": "Close notice",
     "lang.id": "ID",
     "lang.en": "EN",
     skip: "Skip to main content",
@@ -1427,7 +1440,6 @@ export default {
     "profile.duration": "Duration",
     "profile.guests": "Guests",
     "profile.contact": "Reservation contact",
-    "profile.notProvided": "Not provided",
     "profile.historyUnavailable":
       "Reservation history could not be loaded from browser storage. Please try again.",
     "profile.bookingsTitle": "Booking history",
@@ -1503,6 +1515,9 @@ export default {
       "Approved by staff. Your appointment is confirmed.",
     "bookings.statusNote.cancelled":
       "This booking was cancelled. To visit, make a new booking.",
+    "bookings.statusNote.expired":
+      "Staff could not confirm this request before its time, so it expired. To visit, make a new booking.",
+    "bookings.cancelReason": "Reason from the spa",
     "bookings.room": "Room",
     "bookings.priceFixed":
       "This price was fixed when you sent the request. Later menu changes don't affect it.",
@@ -2038,6 +2053,7 @@ export default {
     "ad.notify.channel.telegram": "Staff Telegram message",
     "ad.notify.channel.customer": "Customer email",
     "ad.notify.event.booking.created": "New booking",
+    "ad.notify.event.booking.received": "Request received",
     "ad.notify.event.booking.approved": "Approved",
     "ad.notify.event.booking.confirmed": "Payment confirmed",
     "ad.notify.event.booking.cancelled": "Cancelled",
@@ -2065,6 +2081,12 @@ export default {
       "No staff Telegram message is recorded for this booking.",
     "ad.confirm.body": "Change the status from {from} to {to}?",
     "ad.confirm.reason": "Reason (optional)",
+    "ad.action.notYet.completed":
+      "Can be marked done once the appointment has started.",
+    "ad.action.notYet.no_show":
+      "A no-show can be recorded after the treatment's scheduled end.",
+    "ad.confirm.reasonGuest": "Reason for the guest (optional)",
+    "ad.confirm.reasonGuestHint": "The guest can read this reason.",
     "ad.action.pending.confirmed": "Approve",
     "ad.action.pending.cancelled": "Decline",
     "ad.action.awaiting_payment.confirmed": "Confirm",

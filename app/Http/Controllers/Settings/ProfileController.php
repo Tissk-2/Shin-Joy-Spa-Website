@@ -27,7 +27,7 @@ class ProfileController extends Controller
         (new StaffAccessLock)->run(function () use ($request, &$emailChanged): void {
             $emailChanged = false;
             $user = User::query()->whereKey($request->user()->getKey())->lockForUpdate()->firstOrFail();
-            $attributes = $request->safe()->only(['name', 'email']);
+            $attributes = $request->safe()->only(['name', 'email', 'phone']);
             if ($user->email !== $attributes['email']) {
                 StaffAuthority::protectEmailChange($user);
                 Password::broker()->deleteToken($user);
@@ -93,6 +93,6 @@ class ProfileController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect('/');
+        return redirect('/')->with('status', 'account-deleted');
     }
 }

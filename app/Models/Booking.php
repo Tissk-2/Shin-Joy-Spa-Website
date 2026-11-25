@@ -95,4 +95,24 @@ class Booking extends Model
     {
         return $this->belongsTo(ServiceExtension::class);
     }
+
+    /**
+     * The words staff typed when they cancelled this booking on the dashboard, which the customer
+     * reads. Telegram declines store a code and the expiry job stores nothing, so neither counts.
+     */
+    public function customerCancellationReason(): ?string
+    {
+        if ($this->status !== BookingStatus::Cancelled) {
+            return null;
+        }
+
+        $reason = $this->statusChanges()->reorder()
+            ->where('to_status', BookingStatus::Cancelled->value)
+            ->where('channel', 'dashboard')
+            ->orderByDesc('id')
+            ->value('reason');
+        $reason = is_string($reason) ? trim($reason) : '';
+
+        return $reason === '' ? null : $reason;
+    }
 }

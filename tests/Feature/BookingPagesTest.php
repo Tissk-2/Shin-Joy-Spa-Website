@@ -2,12 +2,15 @@
 
 namespace Tests\Feature;
 
+use App\Actions\CancelBooking;
 use App\Enums\BookingStatus;
+use App\Jobs\ExpirePendingBookings;
 use App\Models\Booking;
 use App\Models\Service;
 use App\Models\ServiceExtension;
 use App\Models\ServiceVariant;
 use App\Models\User;
+use App\Support\ActionContext;
 use Carbon\CarbonImmutable;
 use Database\Seeders\ServiceCatalogSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -138,6 +141,32 @@ class BookingPagesTest extends TestCase
             ->assertNotFound();
     }
 
+    // Flow review F5 and F9: a cancelled booking says why, in the staff's own words or as an expiry.
+    public function test_detail_says_why_a_booking_was_cancelled(): void
+    {
+        $user = User::factory()->create();
+        $staff = User::factory()->bookingStaff()->create();
+        $declined = Booking::factory()->for($user)->create(['reference' => 'SJ-01K4DR9M7JQ2ABCD3EFGHJKL30']);
+        $expired = Booking::factory()->for($user)->create([
+            'reference' => 'SJ-01K4DR9M7JQ2ABCD3EFGHJKL31',
+            'status' => BookingStatus::Pending,
+            'appointment_date' => '2026-09-06',
+            'appointment_time' => '09:00',
+            'starts_at' => '2026-09-06 02:00:00',
+        ]);
+
+        (new CancelBooking)($staff, $declined->id, BookingStatus::Pending, 'Our therapist is ill.', new ActionContext('dashboard'));
+        $this->assertTrue(app(ExpirePendingBookings::class)->expireIfDue($expired->id, CarbonImmutable::now('UTC')));
+
+        $declinedPage = $this->actingAs($user)->get('/bookings/'.$declined->reference);
+        $this->assertSame('Our therapist is ill.', $declinedPage->inertiaProps('booking.cancellationReason'));
+        $this->assertFalse($declinedPage->inertiaProps('booking.expired'));
+
+        $expiredPage = $this->actingAs($user)->get('/bookings/'.$expired->reference);
+        $this->assertNull($expiredPage->inertiaProps('booking.cancellationReason'));
+        $this->assertTrue($expiredPage->inertiaProps('booking.expired'));
+    }
+
     // Production break caught: customer pages must read immutable booking snapshots, not mutable catalog relations.
     public function test_detail_uses_persisted_snapshots_after_catalog_edits(): void
     {
@@ -265,6 +294,8 @@ class BookingPagesTest extends TestCase
             'paymentPreference',
             'pricingVerified',
             'room',
+            'cancellationReason',
+            'expired',
         ], array_keys($booking));
         $this->assertSame(['slug', 'nameId', 'nameEn', 'isVip'], array_keys($booking['package']));
         $this->assertSame(['date', 'time', 'timezone'], array_keys($booking['appointment']));
@@ -328,6 +359,8 @@ class BookingPagesTest extends TestCase
             'paymentPreference' => $booking->payment_preference,
             'pricingVerified' => $booking->pricing_basis !== null,
             'room' => null,
+            'cancellationReason' => null,
+            'expired' => false,
         ];
     }
 

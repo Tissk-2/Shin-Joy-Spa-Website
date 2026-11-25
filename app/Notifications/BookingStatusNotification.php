@@ -40,7 +40,14 @@ final class BookingStatusNotification extends Notification
             ->greeting(__('mail.greeting', ['name' => $booking->customer_name]))
             ->line(__("mail.booking.{$this->kind}.intro", $values));
 
+        $reason = $this->kind === 'cancelled' ? $booking->customerCancellationReason() : null;
+
+        if ($reason !== null) {
+            $mail->line(__('mail.booking.cancelled.reason', ['reason' => $reason]));
+        }
+
         $closing = match ($this->kind) {
+            'received' => __('mail.booking.received.next'),
             'approved' => app(BookingPaymentSummary::class)->forBooking($booking)['state'] === 'at_spa_unrecorded'   // mutation P
                 ? __('mail.booking.pay_at_spa') : null,
             'cancelled', 'expired' => __('mail.booking.cancelled.again'),

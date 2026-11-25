@@ -16,6 +16,11 @@ return [
         'expiry' => 'This reset link expires in :minutes minutes.',
     ],
     'booking' => [
+        'received' => [
+            'subject' => 'We received your Shin Joy Spa booking request',
+            'intro' => 'We received your booking request :reference for :service on :date at :time.',
+            'next' => 'It is not confirmed yet. We will email you again when staff approve or decline it.',
+        ],
         'approved' => [
             'subject' => 'Your Shin Joy Spa booking is confirmed',
             'intro' => 'Your booking :reference for :service on :date at :time is confirmed.',
@@ -24,6 +29,7 @@ return [
             'subject' => 'Your Shin Joy Spa booking was cancelled',
             'intro' => 'Your booking :reference for :service on :date at :time has been cancelled.',
             'again' => 'If you would like another time, you are welcome to make a new booking.',
+            'reason' => 'Reason from the spa: :reason',
         ],
         'expired' => [
             'subject' => 'Your Shin Joy Spa booking request has expired',

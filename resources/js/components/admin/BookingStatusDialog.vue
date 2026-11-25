@@ -43,6 +43,8 @@ const requiresOperational = computed(
     form.currentStatus === "pending" &&
     props.nextStatus === "confirmed",
 );
+// A cancellation reason is shown to the guest; other reasons stay in the staff history.
+const guestReads = computed(() => props.nextStatus === "cancelled");
 const formErrors = computed(() =>
   Object.entries(form.errors)
     .filter(([key]) => !["currentStatus", "nextStatus", "reason"].includes(key))
@@ -222,8 +224,15 @@ function submit(): void {
               {{ tr("ad.confirm.operational") }}
             </label>
             <label for="admin-status-reason">{{
-              tr("ad.confirm.reason")
+              tr(guestReads ? "ad.confirm.reasonGuest" : "ad.confirm.reason")
             }}</label>
+            <p
+              v-if="guestReads"
+              id="admin-status-reason-hint"
+              class="admin-record-secondary"
+            >
+              {{ tr("ad.confirm.reasonGuestHint") }}
+            </p>
             <textarea
               id="admin-status-reason"
               v-model="reason"
@@ -233,7 +242,12 @@ function submit(): void {
               maxlength="500"
               :aria-invalid="Boolean(form.errors.reason)"
               :aria-describedby="
-                form.errors.reason ? 'admin-status-reason-error' : undefined
+                [
+                  guestReads ? 'admin-status-reason-hint' : '',
+                  form.errors.reason ? 'admin-status-reason-error' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ') || undefined
               "
             />
             <p

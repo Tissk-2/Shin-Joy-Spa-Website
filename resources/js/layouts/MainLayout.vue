@@ -3,6 +3,7 @@ import { Head, Link, router, usePage } from "@inertiajs/vue3";
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { useContactInformation } from "@/composables/useContactInformation";
 import { useLanguage } from "@/composables/useLanguage";
+import { X } from "lucide-vue-next";
 import {
   accountInitial as deriveAccountInitial,
   initialHeaderMenuState,
@@ -13,6 +14,11 @@ import type { AppPageProps } from "@/types";
 
 const page = usePage<AppPageProps>();
 const { language, setLanguage, tr } = useLanguage();
+// Account deletion signs the customer out and lands here; say it worked.
+const noticeClosed = ref(false);
+const accountDeleted = computed(
+  () => !noticeClosed.value && page.props.flash?.status === "account-deleted",
+);
 const contactInformation = useContactInformation();
 
 const headerMenuState = ref(initialHeaderMenuState);
@@ -505,6 +511,18 @@ onUnmounted(() => {
     <main id="main">
       <slot />
     </main>
+
+    <p v-if="accountDeleted" class="site-notice" role="status">
+      <span>{{ tr("account.deleted") }}</span>
+      <button
+        type="button"
+        class="site-notice__close"
+        :aria-label="tr('account.deletedClose')"
+        @click="noticeClosed = true"
+      >
+        <X aria-hidden="true" />
+      </button>
+    </p>
 
     <footer class="site-footer">
       <div class="container">

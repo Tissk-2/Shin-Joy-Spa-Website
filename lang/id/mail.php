@@ -16,6 +16,11 @@ return [
         'expiry' => 'Tautan pengaturan ulang ini kedaluwarsa dalam :minutes menit.',
     ],
     'booking' => [
+        'received' => [
+            'subject' => 'Permintaan reservasi Shin Joy Spa Anda telah diterima',
+            'intro' => 'Kami telah menerima permintaan reservasi :reference untuk :service pada :date pukul :time.',
+            'next' => 'Reservasi ini belum terkonfirmasi. Kami akan mengirim email lagi setelah staf menyetujui atau menolaknya.',
+        ],
         'approved' => [
             'subject' => 'Reservasi Shin Joy Spa Anda telah dikonfirmasi',
             'intro' => 'Reservasi :reference untuk :service pada :date pukul :time telah dikonfirmasi.',
@@ -24,6 +29,7 @@ return [
             'subject' => 'Reservasi Shin Joy Spa Anda dibatalkan',
             'intro' => 'Reservasi :reference untuk :service pada :date pukul :time telah dibatalkan.',
             'again' => 'Jika Anda ingin memilih waktu lain, silakan buat reservasi baru.',
+            'reason' => 'Alasan dari spa: :reason',
         ],
         'expired' => [
             'subject' => 'Permintaan reservasi Shin Joy Spa Anda telah kedaluwarsa',

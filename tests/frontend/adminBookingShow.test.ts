@@ -281,6 +281,75 @@ describe("admin booking detail", () => {
     expect(confirm).not.toHaveBeenCalled();
   });
 
+  // Flow review F5: the guest reads a cancellation reason, so the label says so; other reasons stay internal.
+  it("tells staff the guest can read a cancellation reason", async () => {
+    const wrapper = mountPage();
+    await open(wrapper, "cancelled");
+    expect(dialog().get("label[for='admin-status-reason']").text()).toBe(
+      "Reason for the guest (optional)",
+    );
+    expect(dialog().get("#admin-status-reason-hint").text()).toBe(
+      "The guest can read this reason.",
+    );
+    expect(
+      dialog().get("#admin-status-reason").attributes("aria-describedby"),
+    ).toBe("admin-status-reason-hint");
+    await dialog().get("[data-cancel-status]").trigger("click");
+    await settle();
+
+    await open(wrapper, "confirmed");
+    expect(dialog().get("label[for='admin-status-reason']").text()).toBe(
+      "Reason (optional)",
+    );
+    expect(dialog().find("#admin-status-reason-hint").exists()).toBe(false);
+  });
+
+  // Flow review F8: done and no-show were offered before they were allowed, then refused.
+  it("makes done and no-show wait with their reason until the visit starts and ends", async () => {
+    const inHours = (hours: number) =>
+      new Date(Date.now() + hours * 3_600_000).toISOString();
+    const confirmed = {
+      ...booking,
+      status: "confirmed" as const,
+      allowedTransitions: ["completed", "cancelled", "no_show"] as const,
+    };
+
+    const ahead = mountPage({
+      ...confirmed,
+      completeFrom: inHours(2),
+      noShowFrom: inHours(4),
+    });
+    for (const status of ["completed", "no_show"]) {
+      const button = ahead.get(`[data-next-status='${status}']`);
+      expect(button.attributes("disabled")).toBeDefined();
+      expect(button.attributes("aria-describedby")).toBe(
+        `admin-action-wait-${status}`,
+      );
+    }
+    expect(ahead.get("[data-action-wait='completed']").text()).toBe(
+      "Can be marked done once the appointment has started.",
+    );
+    expect(ahead.get("[data-action-wait='no_show']").text()).toBe(
+      "A no-show can be recorded after the treatment's scheduled end.",
+    );
+    expect(
+      ahead.get("[data-next-status='cancelled']").attributes("disabled"),
+    ).toBeUndefined();
+
+    const started = mountPage({
+      ...confirmed,
+      completeFrom: inHours(-1),
+      noShowFrom: inHours(1),
+    });
+    expect(
+      started.get("[data-next-status='completed']").attributes("disabled"),
+    ).toBeUndefined();
+    expect(started.find("[data-action-wait='completed']").exists()).toBe(false);
+    expect(
+      started.get("[data-next-status='no_show']").attributes("disabled"),
+    ).toBeDefined();
+  });
+
   // Catches unclosable dialogs and lost keyboard position on both dismissal paths.
   it.each(["escape", "cancel"])(
     "closes with %s and restores the originating trigger",
@@ -815,6 +884,6 @@ describe("notifications", () => {
       .filter((key) => key.startsWith("ad.notify."))
       .sort();
     expect(idKeys).toEqual(enKeys);
-    expect(idKeys).toHaveLength(27);
+    expect(idKeys).toHaveLength(28);
   });
 });

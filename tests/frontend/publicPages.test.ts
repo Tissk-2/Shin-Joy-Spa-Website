@@ -90,6 +90,24 @@ describe("Laravel-owned public pages", () => {
     expect(booking.find(".nav-book").exists()).toBe(false);
   });
 
+  // Flow review F11: deleting the account used to land on the home page with no word that it worked.
+  it("says the account was deleted, once, and lets the visitor close the notice", async () => {
+    (inertia.page.props.flash as Record<string, unknown>).status =
+      "account-deleted";
+    const wrapper = mount(MainLayout, { slots: { default: "<h1>Page</h1>" } });
+    expect(wrapper.get(".site-notice").attributes("role")).toBe("status");
+    expect(wrapper.get(".site-notice").text()).toContain(
+      "Your account has been deleted.",
+    );
+
+    await wrapper.get(".site-notice__close").trigger("click");
+    expect(wrapper.find(".site-notice").exists()).toBe(false);
+
+    (inertia.page.props.flash as Record<string, unknown>).status = undefined;
+    const later = mount(MainLayout, { slots: { default: "<h1>Page</h1>" } });
+    expect(later.find(".site-notice").exists()).toBe(false);
+  });
+
   it("names the account in the phone menu instead of showing only an initial", () => {
     const wrapper = mount(MainLayout, { slots: { default: "<h1>Page</h1>" } });
     const toggle = wrapper.get(".account-toggle");

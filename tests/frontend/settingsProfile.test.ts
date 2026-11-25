@@ -10,6 +10,7 @@ const inertia = vi.hoisted(() => ({
     url: string;
     data: Record<string, unknown>;
   }>,
+  options: [] as Array<Record<string, unknown> | undefined>,
 }));
 
 vi.mock("@inertiajs/vue3", async () => {
@@ -48,6 +49,7 @@ vi.mock("@inertiajs/vue3", async () => {
           options?: { onSuccess?: () => void; onFinish?: () => void },
         ) => {
           inertia.requests.push({ method, url, data: data() });
+          inertia.options.push(options);
           options?.onSuccess?.();
           defaults = data();
           options?.onFinish?.();
@@ -93,7 +95,9 @@ describe("account page", () => {
       "Booking history",
     ]);
     expect(wrapper.get('a[href="/bookings"]').text()).toBe("View My Bookings");
-    expect(wrapper.text()).toContain("+62 812-3456-7890");
+    expect((wrapper.get("#phone").element as HTMLInputElement).value).toBe(
+      "+62 812-3456-7890",
+    );
     expect(wrapper.findComponent({ name: "DeleteUser" }).exists()).toBe(true);
   });
 
@@ -116,6 +120,7 @@ describe("account page", () => {
         data: {
           name: "Ayu",
           email: "moved@example.com",
+          phone: "+62 812-3456-7890",
           current_password: "pass-1234",
         },
       },
@@ -132,6 +137,32 @@ describe("account page", () => {
 
     await wrapper.get("#email").setValue("ayu@example.com");
     expect(wrapper.find("#current_password").exists()).toBe(false);
+  });
+
+  // Flow review F10: the WhatsApp number could only be set at sign-up.
+  it("saves a new WhatsApp number without asking for the password", async () => {
+    inertia.requests = [];
+    const wrapper = mount(Profile, { global: { stubs } });
+    const phone = wrapper.get("#phone");
+    expect(phone.attributes("type")).toBe("tel");
+    expect(phone.attributes("autocomplete")).toBe("tel");
+
+    await phone.setValue("+62 811 2222 3333");
+    expect(wrapper.find("#current_password").exists()).toBe(false);
+    await wrapper.get("#phone").element.form!.requestSubmit();
+
+    expect(inertia.requests).toEqual([
+      {
+        method: "patch",
+        url: "/settings/profile",
+        data: {
+          name: "Ayu",
+          email: "ayu@example.com",
+          phone: "+62 811 2222 3333",
+          current_password: "",
+        },
+      },
+    ]);
   });
 
   it("changes the password from the same page and clears the fields", async () => {
@@ -171,6 +202,13 @@ describe("account page", () => {
     );
     expect(submit?.textContent?.trim()).toBe("Delete account");
     expect(document.body.querySelectorAll("button button")).toHaveLength(0);
+
+    // Flow review F11: after deleting, the home page opens at the top, where the notice is read;
+    // only a wrong password keeps the scroll position.
+    inertia.options = [];
+    submit!.click();
+    await flushPromises();
+    expect(inertia.options.at(-1)?.preserveScroll).toBe("errors");
     wrapper.unmount();
   });
 });

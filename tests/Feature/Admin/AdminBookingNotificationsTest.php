@@ -75,8 +75,10 @@ class AdminBookingNotificationsTest extends TestCase
 
         DB::transaction(function () use ($booking, $events): void {
             app(BookingCreatedOutbox::class)->record($booking);
+            // The customer's receipt is keyed once per booking, like booking.created (CreateBooking).
+            app(OutboxWriter::class)->record('booking.received', "booking.received:{$booking->id}", ['booking_id' => $booking->id]);
             $version = 1;
-            foreach (array_diff($events, ['booking.created']) as $event) {
+            foreach (array_diff($events, ['booking.created', 'booking.received']) as $event) {
                 $version++;
                 // The key BookingStateWriter writes for each decision.
                 app(OutboxWriter::class)->record($event, "{$event}:{$booking->id}:{$version}", ['booking_id' => $booking->id, 'booking_version' => $version]);

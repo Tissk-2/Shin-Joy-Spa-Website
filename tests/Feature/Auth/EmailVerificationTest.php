@@ -2,6 +2,8 @@
 
 namespace Tests\Feature\Auth;
 
+use App\Enums\BookingStatus;
+use App\Models\Booking;
 use App\Models\User;
 use Illuminate\Auth\Events\Verified;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -160,6 +162,65 @@ class EmailVerificationTest extends TestCase
         $this->post(route('login.store'), ['email' => $user->email, 'password' => 'calmspa9'])
             ->assertRedirect(route('verification.notice', absolute: false));
         $this->assertFalse($other->fresh()->hasVerifiedEmail());
+    }
+
+    // Flow review F13: opening another member page before verifying replaced the chosen treatment.
+    public function test_the_chosen_treatment_survives_other_member_pages_until_verification(): void
+    {
+        $user = User::factory()->unverified()->create();
+        $choice = '/booking?service=nezuko&mode=regular&duration=90';
+
+        $this->actingAs($user)->get($choice)->assertRedirect(route('verification.notice', absolute: false));
+        $this->actingAs($user)->get('/profile')->assertRedirect(route('verification.notice', absolute: false));
+        $this->actingAs($user)->get('/bookings')->assertRedirect(route('verification.notice', absolute: false));
+        $this->actingAs($user)->get('/booking')->assertRedirect(route('verification.notice', absolute: false));
+
+        $this->actingAs($user)->get($this->verificationUrlFor($user))
+            ->assertRedirect('/booking?duration=90&mode=regular&service=nezuko');
+    }
+
+    public function test_a_newer_treatment_choice_replaces_the_older_one_before_verification(): void
+    {
+        $user = User::factory()->unverified()->create();
+
+        $this->actingAs($user)->get('/booking?service=nezuko');
+        $this->actingAs($user)->get('/booking?service=nezuko-vip');
+
+        $this->actingAs($user)->get($this->verificationUrlFor($user))
+            ->assertRedirect('/booking?service=nezuko-vip');
+    }
+
+    public function test_without_a_treatment_choice_the_last_member_page_is_remembered(): void
+    {
+        $user = User::factory()->unverified()->create();
+
+        $this->actingAs($user)->get('/bookings');
+        $this->actingAs($user)->get('/profile');
+
+        $this->actingAs($user)->get($this->verificationUrlFor($user))->assertRedirect('/profile');
+    }
+
+    // Flow review F6: after an email change, emails about open bookings still went to the old address.
+    public function test_verifying_a_new_email_moves_open_bookings_to_it(): void
+    {
+        $user = User::factory()->unverified()->create(['email' => 'ayu.new@example.com']);
+        $open = [BookingStatus::Pending, BookingStatus::AwaitingPayment, BookingStatus::Confirmed];
+        $closed = [BookingStatus::Cancelled, BookingStatus::Completed, BookingStatus::NoShow];
+        $other = Booking::factory()->create(['status' => BookingStatus::Pending, 'customer_email' => 'someone@example.com']);
+        foreach ([...$open, ...$closed] as $status) {
+            Booking::factory()->for($user)->create(['status' => $status, 'customer_email' => 'ayu.old@example.com']);
+        }
+
+        $this->actingAs($user)->get($this->verificationUrlFor($user))->assertRedirect();
+
+        foreach (Booking::query()->where('user_id', $user->id)->get() as $booking) {
+            $this->assertSame(
+                in_array($booking->status, $open, true) ? 'ayu.new@example.com' : 'ayu.old@example.com',
+                $booking->customer_email,
+                $booking->status->value,
+            );
+        }
+        $this->assertSame('someone@example.com', $other->fresh()->customer_email);
     }
 
     private function verificationUrlFor(User $user): string

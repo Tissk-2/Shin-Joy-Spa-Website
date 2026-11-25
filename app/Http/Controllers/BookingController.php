@@ -6,6 +6,7 @@ use App\Actions\CreateBooking;
 use App\Http\Requests\StoreBookingRequest;
 use App\Models\Booking;
 use App\Queries\PublicCatalogQuery;
+use App\Support\BookingDraft;
 use App\Support\BookingPresenter;
 use App\Support\BookingSelectionResolver;
 use App\Support\ServiceCatalogPresenter;
@@ -34,10 +35,16 @@ class BookingController extends Controller
         BookingSelectionResolver $selectionResolver,
     ): Response {
         $services = $catalog->categories()->flatMap->services;
+        $draft = BookingDraft::pull($request);
 
         return inertia('Booking', [
             'packages' => $services->map($presenter->package(...))->values(),
-            'selection' => $selectionResolver->resolve($request, $services),
+            // A draft kept from an expired session holds the choice made on the form itself.
+            'selection' => $selectionResolver->resolve(
+                $draft === null ? $request : Request::create('/booking', 'GET', $draft['selection']),
+                $services,
+            ),
+            'draft' => $draft['details'] ?? null,
             'submissionKey' => (string) Str::uuid(),
             'availabilityEnabled' => config('booking.scheduling_enabled') === true,
         ]);

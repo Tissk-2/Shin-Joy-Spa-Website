@@ -140,8 +140,9 @@ test("a pay-at-spa request reaches staff, and every decision reaches the custome
   await expect(customer.locator("[data-booking-status-note]")).toBeVisible();
   await expect(customer.locator("[data-booking-pay-at-spa]")).toHaveCount(0);
   await expect(customer.locator("[data-booking-changes]")).toHaveCount(0);
-  await expect(customer.getByText("Fully booked that afternoon")).toHaveCount(
-    0,
+  // Flow review F5: the reason staff typed on the dashboard is shown to the customer.
+  await expect(customer.locator("[data-booking-cancel-reason]")).toContainText(
+    "Fully booked that afternoon",
   );
 
   // The customer asks by WhatsApp to cancel; staff record it, and the booking page follows.

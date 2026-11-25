@@ -15,6 +15,10 @@ return [
         'booking.created' => [
             'telegram' => TelegramBookingNotificationHandler::class,
         ],
+        // The customer's "request received" email for a booking they sent from the website.
+        'booking.received' => [
+            'customer' => SendCustomerBookingNotice::class,
+        ],
         // Lifecycle events share booking.created's telegram key, so one handler owns the staff message: it edits
         // that message to the booking's current status.
         // customer: the customer's status email (C4c); booking.confirmed gets one in stage D, with online payment.

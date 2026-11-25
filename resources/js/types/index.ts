@@ -215,6 +215,8 @@ export interface BookingDetailData extends BookingSummaryData {
   paymentPreference?: "at_spa" | "online" | null;
   pricingVerified?: boolean;
   room?: string | null;
+  cancellationReason?: string | null;
+  expired?: boolean;
 }
 
 export interface AdminBookingSummaryData {
@@ -265,6 +267,8 @@ export interface AdminBookingNotification {
 
 export interface AdminBookingDetailData extends AdminBookingSummaryData {
   readonly roomSchedulingEnabled: boolean;
+  readonly completeFrom?: string | null;
+  readonly noShowFrom?: string | null;
   readonly assignedRoom: Readonly<{
     name: string;
     code: string;

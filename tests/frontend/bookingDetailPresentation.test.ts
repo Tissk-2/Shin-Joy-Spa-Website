@@ -178,6 +178,42 @@ describe("customer booking presentation", () => {
     );
   });
 
+  // Flow review F5 and F9: say why a booking was cancelled, in staff's words or as an expiry.
+  it("shows the spa's reason for a cancellation and calls an unanswered request expired.", () => {
+    const declined = mount(Show, {
+      props: {
+        booking: {
+          ...detail,
+          status: "cancelled",
+          cancellationReason: "Our therapist is ill. <b>Sorry</b>",
+          expired: false,
+        },
+      },
+    });
+    const reason = declined.get("[data-booking-cancel-reason]");
+    expect(reason.text()).toContain("Reason from the spa");
+    expect(reason.text()).toContain("Our therapist is ill. <b>Sorry</b>");
+    expect(reason.find("b").exists()).toBe(false);
+    expect(declined.get("[data-booking-status-note]").text()).toContain(
+      "This booking was cancelled.",
+    );
+
+    const expired = mount(Show, {
+      props: {
+        booking: {
+          ...detail,
+          status: "cancelled",
+          cancellationReason: null,
+          expired: true,
+        },
+      },
+    });
+    expect(expired.get("[data-booking-status-note]").text()).toContain(
+      "Staff could not confirm this request before its time",
+    );
+    expect(expired.find("[data-booking-cancel-reason]").exists()).toBe(false);
+  });
+
   it("points a cancelled booking to a new booking without change options.", () => {
     const wrapper = mount(Show, {
       props: {

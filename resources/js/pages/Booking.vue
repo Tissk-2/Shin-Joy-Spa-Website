@@ -65,9 +65,28 @@ const props = defineProps<{
   selection: ServiceSelection;
   submissionKey: string;
   availabilityEnabled?: boolean;
+  // What was typed before the session ended, kept on the server for after sign-in.
+  draft?: {
+    date: string | null;
+    time: string | null;
+    guests: number | null;
+    notes: string | null;
+  } | null;
 }>();
 const page = usePage<AppPageProps>();
 const { language, tr } = useLanguage();
+// The same long date as the booking page, e.g. "Kamis, 3 Desember 2026".
+const displayDate = computed(() => {
+  const day = new Date(`${bookingForm.date}T00:00:00Z`);
+  if (!bookingForm.date || Number.isNaN(day.getTime())) return bookingForm.date;
+  return new Intl.DateTimeFormat(language.value === "id" ? "id-ID" : "en-GB", {
+    timeZone: "UTC",
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(day);
+});
 const contactInformation = useContactInformation();
 const user = page.props.auth.user;
 const initialPackage = props.packages.find(
@@ -93,10 +112,15 @@ const bookingForm = useForm<BookingForm>({
   mode: initialMode,
   duration: props.selection.duration,
   extension: props.selection.extension,
-  date: "",
-  time: "",
-  guests: initialCoverage.min,
-  notes: "",
+  date: props.draft?.date ?? "",
+  time: props.draft?.time ?? "",
+  guests:
+    props.draft?.guests &&
+    props.draft.guests >= initialCoverage.min &&
+    props.draft.guests <= initialCoverage.max
+      ? props.draft.guests
+      : initialCoverage.min,
+  notes: props.draft?.notes ?? "",
   submission_key: props.submissionKey,
   expected_total_price_idr: 0,
 });
@@ -605,7 +629,7 @@ function confirm(): void {
             </div>
             <div class="summary-row">
               <span>{{ tr("b.sumdate") }}</span
-              ><span>{{ bookingForm.date }}</span>
+              ><span>{{ displayDate }}</span>
             </div>
             <div class="summary-row">
               <span>{{ tr("b.sumtime") }}</span
@@ -993,7 +1017,7 @@ function confirm(): void {
             </div>
             <div class="summary-row">
               <span>{{ tr("b.sumdate") }}</span
-              ><span>{{ bookingForm.date || tr("b.sumempty") }}</span>
+              ><span>{{ displayDate || tr("b.sumempty") }}</span>
             </div>
             <div class="summary-row">
               <span>{{ tr("b.sumtime") }}</span

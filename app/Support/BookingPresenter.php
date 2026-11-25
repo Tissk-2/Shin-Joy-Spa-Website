@@ -91,6 +91,9 @@ class BookingPresenter
             // Unverified pricing was never multiplied by guests, so it stays an estimate.
             'pricingVerified' => $booking->pricing_basis !== null,
             'room' => $this->assignedRoomName($booking),
+            'cancellationReason' => $booking->customerCancellationReason(),
+            // Cancelled by the expiry job: staff never answered before the visit was due.
+            'expired' => $booking->status === BookingStatus::Cancelled && $booking->refund_reason === 'expired',
         ];
     }
 

@@ -65,11 +65,13 @@ function statusLabel(status: BookingStatus): string {
   return tr(`bookings.status.${status}`);
 }
 
-const statusNote = computed(() =>
-  ["pending", "confirmed", "cancelled"].includes(props.booking.status)
+const statusNote = computed(() => {
+  if (props.booking.status === "cancelled" && props.booking.expired)
+    return tr("bookings.statusNote.expired");
+  return ["pending", "confirmed", "cancelled"].includes(props.booking.status)
     ? tr(`bookings.statusNote.${props.booking.status}`)
-    : null,
-);
+    : null;
+});
 // Paying at the spa and changing the visit only make sense before it starts;
 // staff may mark a finished visit done later.
 const visitAhead = computed(() => {
@@ -185,6 +187,14 @@ async function downloadCard(): Promise<void> {
           data-booking-status-note
         >
           {{ statusNote }}
+        </p>
+        <p
+          v-if="props.booking.cancellationReason"
+          class="booking-cancel-reason"
+          data-booking-cancel-reason
+        >
+          <span>{{ tr("bookings.cancelReason") }}</span>
+          {{ props.booking.cancellationReason }}
         </p>
 
         <div class="booking-appointment-band">

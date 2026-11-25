@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Support\BookingQuoteResolver;
 use App\Support\Bookings\BookingSchedule;
 use App\Support\Outbox\BookingCreatedOutbox;
+use App\Support\Outbox\OutboxWriter;
 use App\Support\Scheduling\BookingSubmissionAvailability;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
@@ -69,6 +70,11 @@ class CreateBooking
 
                 if (config('services.telegram.booking_notifications_enabled')) {
                     $this->bookingOutbox->record($booking);
+                }
+
+                // A short receipt for the customer; staff-entered bookings get none.
+                if (config('booking.customer_notices_enabled') === true) {
+                    app(OutboxWriter::class)->record('booking.received', 'booking.received:'.$booking->id, ['booking_id' => $booking->id]);
                 }
 
                 return $booking;

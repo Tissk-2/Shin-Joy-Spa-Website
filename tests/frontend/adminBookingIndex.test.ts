@@ -543,17 +543,23 @@ describe("admin booking console", () => {
     expect(wrapper.findAll("form button").map((node) => node.text())).toEqual([
       "Hapus filter",
     ]);
+    // Flow review F16: "awaiting payment" only exists with online payment, which is off here.
     expect(wrapper.findAll("select option").map((node) => node.text())).toEqual(
       [
         "Semua",
         "Menunggu",
         "Terkonfirmasi",
-        "Menunggu pembayaran",
         "Selesai",
         "Dibatalkan",
         "Tidak hadir",
       ],
     );
+    const online = mountPage(filtered, bookings, {
+      onlinePaymentsEnabled: true,
+    });
+    expect(
+      online.findAll("select option").map((node) => node.text()),
+    ).toContain("Menunggu pembayaran");
     expect(wrapper.findAll("thead th").map((node) => node.text())).toEqual([
       "Tamu",
       "Perawatan",

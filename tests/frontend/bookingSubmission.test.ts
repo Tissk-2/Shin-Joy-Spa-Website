@@ -498,6 +498,57 @@ describe("reviewed booking submission", () => {
     );
   });
 
+  // Flow review F12: after signing in again, the form takes back what was typed.
+  it("fills the date, time, guests and notes from a draft kept before the session ended", () => {
+    const wrapper = mount(Booking, {
+      props: {
+        packages,
+        selection,
+        submissionKey,
+        draft: {
+          date: "2099-09-06",
+          time: "09:00",
+          guests: 1,
+          notes: "Quiet room",
+        },
+      },
+    });
+
+    expect(wrapper.get<HTMLInputElement>("#f-date").element.value).toBe(
+      "2099-09-06",
+    );
+    expect(
+      wrapper.get<HTMLInputElement>('#f-time input[value="09:00"]').element
+        .checked,
+    ).toBe(true);
+    expect(wrapper.get<HTMLTextAreaElement>("#f-notes").element.value).toBe(
+      "Quiet room",
+    );
+    expect(wrapper.get<HTMLSelectElement>("#f-guests").element.value).toBe("1");
+  });
+
+  // Flow review F7: the review step and summary showed the date as 2099-09-06.
+  it("writes the date out in the review step and the summary", async () => {
+    inertia.page.props.locale = "en";
+    const wrapper = mountBooking();
+
+    await completeDetails(wrapper);
+    expect(wrapper.get(".summary-card").text()).toContain(
+      "Sunday, 6 September 2099",
+    );
+    await wrapper.get("form").trigger("submit");
+    expect(wrapper.get(".booking-recap").text()).toContain(
+      "Sunday, 6 September 2099",
+    );
+    expect(wrapper.get(".booking-recap").text()).not.toContain("2099-09-06");
+
+    inertia.page.props.locale = "id";
+    await wrapper.vm.$nextTick();
+    expect(wrapper.get(".booking-recap").text()).toContain(
+      "Minggu, 6 September 2099",
+    );
+  });
+
   it("tells the customer that staff approval comes next on the review step", async () => {
     inertia.page.props.locale = "en";
     const wrapper = mountBooking();

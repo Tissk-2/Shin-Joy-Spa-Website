@@ -361,7 +361,15 @@ test("administrator finds and confirms a real customer booking", async ({
   await expect(
     zoomPage.getByText(customerEmail, { exact: true }),
   ).toBeVisible();
-  const completedTrigger = zoomPage.locator('[data-next-status="completed"]');
+  // Flow review F8: done waits, with its reason, until the visit starts; the
+  // cancel dialog serves the zoom check instead.
+  await expect(
+    zoomPage.locator('[data-next-status="completed"]'),
+  ).toBeDisabled();
+  await expect(
+    zoomPage.locator('[data-action-wait="completed"]'),
+  ).toBeVisible();
+  const completedTrigger = zoomPage.locator('[data-next-status="cancelled"]');
   await expect(completedTrigger).toBeEnabled();
   await completedTrigger.click();
   await expectDialogIsolation(zoomPage);

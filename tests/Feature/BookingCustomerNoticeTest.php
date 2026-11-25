@@ -121,7 +121,7 @@ class BookingCustomerNoticeTest extends TestCase
         $staff = $this->staff();
         $booking = $this->booking(['payment_preference' => 'at_spa']);
 
-        (new CancelBooking)($staff, $booking->id, BookingStatus::Pending, 'staff_declined', new ActionContext('dashboard'));
+        (new CancelBooking)($staff, $booking->id, BookingStatus::Pending, 'staff_declined', new ActionContext('telegram'));
 
         $this->handle($this->event('booking.cancelled', $booking));
 
@@ -136,6 +136,26 @@ class BookingCustomerNoticeTest extends TestCase
         foreach (['refund', 'paid', 'payment'] as $word) {
             $this->assertStringNotContainsStringIgnoringCase($word, $text);
         }
+    }
+
+    // Flow review F5: the reason typed on the dashboard reaches the customer; a Telegram decline
+    // stores the code staff_declined, which must never appear in an email.
+    public function test_a_typed_decline_reason_reaches_the_customer_but_a_telegram_code_does_not(): void
+    {
+        $staff = $this->staff();
+        $typed = $this->booking(['payment_preference' => 'at_spa']);
+        $telegram = $this->booking(['payment_preference' => 'at_spa', 'customer_email' => 'budi@example.com']);
+
+        (new CancelBooking)($staff, $typed->id, BookingStatus::Pending, '  The therapist is away that day.  ', new ActionContext('dashboard'));
+        (new CancelBooking)($staff, $telegram->id, BookingStatus::Pending, 'staff_declined', new ActionContext('telegram'));
+
+        $this->handle($this->event('booking.cancelled', $typed));
+        $this->handle($this->event('booking.cancelled', $telegram));
+
+        [$typedMail, $telegramMail] = $this->mails();
+        $this->assertStringContainsString('Reason from the spa: The therapist is away that day.', (string) $typedMail->getTextBody());
+        $this->assertStringNotContainsString('Reason from the spa', (string) $telegramMail->getTextBody());
+        $this->assertStringNotContainsString('staff_declined', (string) $telegramMail->getTextBody());
     }
 
     public function test_a_no_show_says_what_happened_and_never_mentions_money(): void
@@ -320,6 +340,8 @@ class BookingCustomerNoticeTest extends TestCase
 
     public function test_customer_notices_subscribe_only_to_the_decisions_they_announce(): void
     {
+        $this->assertSame(['customer' => SendCustomerBookingNotice::class], config('outbox.events')['booking.received']);
+
         foreach (['booking.approved', 'booking.cancelled', 'booking.no_show'] as $type) {
             $this->assertSame(
                 [
@@ -333,6 +355,45 @@ class BookingCustomerNoticeTest extends TestCase
         foreach (['booking.created', 'booking.confirmed', 'booking.completed'] as $type) {
             $this->assertArrayNotHasKey('customer', config('outbox.events')[$type]);
         }
+    }
+
+    // Flow review F14: a short receipt right after sending, while staff have not decided yet.
+    public function test_a_sent_request_gets_a_receipt_unless_staff_already_decided(): void
+    {
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-09-06 09:00:00', 'Asia/Jakarta'));
+        $this->seed(ServiceCatalogSeeder::class);
+        $user = User::factory()->create(['email' => 'ayu@example.com']);
+
+        $this->actingAs($user)
+            ->withSession(['locale' => 'en'])
+            ->post('/bookings', $this->validPayload())
+            ->assertRedirect();
+        $booking = Booking::query()->latest('id')->firstOrFail();
+
+        $this->handle($this->event('booking.received', $booking));
+
+        $mails = $this->mails();
+        $this->assertCount(1, $mails);
+        $this->assertSame('We received your Shin Joy Spa booking request', $mails[0]->getSubject());
+        $this->assertSame('ayu@example.com', $mails[0]->getTo()[0]->getAddress());
+        $text = (string) $mails[0]->getTextBody();
+        $this->assertStringContainsString($booking->reference, $text);
+        $this->assertStringContainsString('It is not confirmed yet.', $text);
+        $this->assertStringContainsString('https://spa.example.com/bookings/'.$booking->reference, $text);
+
+        $this->approve($booking, $this->staff());
+        $this->assertSame('superseded', $this->skippedWith($this->event('booking.received', $booking)));
+    }
+
+    public function test_no_receipt_is_recorded_while_customer_emails_are_off(): void
+    {
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-09-06 09:00:00', 'Asia/Jakarta'));
+        $this->seed(ServiceCatalogSeeder::class);
+        config(['booking.customer_notices_enabled' => false]);
+
+        $this->actingAs(User::factory()->create())->post('/bookings', $this->validPayload())->assertRedirect();
+
+        $this->assertFalse(OutboxMessage::query()->where('type', 'booking.received')->exists());
     }
 
     public function test_a_website_booking_records_the_language_it_was_made_in(): void

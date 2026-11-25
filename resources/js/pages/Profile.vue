@@ -13,6 +13,7 @@ const account = computed(() => page.props.auth.user);
 const details = useForm({
   name: account.value?.name ?? "",
   email: account.value?.email ?? "",
+  phone: account.value?.phone ?? "",
   current_password: "",
 });
 
@@ -134,10 +135,27 @@ function savePassword(): void {
                 }}</span>
               </div>
 
-              <p class="account-hint">
-                {{ tr("profile.phone") }}:
-                {{ account?.phone || tr("profile.notProvided") }}
-              </p>
+              <div class="field">
+                <label for="phone">{{ tr("profile.phone") }}</label>
+                <input
+                  id="phone"
+                  v-model="details.phone"
+                  type="tel"
+                  inputmode="tel"
+                  required
+                  autocomplete="tel"
+                  :aria-invalid="details.errors.phone ? 'true' : undefined"
+                  :aria-describedby="
+                    details.errors.phone ? 'phone-error' : undefined
+                  "
+                />
+                <span
+                  v-if="details.errors.phone"
+                  id="phone-error"
+                  class="err"
+                  >{{ details.errors.phone }}</span
+                >
+              </div>
 
               <div class="account-actions">
                 <button

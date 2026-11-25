@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Link, usePage } from "@inertiajs/vue3";
 import { Check, ChevronLeft, Copy } from "lucide-vue-next";
-import { computed, nextTick, ref } from "vue";
+import { computed, nextTick, onMounted, onUnmounted, ref } from "vue";
 
 import BookingStatusDialog from "@/components/admin/BookingStatusDialog.vue";
 import { useLanguage } from "@/composables/useLanguage";
@@ -103,8 +103,25 @@ function actionClass(next: BookingStatus): string {
   return "admin-button";
 }
 
+// Done and no-show are allowed only from the visit's start and end; until then the button
+// waits with the reason. The clock ticks so a page left open unlocks on its own.
+const now = ref(Date.now());
+let clock: ReturnType<typeof setInterval> | undefined;
+onMounted(() => (clock = setInterval(() => (now.value = Date.now()), 30_000)));
+onUnmounted(() => clearInterval(clock));
+function notYet(next: BookingStatus): boolean {
+  const from =
+    next === "completed"
+      ? props.booking.completeFrom
+      : next === "no_show"
+        ? props.booking.noShowFrom
+        : null;
+  return Boolean(from) && now.value < Date.parse(from as string);
+}
+
 function openConfirmation(nextStatus: BookingStatus, event: MouseEvent): void {
   if (!props.booking.allowedTransitions.includes(nextStatus)) return;
+  if (notYet(nextStatus)) return;
   trigger.value = event.currentTarget as HTMLButtonElement;
   selectedNextStatus.value = nextStatus;
 }
@@ -172,12 +189,25 @@ async function copyReference(): Promise<void> {
               :class="actionClass(status)"
               type="button"
               :data-next-status="status"
-              :disabled="selectedNextStatus !== null"
+              :disabled="selectedNextStatus !== null || notYet(status)"
+              :aria-describedby="
+                notYet(status) ? `admin-action-wait-${status}` : undefined
+              "
               @click="openConfirmation(status, $event)"
             >
               {{ tr(`ad.action.${booking.status}.${status}`) }}
             </button>
           </div>
+          <template v-for="status in booking.allowedTransitions" :key="status">
+            <p
+              v-if="notYet(status)"
+              :id="`admin-action-wait-${status}`"
+              class="admin-record-secondary"
+              :data-action-wait="status"
+            >
+              {{ tr(`ad.action.notYet.${status}`) }}
+            </p>
+          </template>
         </section>
         <p
           v-if="page.props.flash.status"

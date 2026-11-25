@@ -31,6 +31,7 @@ const props = defineProps<{
   bookings: AdminBookingPagination;
   canCreate?: boolean;
   roomSchedulingEnabled?: boolean;
+  onlinePaymentsEnabled?: boolean;
 }>();
 
 const { language, tr } = useLanguage();
@@ -48,14 +49,21 @@ const scopes: readonly AdminBookingScope[] = [
   "past",
   "all",
 ];
-const statuses = [
-  "pending",
-  "confirmed",
-  "awaiting_payment",
-  "completed",
-  "cancelled",
-  "no_show",
-] as const;
+// Only online payment creates "awaiting payment" bookings, so the filter offers it only then.
+const statuses = computed(() =>
+  (
+    [
+      "pending",
+      "confirmed",
+      "awaiting_payment",
+      "completed",
+      "cancelled",
+      "no_show",
+    ] as const
+  ).filter(
+    (status) => status !== "awaiting_payment" || props.onlinePaymentsEnabled,
+  ),
+);
 const hasOptionalFilters = computed(() =>
   Boolean(
     props.filters.q.trim() ||

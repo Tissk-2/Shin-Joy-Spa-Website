@@ -126,6 +126,8 @@ class AdminBookingDetailTest extends TestCase
             'allowedTransitions' => ['confirmed', 'cancelled'],
             'requestedAt' => '2026-09-06T09:15:00.000000Z',
             'roomSchedulingEnabled' => false,
+            'completeFrom' => null,
+            'noShowFrom' => null,
             'assignedRoom' => null,
             'base' => [
                 'choiceCode' => 'nezuko-vip-120',
@@ -252,5 +254,24 @@ class AdminBookingDetailTest extends TestCase
         $this->actingAs($admin)
             ->get('/admin/bookings/SJ-MISSING-DETAIL')
             ->assertNotFound();
+    }
+
+    // Flow review F8 and F16: the page knows when done and no-show become allowed, and whether
+    // online payment can create "awaiting payment" bookings.
+    public function test_a_confirmed_visit_says_when_done_and_no_show_become_allowed(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $booking = Booking::factory()->create([
+            'status' => BookingStatus::Confirmed,
+            'appointment_date' => '2026-12-05',
+            'appointment_time' => '10:30',
+            'total_duration_minutes' => 90,
+        ]);
+
+        $detail = $this->actingAs($admin)->get('/admin/bookings/'.$booking->reference)->inertiaProps('booking');
+        $this->assertSame('2026-12-05T03:30:00.000000Z', $detail['completeFrom']);
+        $this->assertSame('2026-12-05T05:00:00.000000Z', $detail['noShowFrom']);
+
+        $this->assertFalse($this->actingAs($admin)->get('/admin/bookings')->inertiaProps('onlinePaymentsEnabled'));
     }
 }

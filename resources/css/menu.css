@@ -524,6 +524,25 @@
   font-weight: 700;
 }
 
+.booking-status-note:has(+ .booking-cancel-reason) {
+  margin-bottom: 0.5rem;
+}
+
+.booking-cancel-reason {
+  display: grid;
+  gap: 0.15rem;
+  margin: 0 0 1.5rem;
+  max-width: 65ch;
+  color: var(--ink);
+  white-space: pre-line;
+}
+
+.booking-cancel-reason span {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
 .booking-total-note {
   margin: 0.75rem 0 0;
   color: var(--text-muted);

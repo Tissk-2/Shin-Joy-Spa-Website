@@ -18,6 +18,7 @@ final class SendCustomerBookingNotice implements OutboxHandler
 {
     /** The status each event announces, and the notice that announces it. */
     private const NOTICES = [
+        'booking.received' => [BookingStatus::Pending, 'received'],
         'booking.approved' => [BookingStatus::Confirmed, 'approved'],
         'booking.cancelled' => [BookingStatus::Cancelled, 'cancelled'],
         'booking.no_show' => [BookingStatus::NoShow, 'no_show'],
@@ -28,8 +29,10 @@ final class SendCustomerBookingNotice implements OutboxHandler
         [$status, $kind] = self::NOTICES[$message->type] ?? throw new OutboxPermanentException('event');
         $bookingId = $message->payload['booking_id'] ?? null;
         $version = $message->payload['booking_version'] ?? null;
+        // The receipt's event is recorded at creation and carries no version.
+        $receipt = $kind === 'received';
 
-        if (! is_int($bookingId) || $bookingId <= 0 || ! is_int($version) || $version <= 0) {
+        if (! is_int($bookingId) || $bookingId <= 0 || (! $receipt && (! is_int($version) || $version <= 0))) {
             throw new OutboxPermanentException('payload');
         }
 
@@ -40,7 +43,8 @@ final class SendCustomerBookingNotice implements OutboxHandler
         $booking = Booking::query()->find($bookingId) ?? throw new OutboxPermanentException('booking_missing');
 
         // A newer decision superseded this one, and its own notice tells the customer where things stand.
-        if ($booking->booking_version !== $version) {   // mutation V
+        // A receipt is only worth sending while staff have not decided yet.
+        if ($receipt ? $booking->status !== BookingStatus::Pending : $booking->booking_version !== $version) {   // mutation V
             throw new OutboxSkippedException('superseded');
         }
 

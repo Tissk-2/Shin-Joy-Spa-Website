@@ -9,6 +9,7 @@ use App\Models\OutboxDelivery;
 use App\Models\OutboxMessage;
 use App\Models\RoomReservation;
 use App\Models\TelegramBookingMessage;
+use App\Support\Bookings\BookingSchedule;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Schema;
@@ -56,6 +57,10 @@ final class AdminBookingPresenter
         return [
             ...$this->summary($booking),
             'roomSchedulingEnabled' => (bool) config('booking.scheduling_enabled'),
+            // From when staff may mark a confirmed visit done (its start) or record a no-show (its end);
+            // CompleteBooking and RecordNoShow refuse earlier attempts.
+            'completeFrom' => $booking->status === BookingStatus::Confirmed ? (new BookingSchedule)->startsAt($booking)->toISOString() : null,
+            'noShowFrom' => $booking->status === BookingStatus::Confirmed ? (new BookingSchedule)->treatmentEndsAt($booking)->toISOString() : null,
             'assignedRoom' => $reservation === null ? null : [
                 'name' => $reservation->room->name, 'code' => $reservation->room->code,
                 'type' => $reservation->room->type, 'capacity' => $reservation->room->capacity,
@@ -120,9 +125,9 @@ final class AdminBookingPresenter
      */
     private function notifications(Booking $booking): array
     {
-        // Outbox keys are booking.created:<id> and <event>:<id>:<version>. Their hashes are unique and indexed, so
+        // Outbox keys are booking.created:<id>, booking.received:<id> and <event>:<id>:<version>. Their hashes are unique and indexed, so
         // this never scans the outbox.
-        $keys = ['booking.created:'.$booking->getKey()];   // mutation Q1
+        $keys = ['booking.created:'.$booking->getKey(), 'booking.received:'.$booking->getKey()];   // mutation Q1
         foreach (['booking.approved', 'booking.confirmed', 'booking.cancelled', 'booking.completed', 'booking.no_show'] as $event) {
             for ($version = 2; $version <= $booking->booking_version; $version++) {   // mutation Q2
                 $keys[] = "{$event}:{$booking->getKey()}:{$version}";

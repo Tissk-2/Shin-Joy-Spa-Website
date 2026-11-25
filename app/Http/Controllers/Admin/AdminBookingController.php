@@ -48,6 +48,7 @@ final class AdminBookingController extends Controller
             'bookings' => $presenter->pagination($paginator),
             'canCreate' => Gate::allows('create', Booking::class),
             'roomSchedulingEnabled' => (bool) config('booking.scheduling_enabled'),
+            'onlinePaymentsEnabled' => config('booking.online_payments_enabled') === true,
         ]);
     }
 

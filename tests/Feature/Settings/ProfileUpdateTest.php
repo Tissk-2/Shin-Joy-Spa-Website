@@ -135,6 +135,33 @@ class ProfileUpdateTest extends TestCase
         $this->assertNotNull($user->refresh()->email_verified_at);
     }
 
+    // Flow review F10: the WhatsApp number could only be set at sign-up.
+    public function test_the_whatsapp_number_can_be_changed_and_is_checked_like_at_sign_up(): void
+    {
+        $user = User::factory()->create(['phone' => '+6281111111111']);
+
+        $this->actingAs($user)
+            ->patch('/settings/profile', ['name' => $user->name, 'email' => $user->email, 'phone' => ' +62 812-3456-7890 '])
+            ->assertSessionHasNoErrors();
+        $this->assertSame('+6281234567890', $user->fresh()->phone);
+
+        $this->actingAs($user)
+            ->patch('/settings/profile', ['name' => $user->name, 'email' => $user->email, 'phone' => '12-34'])
+            ->assertSessionHasErrors('phone');
+        $this->assertSame('+6281234567890', $user->fresh()->phone);
+
+        // Leaving the field out keeps the number; it is required at sign-up, so it cannot be cleared.
+        $this->actingAs($user)
+            ->patch('/settings/profile', ['name' => 'Ayu', 'email' => $user->email])
+            ->assertSessionHasNoErrors();
+        $this->assertSame('+6281234567890', $user->fresh()->phone);
+
+        $this->actingAs($user)
+            ->patch('/settings/profile', ['name' => 'Ayu', 'email' => $user->email, 'phone' => ' '])
+            ->assertSessionHasErrors('phone');
+        $this->assertSame('+6281234567890', $user->fresh()->phone);
+    }
+
     public function test_user_can_delete_their_account()
     {
         $user = User::factory()->create();
@@ -145,9 +172,11 @@ class ProfileUpdateTest extends TestCase
                 'password' => 'password',
             ]);
 
+        // Flow review F11: the home page says the account was deleted.
         $response
             ->assertSessionHasNoErrors()
-            ->assertRedirect('/');
+            ->assertRedirect('/')
+            ->assertSessionHas('status', 'account-deleted');
 
         $this->assertGuest();
         $this->assertNull($user->fresh());
