@@ -137,6 +137,10 @@
   background: var(--admin-danger-bg);
   color: var(--admin-danger);
 }
+.catalog-status--unverified {
+  background: var(--admin-warning-bg);
+  color: var(--admin-warning);
+}
 .catalog-package-title {
   display: flex;
   flex-wrap: wrap;
@@ -296,6 +300,18 @@
   align-items: end;
   padding: 1rem 0;
   border-top: 1px solid var(--admin-line);
+}
+.catalog-choice-move {
+  display: flex;
+  gap: 0.25rem;
+}
+.catalog-control--icon {
+  min-width: 44px;
+  padding-inline: 0.5rem;
+}
+.catalog-control--icon svg {
+  width: 1rem;
+  height: 1rem;
 }
 .catalog-choice-active {
   display: inline-flex;
@@ -470,8 +486,13 @@
 /* Options read as a table: column labels on the first row only (still there for screen readers). */
 @media (min-width: 761px) {
   .catalog-choice-row {
-    grid-template-columns: minmax(0, 1.5fr) repeat(4, minmax(0, 1fr)) auto auto;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) auto auto auto;
     padding: 0.5rem 0 1.375rem;
+  }
+  /* A new option's code is not a column: it gets its own line above the row. */
+  .catalog-choice-row .catalog-field--code {
+    grid-column: 1 / -1;
+    max-width: 40rem;
   }
   /* The rupiah reading hangs below the price box so the row's inputs stay in line. */
   .catalog-choice-row .catalog-field {
@@ -482,7 +503,10 @@
     top: calc(100% + 0.25rem);
     left: 0;
   }
-  .catalog-choice-row ~ .catalog-choice-row .catalog-field > label {
+  .catalog-choice-row
+    ~ .catalog-choice-row
+    .catalog-field:not(.catalog-field--code)
+    > label {
     position: absolute;
     width: 1px;
     height: 1px;

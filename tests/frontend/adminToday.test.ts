@@ -240,4 +240,50 @@ describe("admin Today page", () => {
       wrapper.get("aside a[href='/admin']").find(".admin-nav-badge").exists(),
     ).toBe(false);
   });
+
+  // Staff review 2026-11-26: on a phone, today's schedule sat under the whole queue.
+  it("marks the next three unfinished visits for phones and links the full day", () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-19T04:00:00Z")); // 11:00 WIB
+    try {
+      const wrapper = mountPage({
+        today: [
+          summary("SJ-0900", "Done Guest", "completed", "09:00"),
+          summary("SJ-1000", "Current Guest", "confirmed", "10:00"),
+          summary("SJ-1300", "Next Guest", "confirmed", "13:00"),
+          summary("SJ-1400", "Later Guest", "confirmed", "14:00"),
+          summary("SJ-1600", "Evening Guest", "pending", "16:00"),
+        ],
+      });
+      expect(
+        wrapper
+          .findAll("[data-agenda] li.admin-agenda__later")
+          .map((item) => item.attributes("data-booking-row")),
+      ).toEqual(["SJ-0900", "SJ-1600"]);
+      expect(
+        wrapper.get("[data-agenda] a.admin-agenda__all").attributes("href"),
+      ).toBe("/admin/schedule");
+      expect(wrapper.find("[data-agenda] .admin-agenda__done").exists()).toBe(
+        false,
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("says when no visits are left today", () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-19T15:00:00Z")); // 22:00 WIB
+    try {
+      const wrapper = mountPage();
+      expect(wrapper.get("[data-agenda] .admin-agenda__done").text()).toBe(
+        "No more appointments today.",
+      );
+      expect(
+        wrapper.findAll("[data-agenda] li.admin-agenda__later"),
+      ).toHaveLength(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

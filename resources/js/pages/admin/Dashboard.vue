@@ -19,7 +19,7 @@ import type {
   BookingStatus,
 } from "@/types";
 
-defineProps<{
+const props = defineProps<{
   queue: AdminBookingSummaryData[];
   queueTotal: number;
   today: AdminBookingSummaryData[];
@@ -45,6 +45,35 @@ const todayLabel = computed(() =>
     year: "numeric",
     timeZone: "Asia/Jakarta",
   }).format(new Date()),
+);
+
+// On a phone the day's visits come first, so it shows only the next three that
+// have not finished yet; the full day is one tap away on Jadwal.
+// ponytail: "now" is read once per page load, like the date above.
+const nowMinutes = minutesOf(
+  new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Jakarta",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).format(new Date()),
+);
+function minutesOf(time: string): number {
+  const [hours, minutes] = time.split(":").map(Number);
+  return hours * 60 + minutes;
+}
+const nextVisits = computed(
+  () =>
+    new Set(
+      props.today
+        .filter(
+          (booking) =>
+            minutesOf(booking.appointment.time) + booking.totalDurationMinutes >
+            nowMinutes,
+        )
+        .slice(0, 3)
+        .map((booking) => booking.reference),
+    ),
 );
 
 function bookingHref(booking: AdminBookingSummaryData): string {
@@ -215,11 +244,20 @@ function answered(): void {
             <p v-if="!today.length" class="admin-panel__empty">
               {{ tr("ad.today.scheduleEmpty") }}
             </p>
-            <ol v-else class="admin-agenda">
+            <p
+              v-else-if="!nextVisits.size"
+              class="admin-panel__empty admin-agenda__done"
+            >
+              {{ tr("ad.today.scheduleDone") }}
+            </p>
+            <ol v-if="today.length" class="admin-agenda">
               <li
                 v-for="booking in today"
                 :key="booking.reference"
                 :data-booking-row="booking.reference"
+                :class="{
+                  'admin-agenda__later': !nextVisits.has(booking.reference),
+                }"
               >
                 <time class="admin-agenda__time">{{
                   booking.appointment.time
@@ -247,6 +285,12 @@ function answered(): void {
                 >
               </li>
             </ol>
+            <Link
+              v-if="today.length > nextVisits.size"
+              href="/admin/schedule"
+              class="admin-panel__more admin-agenda__all"
+              >{{ tr("ad.today.scheduleAll") }}</Link
+            >
           </section>
         </div>
       </div>

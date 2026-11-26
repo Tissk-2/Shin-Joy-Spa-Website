@@ -42,6 +42,8 @@ const roomsWithoutTreatments = computed(() =>
 );
 const hasBlocks = (room: AdminRoomInventory["rooms"][number]) =>
   room.currentBlockCount + room.upcomingBlockCount > 0;
+// Without any maintenance the column and the per-room links only repeat "none".
+const anyBlocks = computed(() => props.inventory.rooms.some(hasBlocks));
 const filteredRooms = computed(() =>
   props.inventory.rooms.filter((room) => {
     const search = searchQuery.value.toLowerCase();
@@ -156,12 +158,27 @@ const observation = computed(
                 ><RefreshCw aria-hidden="true" />{{ tr("ad.rooms.refresh") }}</a
               >
             </div>
-            <RoomMap
-              :rooms="inventory.rooms"
-              :generated-at="inventory.generatedAt"
-              :scheduling-enabled="inventory.schedulingEnabled"
-              :can-edit="!!(management?.isOwner && management.ready)"
-            />
+            <!-- While scheduling is off the map only shows open rooms, so it starts folded. -->
+            <details
+              class="admin-room-map-fold"
+              :open="inventory.schedulingEnabled"
+              data-room-map-fold
+            >
+              <summary class="admin-button admin-button--compact">
+                <span class="admin-room-map-fold__show">{{
+                  tr("ad.rooms.showMap")
+                }}</span
+                ><span class="admin-room-map-fold__hide">{{
+                  tr("ad.rooms.hideMap")
+                }}</span>
+              </summary>
+              <RoomMap
+                :rooms="inventory.rooms"
+                :generated-at="inventory.generatedAt"
+                :scheduling-enabled="inventory.schedulingEnabled"
+                :can-edit="!!(management?.isOwner && management.ready)"
+              />
+            </details>
             <div class="admin-filter-bar admin-filter-bar--rooms">
               <div class="admin-filter-search">
                 <label for="room-search">{{ tr("ad.rooms.search") }}</label>
@@ -236,7 +253,9 @@ const observation = computed(
                     <th scope="col">{{ tr("ad.rooms.cleaning") }}</th>
                     <th scope="col">{{ tr("ad.rooms.treatments") }}</th>
                     <th scope="col">{{ tr("ad.rooms.status") }}</th>
-                    <th scope="col">{{ tr("ad.rooms.blocks") }}</th>
+                    <th v-if="anyBlocks" scope="col">
+                      {{ tr("ad.rooms.blocks") }}
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -258,10 +277,18 @@ const observation = computed(
                               room.type ?? tr("ad.rooms.unsetType")
                             }}</span>
                           </p>
-                          <p class="admin-room-cell__links">
-                            <a :href="`/admin/room-blocks?roomId=${room.id}`">{{
-                              tr("ad.blocks.title")
-                            }}</a>
+                          <p
+                            v-if="
+                              hasBlocks(room) ||
+                              (management?.isOwner && management.ready)
+                            "
+                            class="admin-room-cell__links"
+                          >
+                            <a
+                              v-if="hasBlocks(room)"
+                              :href="`/admin/room-blocks?roomId=${room.id}`"
+                              >{{ tr("ad.blocks.title") }}</a
+                            >
                             <a
                               v-if="management?.isOwner && management.ready"
                               :href="`/admin/rooms/${room.id}/edit`"
@@ -285,7 +312,7 @@ const observation = computed(
                       />
                     </td>
                     <td><RoomStatusBadges :room="room" /></td>
-                    <td>
+                    <td v-if="anyBlocks">
                       <RoomDetails
                         :room="room"
                         :generated-at="inventory.generatedAt"
@@ -340,10 +367,17 @@ const observation = computed(
                     section="blocks"
                   />
                 </section>
-                <p class="admin-room-cell__links">
-                  <a :href="`/admin/room-blocks?roomId=${room.id}`">{{
-                    tr("ad.blocks.title")
-                  }}</a>
+                <p
+                  v-if="
+                    hasBlocks(room) || (management?.isOwner && management.ready)
+                  "
+                  class="admin-room-cell__links"
+                >
+                  <a
+                    v-if="hasBlocks(room)"
+                    :href="`/admin/room-blocks?roomId=${room.id}`"
+                    >{{ tr("ad.blocks.title") }}</a
+                  >
                   <a
                     v-if="management?.isOwner && management.ready"
                     :href="`/admin/rooms/${room.id}/edit`"
@@ -352,7 +386,7 @@ const observation = computed(
                 </p>
               </li>
             </ul>
-            <p v-if="inventory.rooms.some(hasBlocks)" class="admin-loading">
+            <p v-if="anyBlocks" class="admin-loading">
               {{ tr("ad.rooms.blockWindow") }}
             </p>
           </template>

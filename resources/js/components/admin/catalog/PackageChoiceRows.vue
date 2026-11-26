@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ChevronDown, ChevronUp } from "lucide-vue-next";
 import { computed } from "vue";
 import { useLanguage } from "@/composables/useLanguage";
 import { formatPrice } from "@/lib/adminBooking";
@@ -57,6 +58,21 @@ function update(
     ),
   );
 }
+// Moving renumbers every row, so the saved order always matches what staff see.
+function move(index: number, offset: -1 | 1): void {
+  const rows = [...props.rows];
+  [rows[index], rows[index + offset]] = [rows[index + offset], rows[index]];
+  emit(
+    "update:rows",
+    rows.map((row, order) => ({ ...row, displayOrder: String(order) })),
+  );
+}
+// A published option's code can't change, so only new options show it.
+function fields(row: CatalogChoiceInput): readonly string[] {
+  return row.isPublished
+    ? ["mode", "durationMinutes", "priceIdr"]
+    : ["code", "mode", "durationMinutes", "priceIdr"];
+}
 function remove(index: number): void {
   emit(
     "update:rows",
@@ -92,15 +108,10 @@ function remove(index: number): void {
         {{ error(index, "id") }}
       </p>
       <div
-        v-for="field in [
-          'code',
-          'mode',
-          'durationMinutes',
-          'priceIdr',
-          'displayOrder',
-        ]"
+        v-for="field in fields(row)"
         :key="field"
         class="catalog-field"
+        :class="{ 'catalog-field--code': field === 'code' }"
       >
         <label :for="key(index, field)">{{
           tr(`ad.catalog.form.${field}`)
@@ -134,10 +145,9 @@ function remove(index: number): void {
           :id="key(index, field)"
           :name="key(index, field)"
           :type="field === 'code' ? 'text' : 'number'"
-          :min="field === 'displayOrder' ? 0 : field === 'code' ? undefined : 1"
+          :min="field === 'code' ? undefined : 1"
           step="1"
           :value="row[field as keyof CatalogChoiceInput] as string"
-          :readonly="field === 'code' && row.isPublished"
           :aria-invalid="!!error(index, field)"
           :aria-describedby="
             error(index, field) ? `${key(index, field)}-error` : undefined
@@ -156,6 +166,9 @@ function remove(index: number): void {
           data-price-hint
         >
           {{ formatPrice(Number(row.priceIdr)) }}
+        </p>
+        <p v-if="field === 'code'" class="catalog-help">
+          {{ tr("ad.catalog.form.codeHelp") }}
         </p>
         <p
           v-if="error(index, field)"
@@ -193,6 +206,30 @@ function remove(index: number): void {
       >
         {{ error(index, "isActive") }}
       </p>
+      <div class="catalog-choice-move">
+        <button
+          type="button"
+          class="catalog-control catalog-control--icon"
+          :disabled="disabled || index === 0"
+          :aria-label="tr('ad.catalog.form.moveUp')"
+          :title="tr('ad.catalog.form.moveUp')"
+          data-choice-up
+          @click="move(index, -1)"
+        >
+          <ChevronUp aria-hidden="true" />
+        </button>
+        <button
+          type="button"
+          class="catalog-control catalog-control--icon"
+          :disabled="disabled || index === rows.length - 1"
+          :aria-label="tr('ad.catalog.form.moveDown')"
+          :title="tr('ad.catalog.form.moveDown')"
+          data-choice-down
+          @click="move(index, 1)"
+        >
+          <ChevronDown aria-hidden="true" />
+        </button>
+      </div>
       <button
         type="button"
         class="catalog-control"

@@ -173,12 +173,9 @@ async function expectDetailVisibility(
 }
 
 async function fillPackageForm(page: Page): Promise<void> {
-  // Published packages lock their slug and published child codes; every other
-  // field of the seeded package stays editable through the update contract.
-  await expect(page.getByLabel(/slug paket|package slug/i)).toHaveAttribute(
-    "readonly",
-    "",
-  );
+  // Published packages hide their fixed slug and published child codes; every
+  // other field of the seeded package stays editable through the update contract.
+  await expect(page.getByLabel(/slug paket|package slug/i)).toHaveCount(0);
   await page
     .getByLabel(/^kategori$|^category$/i)
     .selectOption({ label: `${category.nameId} / ${category.nameEn}` });
@@ -208,30 +205,22 @@ async function fillPackageForm(page: Page): Promise<void> {
   const variant = page
     .getByRole("group", { name: /pilihan utama|base options/i })
     .locator('[data-choice-row="variants.0"]');
-  await expect(variant.getByLabel(/^kode$|^code$/i)).toHaveAttribute(
-    "readonly",
-    "",
-  );
+  await expect(variant.getByLabel(/^kode$|^code$/i)).toHaveCount(0);
   await variant.getByLabel(/^mode$/i).selectOption("regular");
   await variant.getByLabel(/durasi menit|duration minutes/i).fill("60");
   await variant
     .getByLabel(/harga idr|price idr/i)
     .fill(String(servicePackage.basePrice));
-  await variant.getByLabel(/urutan tampilan|display order/i).fill("1");
 
   const extension = page
     .getByRole("group", { name: /^tambahan$|^extensions$/i })
     .locator('[data-choice-row="extensions.0"]');
-  await expect(extension.getByLabel(/^kode$|^code$/i)).toHaveAttribute(
-    "readonly",
-    "",
-  );
+  await expect(extension.getByLabel(/^kode$|^code$/i)).toHaveCount(0);
   await extension.getByLabel(/^mode$/i).selectOption("regular");
   await extension.getByLabel(/durasi menit|duration minutes/i).fill("60");
   await extension
     .getByLabel(/harga idr|price idr/i)
     .fill(String(servicePackage.extensionPrice));
-  await extension.getByLabel(/urutan tampilan|display order/i).fill("1");
 }
 
 async function createBookingWithPublishedPrice(page: Page): Promise<void> {

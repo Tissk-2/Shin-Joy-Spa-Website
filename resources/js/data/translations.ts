@@ -78,27 +78,28 @@ export default {
     "ad.settings.review_target_minutes": "Target tanggapan peninjauan (menit)",
     "ad.settings.minimum_checkout_minutes":
       "Jendela pembayaran minimum (menit)",
-    "ad.settings.booking_horizon_daysHelp": "Bilangan bulat 1–365 hari.",
+    "ad.settings.booking_horizon_daysHelp":
+      "Berapa hari ke depan tamu bisa memesan, 1 sampai 365. Contoh: 60.",
     "ad.settings.minimum_lead_minutesHelp":
-      "Bilangan bulat dalam menit, dari 0 sampai 525600 (365 hari).",
+      "Jarak terdekat antara saat memesan dan janji temu. Contoh: 120 berarti paling cepat 2 jam lagi.",
     "ad.settings.paymentSection": "Pembayaran online (nonaktif)",
     "ad.settings.paymentOff":
       "Pembayaran online belum aktif, jadi nilai ini belum berpengaruh. Nilai tetap disimpan untuk saat pembayaran online diaktifkan.",
     "ad.settings.review_target_minutesHelp":
-      "Bilangan bulat 1–10080 menit, dihitung hanya selama jam peninjauan.",
+      "Berapa lama permintaan boleh menunggu tanggapan staf, dihitung hanya selama jam peninjauan. Contoh: 60 berarti 1 jam.",
     "ad.settings.minimum_checkout_minutesHelp":
       "Bilangan bulat 1–60 menit. Batas pembayaran adalah 60 menit setelah persetujuan, paling lambat saat janji dimulai.",
-    "ad.settings.hours": "Jam peninjauan mingguan · Asia/Jakarta",
+    "ad.settings.hours": "Jam peninjauan mingguan (WIB)",
     "ad.settings.hoursHelp":
-      "Gunakan HH:mm. Waktu akhir boleh 24:00. Tambahkan beberapa interval per hari; hilangkan hari tutup. Pisahkan jam lintas tengah malam ke dua hari.",
+      "Tulis jam seperti 09:00 sampai 17:00. Hari tanpa jam dianggap tutup. Jam yang lewat tengah malam dibagi ke dua hari, misalnya 22:00 sampai 24:00 lalu 00:00 sampai 02:00.",
     "ad.settings.noHours":
-      "Belum ada jam peninjauan. Tambahkan setidaknya satu interval.",
+      "Belum ada jam peninjauan. Tambahkan setidaknya satu rentang jam.",
     "ad.settings.weekday": "Hari",
     "ad.settings.chooseDay": "Pilih hari",
-    "ad.settings.start": "Awal (HH:mm)",
-    "ad.settings.end": "Akhir (HH:mm)",
-    "ad.settings.remove": "Hapus interval",
-    "ad.settings.add": "Tambah interval",
+    "ad.settings.start": "Mulai",
+    "ad.settings.end": "Selesai",
+    "ad.settings.remove": "Hapus rentang jam",
+    "ad.settings.add": "Tambah rentang jam",
     "ad.settings.save": "Simpan pengaturan",
     "ad.settings.saving": "Menyimpan…",
     "ad.settings.day1": "Senin",
@@ -694,6 +695,8 @@ export default {
       "{count} periode pemeliharaan lainnya tidak ditampilkan.",
     "ad.rooms.minutes": "menit",
     "ad.rooms.map": "Denah ruangan",
+    "ad.rooms.showMap": "Tampilkan denah ruangan",
+    "ad.rooms.hideMap": "Sembunyikan denah ruangan",
     "ad.rooms.mapGuest": "Ada tamu",
     "ad.rooms.mapCleaning": "Sedang dibersihkan",
     "ad.rooms.mapFree": "Kosong",
@@ -715,6 +718,8 @@ export default {
     "ad.today.queueMore": "Lihat semua {n} permintaan",
     "ad.today.schedule": "Jadwal hari ini",
     "ad.today.scheduleEmpty": "Tidak ada janji temu hari ini.",
+    "ad.today.scheduleDone": "Tidak ada janji temu lagi hari ini.",
+    "ad.today.scheduleAll": "Lihat seluruh jadwal hari ini",
     "ad.today.pricing":
       "Harga {n} paket belum diverifikasi, jadi tamu hanya bisa memesannya untuk 1 orang.",
     "ad.today.pricingLink": "Verifikasi di Katalog",
@@ -828,6 +833,10 @@ export default {
     "ad.catalog.form.variants": "Pilihan utama",
     "ad.catalog.form.extensions": "Tambahan",
     "ad.catalog.form.code": "Kode",
+    "ad.catalog.form.codeHelp":
+      "Huruf kecil, angka dan tanda hubung, misalnya paket-regular-90. Tidak bisa diubah setelah dipublikasikan.",
+    "ad.catalog.form.moveUp": "Pindah ke atas",
+    "ad.catalog.form.moveDown": "Pindah ke bawah",
     "ad.catalog.form.mode": "Mode",
     "ad.catalog.form.modeRegular": "Reguler",
     "ad.catalog.form.modeDoubleTherapist": "Dua terapis",
@@ -835,13 +844,17 @@ export default {
     "ad.catalog.form.priceIdr": "Harga IDR",
     "ad.catalog.form.pricing": "Harga paket",
     "ad.catalog.form.pricingBasis": "Dasar harga",
-    "ad.catalog.form.pricingBasisUnset": "Belum diverifikasi",
+    "ad.catalog.form.pricingBasisUnset": "Pilih dasar harga",
     "ad.catalog.form.pricingPerPerson": "Per orang",
     "ad.catalog.form.pricingPerBooking": "Per reservasi",
     "ad.catalog.form.minGuests": "Tamu minimum",
     "ad.catalog.form.maxGuests": "Tamu maksimum",
     "ad.catalog.form.pricingVerified": "Terverifikasi",
     "ad.catalog.form.pricingUnverified": "Belum diverifikasi",
+    "ad.catalog.form.pricingEffect":
+      "Sampai harga diverifikasi, tamu hanya bisa memesan paket ini untuk 1 orang.",
+    "ad.catalog.form.guestRangeHelp":
+      "Jumlah tamu dalam satu reservasi, dari 1 sampai 4.",
     "ad.catalog.form.pricingVerifiedBy": "Diverifikasi oleh",
     "ad.catalog.form.pricingSaveFirst":
       "Simpan perubahan lainnya, lalu buka kembali paket ini sebelum memverifikasi harga.",
@@ -1136,26 +1149,27 @@ export default {
     "ad.settings.minimum_lead_minutes": "Minimum lead time (minutes)",
     "ad.settings.review_target_minutes": "Review response target (minutes)",
     "ad.settings.minimum_checkout_minutes": "Minimum checkout window (minutes)",
-    "ad.settings.booking_horizon_daysHelp": "Whole number from 1–365 days.",
+    "ad.settings.booking_horizon_daysHelp":
+      "How many days ahead guests can book, 1 to 365. For example: 60.",
     "ad.settings.minimum_lead_minutesHelp":
-      "Whole number of minutes, from 0 to 525600 (365 days).",
+      "The shortest gap between booking and the appointment. For example: 120 means at least 2 hours ahead.",
     "ad.settings.paymentSection": "Online payment (off)",
     "ad.settings.paymentOff":
       "Online payment is off, so this value has no effect yet. It is still saved for when online payment is turned on.",
     "ad.settings.review_target_minutesHelp":
-      "Whole number from 1–10080 minutes, counted only during review hours.",
+      "How long a request may wait for a staff answer, counted only during review hours. For example: 60 means 1 hour.",
     "ad.settings.minimum_checkout_minutesHelp":
       "Whole number from 1–60 minutes. Payment is due 60 minutes after approval, capped at appointment start.",
-    "ad.settings.hours": "Weekly review hours · Asia/Jakarta",
+    "ad.settings.hours": "Weekly review hours (WIB)",
     "ad.settings.hoursHelp":
-      "Use HH:mm. An end may be 24:00. Add multiple intervals per day; omit closed days. Split overnight hours across two days.",
-    "ad.settings.noHours": "No review hours yet. Add at least one interval.",
+      "Write times like 09:00 to 17:00. Days without hours count as closed. Hours past midnight go on two days, for example 22:00 to 24:00, then 00:00 to 02:00.",
+    "ad.settings.noHours": "No review hours yet. Add at least one time range.",
     "ad.settings.weekday": "Weekday",
     "ad.settings.chooseDay": "Choose a day",
-    "ad.settings.start": "Start (HH:mm)",
-    "ad.settings.end": "End (HH:mm)",
-    "ad.settings.remove": "Remove interval",
-    "ad.settings.add": "Add interval",
+    "ad.settings.start": "Start",
+    "ad.settings.end": "End",
+    "ad.settings.remove": "Remove time range",
+    "ad.settings.add": "Add a time range",
     "ad.settings.save": "Save settings",
     "ad.settings.saving": "Saving…",
     "ad.settings.day1": "Monday",
@@ -1744,6 +1758,8 @@ export default {
     "ad.rooms.omittedBlocks": "Maintenance periods not displayed: {count}.",
     "ad.rooms.minutes": "mins",
     "ad.rooms.map": "Room map",
+    "ad.rooms.showMap": "Show the room map",
+    "ad.rooms.hideMap": "Hide the room map",
     "ad.rooms.mapGuest": "Guest inside",
     "ad.rooms.mapCleaning": "Being cleaned",
     "ad.rooms.mapFree": "Free",
@@ -1764,6 +1780,8 @@ export default {
     "ad.today.queueMore": "See all {n} requests",
     "ad.today.schedule": "Today's appointments",
     "ad.today.scheduleEmpty": "No appointments today.",
+    "ad.today.scheduleDone": "No more appointments today.",
+    "ad.today.scheduleAll": "See today's full schedule",
     "ad.today.pricing":
       "{n} packages have unverified pricing, so guests can only book them for 1 person.",
     "ad.today.pricingLink": "Verify in the Catalog",
@@ -1878,6 +1896,10 @@ export default {
     "ad.catalog.form.variants": "Base options",
     "ad.catalog.form.extensions": "Extensions",
     "ad.catalog.form.code": "Code",
+    "ad.catalog.form.codeHelp":
+      "Lowercase letters, numbers and hyphens, for example package-regular-90. It cannot change once published.",
+    "ad.catalog.form.moveUp": "Move up",
+    "ad.catalog.form.moveDown": "Move down",
     "ad.catalog.form.mode": "Mode",
     "ad.catalog.form.modeRegular": "Regular",
     "ad.catalog.form.modeDoubleTherapist": "Double therapist",
@@ -1885,13 +1907,17 @@ export default {
     "ad.catalog.form.priceIdr": "Price IDR",
     "ad.catalog.form.pricing": "Package pricing",
     "ad.catalog.form.pricingBasis": "Pricing basis",
-    "ad.catalog.form.pricingBasisUnset": "Not verified",
+    "ad.catalog.form.pricingBasisUnset": "Choose a pricing basis",
     "ad.catalog.form.pricingPerPerson": "Per person",
     "ad.catalog.form.pricingPerBooking": "Per booking",
     "ad.catalog.form.minGuests": "Minimum guests",
     "ad.catalog.form.maxGuests": "Maximum guests",
     "ad.catalog.form.pricingVerified": "Verified",
     "ad.catalog.form.pricingUnverified": "Not verified",
+    "ad.catalog.form.pricingEffect":
+      "Until pricing is verified, guests can book this package for 1 person only.",
+    "ad.catalog.form.guestRangeHelp":
+      "How many guests one booking can include, from 1 to 4.",
     "ad.catalog.form.pricingVerifiedBy": "Verified by",
     "ad.catalog.form.pricingSaveFirst":
       "Save your other changes, then reopen this package before verifying pricing.",

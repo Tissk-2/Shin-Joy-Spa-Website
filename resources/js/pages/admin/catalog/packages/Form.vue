@@ -76,6 +76,18 @@ const hasOtherEdits = computed(
 const processing = ref(false);
 const errors = ref<Record<string, string>>({});
 const lockedSlug = packageItem.isPublished;
+// A published package's slug can't change, so it is not shown.
+const detailFields = [
+  "categoryId",
+  ...(lockedSlug ? [] : ["slug"]),
+  "nameId",
+  "nameEn",
+  "descId",
+  "descEn",
+  "benefitId",
+  "benefitEn",
+  "displayOrder",
+];
 const labelKeys: Readonly<Record<string, string>> = {
   categoryId: "categoryId",
   slug: "packageSlug",
@@ -87,12 +99,14 @@ function labelKey(field: string): string {
 }
 function renderedChoiceError(field: string): boolean {
   const match =
-    /^(variants|extensions)\.(\d+)\.(id|code|mode|durationMinutes|priceIdr|isActive|displayOrder)$/.exec(
+    /^(variants|extensions)\.(\d+)\.(id|code|mode|durationMinutes|priceIdr|isActive)$/.exec(
       field,
     );
   if (!match) return false;
   const rows = match[1] === "variants" ? variants.value : extensions.value;
-  return Number(match[2]) < rows.length;
+  const row = rows[Number(match[2])];
+  // Published codes are not shown, so their errors go in the list above the form.
+  return row !== undefined && !(match[3] === "code" && row.isPublished);
 }
 const extraErrors = computed(() =>
   Object.entries(errors.value).filter(
@@ -100,7 +114,7 @@ const extraErrors = computed(() =>
       ![
         "version",
         "categoryId",
-        "slug",
+        ...(lockedSlug ? [] : ["slug"]),
         "nameId",
         "nameEn",
         "descId",
@@ -243,17 +257,7 @@ function attest(): void {
           </p>
           <div id="package-details" class="catalog-form-grid">
             <div
-              v-for="field in [
-                'categoryId',
-                'slug',
-                'nameId',
-                'nameEn',
-                'descId',
-                'descEn',
-                'benefitId',
-                'benefitEn',
-                'displayOrder',
-              ]"
+              v-for="field in detailFields"
               :key="field"
               class="catalog-field"
             >
@@ -304,7 +308,6 @@ function attest(): void {
                 :name="field"
                 :type="field === 'displayOrder' ? 'number' : 'text'"
                 :min="field === 'displayOrder' ? 0 : undefined"
-                :readonly="field === 'slug' && lockedSlug"
                 :disabled="processing"
                 :aria-invalid="!!fieldError(field)"
               />
@@ -340,9 +343,34 @@ function attest(): void {
             class="catalog-pricing"
             data-package-pricing
           >
-            <h2 class="catalog-pricing__title">
-              {{ tr("ad.catalog.form.pricing") }}
-            </h2>
+            <div class="catalog-pricing__head">
+              <h2 class="catalog-pricing__title">
+                {{ tr("ad.catalog.form.pricing") }}
+              </h2>
+              <span
+                class="catalog-status"
+                :class="
+                  packageItem.pricingVerified
+                    ? 'catalog-status--published'
+                    : 'catalog-status--unverified'
+                "
+                data-pricing-state
+                >{{
+                  tr(
+                    packageItem.pricingVerified
+                      ? "ad.catalog.form.pricingVerified"
+                      : "ad.catalog.form.pricingUnverified",
+                  )
+                }}</span
+              >
+            </div>
+            <p
+              v-if="!packageItem.pricingVerified"
+              class="catalog-pricing__effect"
+              data-pricing-effect
+            >
+              {{ tr("ad.catalog.form.pricingEffect") }}
+            </p>
             <p id="catalog-package-pricing-help" class="catalog-help">
               {{ tr("ad.catalog.form.pricingHelp") }}
             </p>
@@ -397,7 +425,7 @@ function attest(): void {
                   :aria-describedby="
                     fieldError('minGuests')
                       ? 'catalog-package-minGuests-error'
-                      : 'catalog-package-pricing-help'
+                      : 'catalog-package-guest-help'
                   "
                 />
                 <p
@@ -424,7 +452,7 @@ function attest(): void {
                   :aria-describedby="
                     fieldError('maxGuests')
                       ? 'catalog-package-maxGuests-error'
-                      : 'catalog-package-pricing-help'
+                      : 'catalog-package-guest-help'
                   "
                 />
                 <p
@@ -436,18 +464,19 @@ function attest(): void {
                 </p>
               </div>
             </div>
-            <p class="catalog-pricing__status" data-pricing-status>
-              <template v-if="packageItem.pricingVerified">
-                <strong>{{ tr("ad.catalog.form.pricingVerified") }}</strong>
-                <template v-if="packageItem.pricingVerifiedBy">
-                  · {{ tr("ad.catalog.form.pricingVerifiedBy") }}
-                  {{ packageItem.pricingVerifiedBy.name }}
-                  ({{ packageItem.pricingVerifiedBy.email }})
-                </template>
-              </template>
-              <template v-else>
-                {{ tr("ad.catalog.form.pricingUnverified") }}
-              </template>
+            <p id="catalog-package-guest-help" class="catalog-help">
+              {{ tr("ad.catalog.form.guestRangeHelp") }}
+            </p>
+            <p
+              v-if="
+                packageItem.pricingVerified && packageItem.pricingVerifiedBy
+              "
+              class="catalog-pricing__status"
+              data-pricing-status
+            >
+              {{ tr("ad.catalog.form.pricingVerifiedBy") }}
+              {{ packageItem.pricingVerifiedBy.name }}
+              ({{ packageItem.pricingVerifiedBy.email }})
             </p>
             <p v-if="fieldError('pricing')" class="catalog-error">
               {{ fieldError("pricing") }}
@@ -456,6 +485,9 @@ function attest(): void {
               v-if="packageItem.can.attestPricing"
               type="button"
               class="catalog-control"
+              :class="{
+                'catalog-control--primary': !packageItem.pricingVerified,
+              }"
               data-pricing-attest
               :disabled="processing || hasOtherEdits"
               aria-describedby="pricing-attestation-help"
@@ -530,16 +562,27 @@ function attest(): void {
   border-radius: var(--admin-radius-lg);
   background: var(--admin-canvas);
 }
+.catalog-pricing__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+}
 .catalog-pricing__title {
   margin: 0;
   font-size: 1rem;
 }
+.catalog-pricing__effect,
 .catalog-pricing__status {
   margin: 0;
-  font-size: 0.85rem;
+  font-size: 0.875rem;
 }
-.catalog-pricing__status strong {
-  color: var(--admin-plum);
+.catalog-pricing__effect {
+  max-width: 70ch;
+  font-weight: 600;
+}
+.catalog-pricing > [data-pricing-attest] {
+  justify-self: start;
 }
 .catalog-pricing .catalog-help {
   margin: 0;

@@ -52,7 +52,7 @@ describe("owner booking settings", () => {
     const wrapper = render();
     expect(wrapper.text()).toContain("not configured");
     expect(wrapper.text()).toContain("future availability");
-    expect(wrapper.text()).toContain("Asia/Jakarta");
+    expect(wrapper.text()).toContain("Weekly review hours (WIB)");
     for (const field of [
       "booking_horizon_days",
       "minimum_lead_minutes",

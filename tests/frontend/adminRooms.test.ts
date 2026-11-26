@@ -257,6 +257,49 @@ describe("read-only staff room inventory", () => {
     ).toHaveLength(3);
   });
 
+  // Staff review 2026-11-26: Ruangan was the longest page for a feature that is off.
+  it("folds the map while scheduling is off and links maintenance only where there is some", () => {
+    const off = render({
+      ...inventory(),
+      rooms: [
+        inventory().rooms[0],
+        {
+          ...inventory().rooms[1],
+          currentBlockCount: 0,
+          upcomingBlockCount: 0,
+          blocks: [],
+        },
+      ],
+    });
+    const fold = off.get("[data-room-map-fold]");
+    expect(fold.element.tagName).toBe("DETAILS");
+    expect(fold.attributes("open")).toBeUndefined();
+    expect(fold.get("summary").text()).toContain("Show the room map");
+    expect(
+      render({ ...inventory(), schedulingEnabled: true })
+        .get("[data-room-map-fold]")
+        .attributes("open"),
+    ).toBeDefined();
+    expect(off.findAll("thead th").map((th) => th.text())).toContain(
+      "Maintenance",
+    );
+    for (const [id, links] of [
+      ["1", 1],
+      ["2", 0],
+    ] as const) {
+      expect(
+        off
+          .get(`tbody tr[data-room-id="${id}"]`)
+          .findAll(`a[href="/admin/room-blocks?roomId=${id}"]`),
+      ).toHaveLength(links);
+      expect(
+        off
+          .get(`[data-room-card="${id}"]`)
+          .findAll(`a[href="/admin/room-blocks?roomId=${id}"]`),
+      ).toHaveLength(links);
+    }
+  });
+
   it("discloses full counts, omitted blocks, observation-based current/upcoming and horizon", () => {
     const wrapper = render();
     expect(wrapper.text()).toContain("1 current");
@@ -271,7 +314,10 @@ describe("read-only staff room inventory", () => {
       ...inventory(),
       rooms: [{ ...inventory().rooms[1], upcomingBlockCount: 0, blocks: [] }],
     });
-    expect(noBlocks.get('tbody tr[data-room-id="2"]').text()).toContain("None");
+    // Staff review 2026-11-26: with no maintenance anywhere the column is dropped.
+    expect(noBlocks.findAll("thead th").map((th) => th.text())).not.toContain(
+      "Maintenance",
+    );
     expect(noBlocks.get('[data-room-card="2"]').text()).not.toContain(
       "0 current",
     );

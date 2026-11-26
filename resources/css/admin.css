@@ -1313,9 +1313,30 @@
   display: grid;
   min-width: 0;
 }
+/* Phone and tablet: the visits still to come sit above the queue. */
+.admin-agenda__done,
+.admin-agenda__all {
+  display: none;
+}
 @media (max-width: 1100px) {
   .admin-today {
     grid-template-columns: minmax(0, 1fr);
+  }
+  .admin-today > [data-agenda] {
+    order: -1;
+  }
+  .admin-agenda__later {
+    display: none;
+  }
+  .admin-agenda > li:not(.admin-agenda__later) {
+    border-top: 0;
+  }
+  .admin-agenda > li:not(.admin-agenda__later) ~ li:not(.admin-agenda__later) {
+    border-top: 1px solid var(--admin-line);
+  }
+  .admin-agenda__done,
+  .admin-agenda__all {
+    display: flex;
   }
 }
 
@@ -1832,6 +1853,21 @@ a.admin-slot__body:hover .admin-slot__name {
 .admin-room-cell__links a:hover {
   text-decoration: underline;
   text-underline-offset: 0.2em;
+}
+/* Rooms: the folded floor map (open by default once scheduling is on). */
+.admin-room-map-fold > summary {
+  width: fit-content;
+  list-style: none;
+}
+.admin-room-map-fold > summary::-webkit-details-marker {
+  display: none;
+}
+.admin-room-map-fold > summary + * {
+  margin-top: 0.75rem;
+}
+.admin-room-map-fold[open] .admin-room-map-fold__show,
+.admin-room-map-fold:not([open]) .admin-room-map-fold__hide {
+  display: none;
 }
 .admin-room-details {
   display: grid;

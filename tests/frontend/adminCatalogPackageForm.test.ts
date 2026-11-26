@@ -189,13 +189,9 @@ describe("admin package form", () => {
         },
       ],
     });
-    expect(
-      wrapper.get<HTMLInputElement>('[name="slug"]').element.readOnly,
-    ).toBe(true);
-    expect(
-      wrapper.get<HTMLInputElement>('[name="variants.0.code"]').element
-        .readOnly,
-    ).toBe(true);
+    // Staff review 2026-11-26: fixed identifiers are not shown, but still posted.
+    expect(wrapper.find('[name="slug"]').exists()).toBe(false);
+    expect(wrapper.find('[name="variants.0.code"]').exists()).toBe(false);
     await wrapper.get("form").trigger("submit");
     const request = inertia.requests[0];
     expect(request.url).toBe("/admin/catalog/packages/published-package");
@@ -203,6 +199,7 @@ describe("admin package form", () => {
     expect(request.data.get("version")).toBe("3");
     expect(request.data.get("variants[0][id]")).toBe("7");
     expect(request.data.get("variants[0][code]")).toBe("locked-code");
+    expect(request.data.get("slug")).toBe("published-package");
   });
 
   it("uses package lifecycle endpoints with the current version", async () => {
@@ -501,5 +498,91 @@ describe("admin package form", () => {
     expect(
       wrapper.findAll("[data-price-hint]").map((hint) => hint.text()),
     ).toEqual(["Rp 1.250.000"]);
+  });
+
+  // Staff review 2026-11-26: the price check read like a form state, not a task.
+  it("names the price check's state and what it means for guests", () => {
+    const owner = { ...draftPackage.can, attestPricing: true };
+    const unverified = mountForm({ ...draftPackage, can: owner });
+    expect(unverified.get("[data-pricing-state]").text()).toBe("Not verified");
+    expect(unverified.get("[data-pricing-effect]").text()).toContain(
+      "1 person only",
+    );
+    expect(
+      unverified.get<HTMLSelectElement>('[name="pricingBasis"]').element
+        .options[0].text,
+    ).toBe("Choose a pricing basis");
+    expect(unverified.get("[data-pricing-attest]").classes()).toContain(
+      "catalog-control--primary",
+    );
+
+    const verified = mountForm({
+      ...draftPackage,
+      pricingBasis: "per_person" as const,
+      minGuests: 1,
+      maxGuests: 2,
+      pricingVerified: true,
+      pricingVerifiedBy: { id: 3, name: "Owner", email: "owner@example.test" },
+      can: owner,
+    });
+    expect(verified.get("[data-pricing-state]").text()).toBe("Verified");
+    expect(verified.find("[data-pricing-effect]").exists()).toBe(false);
+    expect(verified.get("[data-pricing-attest]").classes()).not.toContain(
+      "catalog-control--primary",
+    );
+  });
+
+  // Staff review 2026-11-26: options were reordered by typing numbers, and fixed codes filled a column.
+  it("moves options with buttons, renumbers them and shows a code only on new options", async () => {
+    const option = (
+      clientKey: string,
+      isPublished: boolean,
+      order: string,
+    ) => ({
+      clientKey,
+      ...(isPublished ? { id: clientKey.length } : {}),
+      code: `${clientKey}-code`,
+      mode: "regular" as const,
+      durationMinutes: "60",
+      priceIdr: "100000",
+      isActive: true,
+      displayOrder: order,
+      isPublished,
+    });
+    const wrapper = mount(PackageChoiceRows, {
+      props: {
+        kind: "variants",
+        rows: [
+          option("a", true, "5"),
+          option("bb", true, "7"),
+          option("c", false, "9"),
+        ],
+      },
+    });
+    const up = wrapper.findAll("[data-choice-up]");
+    const down = wrapper.findAll("[data-choice-down]");
+    expect(up[0].attributes("disabled")).toBeDefined();
+    expect(down[2].attributes("disabled")).toBeDefined();
+    expect(up[0].attributes("aria-label")).toBe("Move up");
+    await down[0].trigger("click");
+    const moved = wrapper.emitted("update:rows")?.[0]?.[0] as readonly {
+      clientKey: string;
+      displayOrder: string;
+    }[];
+    expect(moved.map((row) => [row.clientKey, row.displayOrder])).toEqual([
+      ["bb", "0"],
+      ["a", "1"],
+      ["c", "2"],
+    ]);
+    expect(wrapper.find('[name="variants.0.code"]').exists()).toBe(false);
+    expect(wrapper.find('[name="variants.0.displayOrder"]').exists()).toBe(
+      false,
+    );
+    expect(
+      wrapper.get<HTMLInputElement>('[name="variants.2.code"]').element.value,
+    ).toBe("c-code");
+    expect(wrapper.get('[data-choice-row="variants.2"]').text()).toContain(
+      "It cannot change once published.",
+    );
   });
 });
