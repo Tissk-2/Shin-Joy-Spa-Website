@@ -32,7 +32,7 @@ test("Nezuko card goes straight to booking and regular 90 plus extension survive
   await configurator.getByRole("radio", { name: /regular|reguler/i }).click();
   await configurator.getByRole("radio", { name: /90/ }).click();
   await configurator.getByRole("checkbox", { name: /60/ }).check();
-  await expect(page.getByText("Rp 340.000", { exact: true })).toBeVisible();
+  await expect(page.getByText("Rp 365.000", { exact: true })).toBeVisible();
 });
 
 test("Nezuko VIP double therapist plus 30 minutes totals 90 minutes and Rp450.000", async ({
@@ -76,7 +76,7 @@ test("locale switching preserves a valid Nezuko selection", async ({
   await expect(
     english.getByRole("checkbox", { name: /Extension \+60/ }),
   ).toBeChecked();
-  await expect(english.getByText("Total: 150 min · Rp 340.000")).toBeVisible();
+  await expect(english.getByText("Total: 150 min · Rp 365.000")).toBeVisible();
   await expect(
     page.getByRole("button", { name: /review booking/i }),
   ).toBeVisible();
@@ -155,12 +155,12 @@ test("hostile booking query values clear selection and cannot alter official tot
   await page.goto(
     "/booking?service=nezuko&mode=regular&duration=90&extension=nezuko-regular-extra-60",
   );
-  await expect(page.getByText("Rp 340.000", { exact: true })).toBeVisible();
+  await expect(page.getByText("Rp 365.000", { exact: true })).toBeVisible();
 
   await page.goto(
     "/booking?service=nezuko&mode=regular&duration=999&extension=nezuko-vip-double-extra-30",
   );
-  await expect(page.getByText("Rp 340.000", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Rp 365.000", { exact: true })).toHaveCount(0);
   await expect(page.getByText(/^Total: 0 (?:menit|min) · Rp 0$/)).toHaveCount(
     0,
   );

@@ -89,9 +89,9 @@ class BookingQuoteTest extends TestCase
             'base_price_idr' => 265000,
             'extension_choice_code' => 'nezuko-regular-extra-60',
             'extension_duration_minutes' => 60,
-            'extension_price_idr' => 75000,
+            'extension_price_idr' => 100000,
             'total_duration_minutes' => 150,
-            'total_price_idr' => 340000,
+            'total_price_idr' => 365000,
             'pricing_basis' => null,
             'min_guests' => null,
             'max_guests' => null,
@@ -115,8 +115,8 @@ class BookingQuoteTest extends TestCase
         ));
         $attributes = $quote->bookingAttributes();
 
-        $this->assertSame(680000, $attributes['total_price_idr']);
-        $this->assertSame(340000, $attributes['base_price_idr'] + $attributes['extension_price_idr']);
+        $this->assertSame(730000, $attributes['total_price_idr']);
+        $this->assertSame(365000, $attributes['base_price_idr'] + $attributes['extension_price_idr']);
         $this->assertSame(150, $attributes['total_duration_minutes']);
         $this->assertSame('per_person', $attributes['pricing_basis']);
         $this->assertSame(1, $attributes['min_guests']);
@@ -136,7 +136,7 @@ class BookingQuoteTest extends TestCase
         ));
         $attributes = $quote->bookingAttributes();
 
-        $this->assertSame(340000, $attributes['total_price_idr']);
+        $this->assertSame(365000, $attributes['total_price_idr']);
         $this->assertSame('per_booking', $attributes['pricing_basis']);
         $this->assertSame(2, $attributes['min_guests']);
         $this->assertSame(4, $attributes['max_guests']);
@@ -153,7 +153,7 @@ class BookingQuoteTest extends TestCase
         $data = StoreBookingRequest::validatedBookingDataFrom($this->validPayload(['guests' => 1]));
 
         config(['booking.scheduling_enabled' => false]);
-        $this->assertSame(340000, app(BookingQuoteResolver::class)->resolve($user, $data)->bookingAttributes()['total_price_idr']);
+        $this->assertSame(365000, app(BookingQuoteResolver::class)->resolve($user, $data)->bookingAttributes()['total_price_idr']);
         $this->assertQuoteFails(['guests' => 3], $user, 'guests');
 
         config(['booking.scheduling_enabled' => true]);
@@ -174,7 +174,7 @@ class BookingQuoteTest extends TestCase
         $attributes = $quote->bookingAttributes();
 
         $this->assertSame('manual.guest@example.test', $attributes['customer_email']);
-        $this->assertSame(680000, $attributes['total_price_idr']);
+        $this->assertSame(730000, $attributes['total_price_idr']);
         $this->assertSame('per_person', $attributes['pricing_basis']);
     }
 
@@ -190,7 +190,7 @@ class BookingQuoteTest extends TestCase
 
         $this->assertArrayHasKey('customer_email', $attributes);
         $this->assertNull($attributes['customer_email']);
-        $this->assertSame(680000, $attributes['total_price_idr']);
+        $this->assertSame(730000, $attributes['total_price_idr']);
         $this->assertSame('per_person', $attributes['pricing_basis']);
         $this->assertSame($original, $data);
     }
@@ -229,9 +229,9 @@ class BookingQuoteTest extends TestCase
         $this->assertSame(90, $attributes['base_duration_minutes']);
         $this->assertSame(265000, $attributes['base_price_idr']);
         $this->assertSame(60, $attributes['extension_duration_minutes']);
-        $this->assertSame(75000, $attributes['extension_price_idr']);
+        $this->assertSame(100000, $attributes['extension_price_idr']);
         $this->assertSame(150, $attributes['total_duration_minutes']);
-        $this->assertSame(340000, $attributes['total_price_idr']);
+        $this->assertSame(365000, $attributes['total_price_idr']);
     }
 
     // Production break caught: stale, private, inactive, or incompatible catalog choices must fail as validation errors.

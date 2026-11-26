@@ -89,7 +89,7 @@ test("treatment menus compare published prices, disclose extras accessibly, and 
         optionalPrice: "Rp 250.000",
         extensions: [
           "Dua terapis 30 menit Rp 100.000",
-          "Reguler 60 menit Rp 75.000",
+          "Reguler 60 menit Rp 100.000",
         ],
       },
       {
@@ -307,7 +307,7 @@ test("optional treatment sections show stateful indicators across locales and vi
             name: "Nezuko",
             durations: [199000, 265000, 315000],
             doublePrice: "Rp 250.000",
-            extensions: [100000, 75000],
+            extensions: [100000, 100000],
           },
           {
             slug: "nezuko-vip",

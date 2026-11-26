@@ -53,7 +53,7 @@ class BookingSubmissionSafeguardsTest extends TestCase
 
         $this->actingAs($user)->post('/bookings', $this->payload())->assertStatus(303);
 
-        $this->assertSame(340000, Booking::query()->sole()->total_price_idr);
+        $this->assertSame(365000, Booking::query()->sole()->total_price_idr);
     }
 
     // Without the owner's confirmation the basis is unknown; for one guest both bases give the same total.
@@ -75,7 +75,7 @@ class BookingSubmissionSafeguardsTest extends TestCase
         $this->assertSame('Ayu Lestari', $booking->customer_name);
         $this->assertSame('+6281234567890', $booking->customer_phone);
         $this->assertSame('Focus on shoulders.', $booking->notes);
-        $this->assertSame(340000, $booking->total_price_idr);
+        $this->assertSame(365000, $booking->total_price_idr);
     }
 
     public function test_a_date_more_than_365_days_ahead_is_refused(): void
@@ -149,13 +149,13 @@ class BookingSubmissionSafeguardsTest extends TestCase
         $user = User::factory()->create();
 
         $this->actingAs($user)
-            ->post('/bookings', [...$this->payload(), 'guests' => 3, 'expected_total_price_idr' => 1020000])
+            ->post('/bookings', [...$this->payload(), 'guests' => 3, 'expected_total_price_idr' => 1095000])
             ->assertStatus(303);
 
         $booking = Booking::query()->sole();
-        $this->assertSame(1020000, $booking->total_price_idr);
+        $this->assertSame(1095000, $booking->total_price_idr);
         $this->assertSame(265000, $booking->base_price_idr);
-        $this->assertSame(75000, $booking->extension_price_idr);
+        $this->assertSame(100000, $booking->extension_price_idr);
         $this->assertSame('per_person', $booking->pricing_basis?->value);
         $this->assertSame(1, $booking->min_guests);
         $this->assertSame(4, $booking->max_guests);
@@ -180,7 +180,7 @@ class BookingSubmissionSafeguardsTest extends TestCase
     {
         $this->attestNezuko(PricingBasis::PerPerson, 1, 4);
         $user = User::factory()->create();
-        $payload = [...$this->payload(), 'guests' => 2, 'expected_total_price_idr' => 680000];
+        $payload = [...$this->payload(), 'guests' => 2, 'expected_total_price_idr' => 730000];
 
         $this->actingAs($user)->post('/bookings', $payload)->assertStatus(303);
         $reference = Booking::query()->sole()->reference;
@@ -195,7 +195,7 @@ class BookingSubmissionSafeguardsTest extends TestCase
 
         $booking = Booking::query()->sole();
         $this->assertDatabaseCount('bookings', 1);
-        $this->assertSame(680000, $booking->total_price_idr);
+        $this->assertSame(730000, $booking->total_price_idr);
         $this->assertSame(265000, $booking->base_price_idr);
         $this->assertSame('per_person', $booking->pricing_basis?->value);
     }
@@ -215,7 +215,7 @@ class BookingSubmissionSafeguardsTest extends TestCase
             'guests' => 1,
             'notes' => 'Focus on shoulders.',
             'submission_key' => '018f2f7c-9d0a-7b1b-9a45-3c1f9d0b5a10',
-            'expected_total_price_idr' => 340000,
+            'expected_total_price_idr' => 365000,
         ];
     }
 

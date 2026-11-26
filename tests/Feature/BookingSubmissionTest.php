@@ -121,9 +121,9 @@ class BookingSubmissionTest extends TestCase
             'base_price_idr' => 265000,
             'extension_choice_code' => 'nezuko-regular-extra-60',
             'extension_duration_minutes' => 60,
-            'extension_price_idr' => 75000,
+            'extension_price_idr' => 100000,
             'total_duration_minutes' => 150,
-            'total_price_idr' => 340000,
+            'total_price_idr' => 365000,
         ], $this->bookingSnapshot($booking));
         $this->assertSame($this->serviceId('nezuko'), $booking->service_id);
         $this->assertSame($this->variantId('nezuko-regular-90'), $booking->service_variant_id);
@@ -532,7 +532,7 @@ class BookingSubmissionTest extends TestCase
             'time' => '10:30',
             'guests' => 1,
             'notes' => 'Focus on shoulders.',
-            'expected_total_price_idr' => 340000,
+            'expected_total_price_idr' => 365000,
             'submission_key' => '018f2f7c-9d0a-7b1b-9a45-3c1f9d0b5a10',
             ...$overrides,
         ];

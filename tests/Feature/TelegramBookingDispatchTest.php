@@ -331,7 +331,7 @@ class TelegramBookingDispatchTest extends TestCase
             'guests' => 1,
             'notes' => 'Focus on shoulders.',
             'submission_key' => '018f2f7c-9d0a-7b1b-9a45-3c1f9d0b5a10',
-            'expected_total_price_idr' => 340000,
+            'expected_total_price_idr' => 365000,
             ...$overrides,
         ];
     }

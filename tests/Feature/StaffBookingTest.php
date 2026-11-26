@@ -74,7 +74,7 @@ class StaffBookingTest extends TestCase
         $this->assertNull($booking->customer_email);
         $this->assertSame(BookingStatus::Pending, $booking->status);
         $this->assertSame(1, $booking->booking_version);
-        $this->assertSame(340000, $booking->total_price_idr);
+        $this->assertSame(365000, $booking->total_price_idr);
         $this->assertNotNull($booking->starts_at);
         $this->assertSame(CustomerIdentity::phone('+62 812-1111-2222'), $booking->customer_phone);
         $this->assertDatabaseCount('booking_status_changes', 0);
@@ -468,7 +468,7 @@ class StaffBookingTest extends TestCase
             'guests' => 1,
             'notes' => null,
             'submission_key' => '018f2f7c-9d0a-7b1b-9a45-3c1f9d0b5a20',
-            'expected_total_price_idr' => 340000,
+            'expected_total_price_idr' => 365000,
         ], ...$overrides];
     }
 

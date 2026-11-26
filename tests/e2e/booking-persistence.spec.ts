@@ -287,7 +287,7 @@ test("verified customers persist one booking and cannot view another customer's 
 
   await expect(page).toHaveURL(bookingPageUrl);
   await configureNezukoRegularWithExtension(page);
-  await expect(page.getByText("Rp 340.000", { exact: true })).toBeVisible();
+  await expect(page.getByText("Rp 365.000", { exact: true })).toBeVisible();
 
   await fillBookingDetails(page);
   await page.keyboard.press("Tab");
@@ -316,7 +316,7 @@ test("verified customers persist one booking and cannot view another customer's 
   expect(
     await initialRecap.locator(".summary-row--notes").textContent(),
   ).toContain(longBookingNotes);
-  await expect(initialRecap).toContainText("Rp 340.000");
+  await expect(initialRecap).toContainText("Rp 365.000");
   await expect(initialRecap).toContainText(
     "Total ini mencakup perawatan yang dipilih dan tambahan apa pun untuk satu tamu. Paket ini dapat dipesan online untuk satu tamu sampai spa mengonfirmasi harga rombongan; untuk rombongan, silakan hubungi kami.",
   );
@@ -360,7 +360,7 @@ test("verified customers persist one booking and cannot view another customer's 
   await expect(editedRecap).toContainText("+62 812-2222-3333");
   await expect(editedRecap).toContainText("No notes provided");
   await expect(editedRecap.locator(".summary-total .amt")).toHaveText(
-    "Rp 340.000",
+    "Rp 365.000",
   );
   await expect(editedRecap).toContainText(
     "This total covers the selected treatment and any extension for one guest. This package can be booked online for one guest until the spa confirms its group pricing; for a group, please contact us.",
@@ -401,7 +401,7 @@ test("verified customers persist one booking and cannot view another customer's 
     phone: "+62 812-2222-3333",
     guests: 1,
     notes: editedNotes,
-    expected_total_price_idr: 340000,
+    expected_total_price_idr: 365000,
   });
 
   releaseBookingPost();
@@ -421,7 +421,7 @@ test("verified customers persist one booking and cannot view another customer's 
   await expect(page.locator("[data-booking-reference]")).toHaveText(reference);
   await expect(page.getByText(/menunggu|pending/i)).toBeVisible();
   await expect(page.getByText(/150 (menit|min)/i)).toBeVisible();
-  await expect(page.getByText("Rp 340.000", { exact: true })).toBeVisible();
+  await expect(page.getByText("Rp 365.000", { exact: true })).toBeVisible();
 
   const downloadPromise = page.waitForEvent("download");
   await page
@@ -448,7 +448,7 @@ test("verified customers persist one booking and cannot view another customer's 
   ).toBeVisible();
   await expect(page.getByText(reference, { exact: true })).toHaveCount(1);
   await expect(page.getByText(/150 (menit|min)/i)).toBeVisible();
-  await expect(page.getByText("Rp 340.000", { exact: true })).toBeVisible();
+  await expect(page.getByText("Rp 365.000", { exact: true })).toBeVisible();
 
   await logoutFromAccountMenu(page);
   await registerCustomer(page, secondEmail);

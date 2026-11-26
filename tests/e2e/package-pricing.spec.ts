@@ -93,7 +93,7 @@ test("owner saves visible prices before attestation and customer reviews the tot
       "For 2 guests",
     );
     await expect(customer.locator(".summary-total")).toContainText(
-      "Rp 630.000",
+      "Rp 680.000",
     );
     await expect(
       customer.locator(".package-configurator__total"),
@@ -120,7 +120,7 @@ test("owner saves visible prices before attestation and customer reviews the tot
       "Untuk 2 tamu",
     );
     await expect(customer.locator(".summary-total")).toContainText(
-      "Rp 630.000",
+      "Rp 680.000",
     );
     await customer.screenshot({
       path: path.join(
@@ -136,7 +136,7 @@ test("owner saves visible prices before attestation and customer reviews the tot
     await expect(customer).toHaveURL(/\/bookings\/SJ-/);
     const facts = fixture(["facts"]);
     expect(facts).toMatchObject({
-      bookingTotal: 630000,
+      bookingTotal: 680000,
       bookingBasis: "per_person",
       bookingGuests: 2,
       reservationCount: 0,

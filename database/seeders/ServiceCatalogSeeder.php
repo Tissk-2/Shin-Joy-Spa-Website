@@ -135,7 +135,7 @@ class ServiceCatalogSeeder extends Seeder
     private function seedExtensions(array $services, CarbonInterface $publishedAt): void
     {
         $rows = [
-            ['service' => 'nezuko', 'code' => 'nezuko-regular-extra-60', 'mode' => TreatmentMode::Regular, 'duration' => 60, 'price' => 75000],
+            ['service' => 'nezuko', 'code' => 'nezuko-regular-extra-60', 'mode' => TreatmentMode::Regular, 'duration' => 60, 'price' => 100000],
             ['service' => 'nezuko', 'code' => 'nezuko-double-extra-30', 'mode' => TreatmentMode::DoubleTherapist, 'duration' => 30, 'price' => 100000],
             ['service' => 'nezuko-vip', 'code' => 'nezuko-vip-regular-extra-60', 'mode' => TreatmentMode::Regular, 'duration' => 60, 'price' => 100000],
             ['service' => 'nezuko-vip', 'code' => 'nezuko-vip-double-extra-30', 'mode' => TreatmentMode::DoubleTherapist, 'duration' => 30, 'price' => 100000],
