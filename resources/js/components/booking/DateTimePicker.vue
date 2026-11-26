@@ -2,6 +2,7 @@
 import { computed, nextTick, ref, watch } from "vue";
 import { useLanguage } from "@/composables/useLanguage";
 import { latestBookingDate, todayIso } from "@/lib/booking";
+import type { TimeState } from "@/lib/roomAvailability";
 
 // The booking step's date and time: a month calendar that is always open, the
 // time list beside it, and the typed date field kept as a fallback under the
@@ -22,8 +23,10 @@ const props = withDefaults(
     // Why the time list is empty, when the page knows better than "nothing free".
     emptyText?: string;
     tone?: "site" | "admin";
+    // From room availability: a time with one room left, or none. Plain times have no entry.
+    timeStates?: Readonly<Record<string, TimeState>>;
   }>(),
-  { tone: "site" },
+  { tone: "site", timeStates: () => ({}) },
 );
 const emit = defineEmits<{
   "update:date": [value: string];
@@ -149,6 +152,7 @@ function typed(event: Event): void {
   emit("update:date", (event.target as HTMLInputElement).value);
 }
 function pickTime(slot: string, event: Event): void {
+  if (props.timeStates[slot] === "full") return;
   emit("update:time", slot);
   // Lift the chosen time clear of the scrolling column's fade (see its scroll-padding).
   (event.target as HTMLElement).scrollIntoView?.({ block: "nearest" });
@@ -277,15 +281,24 @@ const summary = computed(() =>
         {{ emptyText ?? tr(chosen ? "dtp.noTimes" : "dtp.pickDay") }}
       </p>
       <div v-else class="dtp__slots">
-        <label v-for="slot in times" :key="slot" class="dtp__slot">
+        <label
+          v-for="slot in times"
+          :key="slot"
+          class="dtp__slot"
+          :class="{ 'dtp__slot--full': timeStates[slot] === 'full' }"
+        >
           <input
             type="radio"
             :name="timeId"
             :value="slot"
             :checked="slot === time"
+            :disabled="timeStates[slot] === 'full'"
             @change="pickTime(slot, $event)"
           />
           <span>{{ slot }}</span>
+          <span v-if="timeStates[slot]" class="dtp__state">{{
+            tr(timeStates[slot] === "full" ? "dtp.full" : "dtp.lastRoom")
+          }}</span>
         </label>
       </div>
     </div>
@@ -513,6 +526,22 @@ const summary = computed(() =>
 }
 .dtp__slot:hover {
   background: var(--dtp-soft);
+}
+.dtp__state {
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.1;
+}
+/* No room left: still listed so guests see it is taken, but not selectable. */
+.dtp__slot--full {
+  border-style: dashed;
+  color: var(--dtp-muted);
+}
+.dtp__slot--full:hover {
+  background: none;
+}
+.dtp__slot--full input {
+  cursor: not-allowed;
 }
 .dtp__slot:has(input:checked) {
   border-color: var(--dtp-accent);

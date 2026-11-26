@@ -3,7 +3,11 @@ import { defineComponent, h, ref, nextTick } from "vue";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import RoomAvailability from "@/components/booking/RoomAvailability.vue";
 import { useRoomAvailability } from "@/composables/useRoomAvailability";
-import { jakartaAppointment, parseAvailability } from "@/lib/roomAvailability";
+import {
+  jakartaAppointment,
+  parseAvailability,
+  slotTimeStates,
+} from "@/lib/roomAvailability";
 
 const selection = {
   service: "nezuko",
@@ -266,5 +270,46 @@ describe("room availability panel", () => {
       props: { ...props, reviewing: true },
     });
     expect(review.text()).toContain("select an available time again");
+  });
+});
+
+// Staff review 2026-11-26: guests could not tell a time was nearly full, and full times vanished.
+describe("slotTimeStates", () => {
+  const room = (code: string, available: boolean) => ({
+    code,
+    name: code,
+    type: null,
+    capacity: 2,
+    available,
+  });
+  const slot = (time: string, rooms: ReturnType<typeof room>[]) => ({
+    // 15:00 WIB is 08:00 UTC.
+    start_at: `2099-09-06T${String(Number(time.slice(0, 2)) - 7).padStart(2, "0")}:${time.slice(3)}:00Z`,
+    rooms,
+  });
+
+  it("marks full and last-room times and keeps every time in server order", () => {
+    expect(
+      slotTimeStates([
+        slot("15:00", [room("A", false), room("B", false)]),
+        slot("15:30", [room("A", false), room("B", true)]),
+        slot("16:00", [room("A", true), room("B", true)]),
+        slot("16:30", [room("A", true)]),
+      ]),
+    ).toEqual({
+      times: ["15:00", "15:30", "16:00", "16:30"],
+      states: { "15:00": "full", "15:30": "last" },
+    });
+  });
+
+  // A time with no suitable room at all is not "full"; the form explains that case on its own.
+  it("leaves out a time that has no suitable room", () => {
+    expect(
+      slotTimeStates([slot("15:00", []), slot("15:30", [room("A", true)])]),
+    ).toEqual({ times: ["15:30"], states: {} });
+  });
+
+  it("returns nothing for no slots", () => {
+    expect(slotTimeStates([])).toEqual({ times: [], states: {} });
   });
 });

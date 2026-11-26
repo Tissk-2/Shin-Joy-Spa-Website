@@ -206,4 +206,35 @@ describe("date and time picker", () => {
     );
     wrapper.unmount();
   });
+  // Staff review 2026-11-26: a nearly full time looked like any other, and full times vanished.
+  it("labels the last room and greys out a full time", async () => {
+    const wrapper = render({
+      times: ["15:00", "15:30", "16:00"],
+      timeStates: { "15:00": "full", "15:30": "last" },
+    });
+    const label = (time: string) =>
+      wrapper.get(`input[value="${time}"]`).element.closest("label")!;
+    expect(
+      wrapper.get('input[value="15:00"]').attributes("disabled"),
+    ).toBeDefined();
+    expect(label("15:00").textContent).toContain("Full");
+    expect(label("15:30").textContent).toContain("1 left");
+    expect(
+      wrapper.get('input[value="15:30"]').attributes("disabled"),
+    ).toBeUndefined();
+    expect(label("16:00").textContent!.trim()).toBe("16:00");
+    await wrapper.get('input[value="15:00"]').trigger("change");
+    expect(wrapper.emitted("update:time")).toBeUndefined();
+
+    state.page.props.locale = "id";
+    await nextTick();
+    expect(label("15:00").textContent).toContain("Penuh");
+    expect(label("15:30").textContent).toContain("Sisa 1");
+  });
+
+  it("draws plain times without states", () => {
+    const wrapper = render();
+    expect(wrapper.findAll("#f-time input[disabled]")).toHaveLength(0);
+    expect(wrapper.find(".dtp__state").exists()).toBe(false);
+  });
 });

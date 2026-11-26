@@ -325,4 +325,67 @@ describe("admin manual booking entry", () => {
     await flushPromises();
     expect(document.activeElement).toBe(wrapper.get("#staff-phone").element);
   });
+  // Staff review 2026-11-26: staff could not see a time was nearly full, and full times vanished.
+  describe("time labels", () => {
+    const room = (code: string, available: boolean) => ({
+      code,
+      name: `Room ${code}`,
+      type: null,
+      capacity: 2,
+      available,
+    });
+    const respond = (fifteenThirtyFree: boolean) =>
+      ({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          generated_at: "2099-09-05T12:00:00Z",
+          slots: [
+            {
+              start_at: "2099-09-06T08:00:00Z",
+              rooms: [room("A", false), room("B", false)],
+            },
+            {
+              start_at: "2099-09-06T08:30:00Z",
+              rooms: [room("A", fifteenThirtyFree), room("B", false)],
+            },
+          ],
+        }),
+      }) as Response;
+    async function open(wrapper: ReturnType<typeof mountPage>) {
+      await wrapper.get('button[data-mode="regular"]').trigger("click");
+      await wrapper.get('button[data-duration="90"]').trigger("click");
+      await wrapper.get("#staff-date").setValue("2099-09-06");
+      await flushPromises();
+    }
+    const label = (wrapper: ReturnType<typeof mountPage>, time: string) =>
+      wrapper
+        .get(`#staff-time input[value="${time}"]`)
+        .element.closest("label")!;
+
+    it("greys out full times and labels the last room", async () => {
+      vi.mocked(fetch).mockResolvedValue(respond(true));
+      const wrapper = mountPage(true);
+      await open(wrapper);
+      expect(
+        wrapper.get('#staff-time input[value="15:00"]').attributes("disabled"),
+      ).toBeDefined();
+      expect(label(wrapper, "15:00").textContent).toContain("Full");
+      expect(label(wrapper, "15:30").textContent).toContain("1 left");
+    });
+
+    it("drops a chosen time that a refresh shows as full", async () => {
+      vi.mocked(fetch).mockResolvedValue(respond(true));
+      const wrapper = mountPage(true);
+      await open(wrapper);
+      await wrapper.get('#staff-time input[value="15:30"]').setValue(true);
+      vi.mocked(fetch).mockResolvedValue(respond(false));
+      await wrapper.get("[data-availability-refresh]").trigger("click");
+      await flushPromises();
+      expect(wrapper.find("#staff-time input:checked").exists()).toBe(false);
+      expect(
+        wrapper.get('#staff-time input[value="15:30"]').attributes("disabled"),
+      ).toBeDefined();
+    });
+  });
 });

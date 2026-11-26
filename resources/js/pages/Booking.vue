@@ -13,7 +13,7 @@ import DateTimePicker from "@/components/booking/DateTimePicker.vue";
 import { useContactInformation } from "@/composables/useContactInformation";
 import { useLanguage } from "@/composables/useLanguage";
 import { useRoomAvailability } from "@/composables/useRoomAvailability";
-import { jakartaAppointment } from "@/lib/roomAvailability";
+import { jakartaAppointment, slotTimeStates } from "@/lib/roomAvailability";
 import {
   buildBookingSubmissionPayload,
   treatmentFitsBusinessHours,
@@ -302,13 +302,15 @@ const availabilityAllowsTime = computed(
           slot.rooms.some((room) => room.available),
       )),
 );
+// Every checked time with its room state: one room left, or none (still listed, greyed out).
+const slotStates = computed(() =>
+  availabilityEnabled.value && availability.status.value === "success"
+    ? slotTimeStates(roomSlots.value)
+    : null,
+);
 const availableTimeSlots = computed(() =>
   availabilityEnabled.value
-    ? availability.status.value === "success"
-      ? roomSlots.value
-          .filter((slot) => slot.rooms.some((room) => room.available))
-          .map((slot) => jakartaAppointment(slot.start_at).time)
-      : []
+    ? (slotStates.value?.times ?? [])
     : timeSlots.filter((slot) =>
         total.value.duration > 0
           ? treatmentFitsBusinessHours(slot, total.value.duration)
@@ -317,8 +319,13 @@ const availableTimeSlots = computed(() =>
             ) ?? false),
       ),
 );
+const selectableTimeSlots = computed(() =>
+  availableTimeSlots.value.filter(
+    (slot) => slotStates.value?.states[slot] !== "full",
+  ),
+);
 watch(
-  availableTimeSlots,
+  selectableTimeSlots,
   (slots) => {
     if (bookingForm.time && !slots.includes(bookingForm.time))
       bookingForm.time = "";
@@ -854,6 +861,7 @@ function confirm(): void {
                     v-model:date="bookingForm.date"
                     v-model:time="bookingForm.time"
                     :times="availableTimeSlots"
+                    :time-states="slotStates?.states ?? {}"
                     date-id="f-date"
                     time-id="f-time"
                     :date-label="tr('b.fdate')"

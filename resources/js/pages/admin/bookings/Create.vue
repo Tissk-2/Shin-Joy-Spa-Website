@@ -11,6 +11,7 @@ import { useRoomAvailability } from "@/composables/useRoomAvailability";
 import {
   availabilityQueryKey,
   jakartaAppointment,
+  slotTimeStates,
 } from "@/lib/roomAvailability";
 import { treatmentFitsBusinessHours, timeSlots } from "@/lib/booking";
 import {
@@ -187,13 +188,15 @@ const availabilityAllowsTime = computed(
           slot.rooms.some((room) => room.available),
       )),
 );
+// Every checked time with its room state: one room left, or none (still listed, greyed out).
+const slotStates = computed(() =>
+  availabilityEnabled.value && availability.status.value === "success"
+    ? slotTimeStates(roomSlots.value)
+    : null,
+);
 const availableTimeSlots = computed(() =>
   availabilityEnabled.value
-    ? availability.status.value === "success"
-      ? roomSlots.value
-          .filter((slot) => slot.rooms.some((room) => room.available))
-          .map((slot) => jakartaAppointment(slot.start_at).time)
-      : []
+    ? (slotStates.value?.times ?? [])
     : timeSlots.filter((slot) =>
         total.value.duration > 0
           ? treatmentFitsBusinessHours(slot, total.value.duration)
@@ -202,8 +205,13 @@ const availableTimeSlots = computed(() =>
             ) ?? false),
       ),
 );
+const selectableTimeSlots = computed(() =>
+  availableTimeSlots.value.filter(
+    (slot) => slotStates.value?.states[slot] !== "full",
+  ),
+);
 watch(
-  availableTimeSlots,
+  selectableTimeSlots,
   (slots) => {
     if (values.value.time && !slots.includes(values.value.time))
       values.value.time = "";
@@ -550,6 +558,7 @@ function submit(): void {
                   v-model:time="values.time"
                   tone="admin"
                   :times="availableTimeSlots"
+                  :time-states="slotStates?.states ?? {}"
                   date-id="staff-date"
                   time-id="staff-time"
                   :date-label="tr('ad.manual.date')"

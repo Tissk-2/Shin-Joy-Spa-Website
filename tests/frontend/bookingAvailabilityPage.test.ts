@@ -397,4 +397,81 @@ describe("booking page availability integration", () => {
     expect(wrapper.get("#f-time").text()).toContain("09:00");
     wrapper.unmount();
   });
+  // Staff review 2026-11-26: guests could not see a time was nearly full, and full times vanished.
+  describe("time labels", () => {
+    const room = (code: string, available: boolean) => ({
+      code,
+      name: `Room ${code}`,
+      type: null,
+      capacity: 2,
+      available,
+    });
+    const labelled = (fifteenThirtyFree: boolean) => ({
+      ...data,
+      slots: [
+        {
+          start_at: "2099-09-06T08:00:00Z",
+          rooms: [room("A", false), room("B", false)],
+        },
+        {
+          start_at: "2099-09-06T08:30:00Z",
+          rooms: [room("A", fifteenThirtyFree), room("B", false)],
+        },
+        {
+          start_at: "2099-09-06T09:00:00Z",
+          rooms: [room("A", true), room("B", true)],
+        },
+      ],
+    });
+    const label = (wrapper: ReturnType<typeof mountPage>, time: string) =>
+      wrapper.get(`#f-time input[value="${time}"]`).element.closest("label")!;
+
+    it("greys out full times and labels the last room", async () => {
+      vi.mocked(fetch).mockResolvedValue(ok(labelled(true)));
+      const wrapper = mountPage(true);
+      await wrapper.get("#f-date").setValue("2099-09-06");
+      await flushPromises();
+      expect(
+        wrapper.get('#f-time input[value="15:00"]').attributes("disabled"),
+      ).toBeDefined();
+      expect(label(wrapper, "15:00").textContent).toContain("Full");
+      expect(label(wrapper, "15:30").textContent).toContain("1 left");
+      expect(label(wrapper, "16:00").textContent!.trim()).toBe("16:00");
+      wrapper.unmount();
+    });
+
+    it("drops a chosen time that a refresh shows as full, and shows no labels while checking", async () => {
+      vi.mocked(fetch).mockResolvedValue(ok(labelled(true)));
+      const wrapper = mountPage(true);
+      await wrapper.get("#f-date").setValue("2099-09-06");
+      await flushPromises();
+      await wrapper.get('#f-time input[value="15:30"]').setValue(true);
+      expect(inertia.forms[0].time).toBe("15:30");
+
+      let finish: (value: Response) => void = () => {};
+      vi.mocked(fetch).mockImplementationOnce(
+        () => new Promise<Response>((resolve) => (finish = resolve)),
+      );
+      await wrapper.get("[data-availability-refresh]").trigger("click");
+      await flushPromises();
+      expect(wrapper.find(".dtp__state").exists()).toBe(false);
+
+      finish(ok(labelled(false)));
+      await flushPromises();
+      expect(inertia.forms[0].time).toBe("");
+      expect(
+        wrapper.get('#f-time input[value="15:30"]').attributes("disabled"),
+      ).toBeDefined();
+      wrapper.unmount();
+    });
+
+    it("leaves the times plain while room scheduling is off", async () => {
+      const wrapper = mountPage(false);
+      await wrapper.get("#f-date").setValue("2099-09-06");
+      await flushPromises();
+      expect(wrapper.findAll("#f-time input[disabled]")).toHaveLength(0);
+      expect(wrapper.find(".dtp__state").exists()).toBe(false);
+      wrapper.unmount();
+    });
+  });
 });

@@ -57,6 +57,30 @@ export function jakartaAppointment(timestamp: string): {
     time: `${part("hour")}:${part("minute")}`,
   };
 }
+export type TimeState = "last" | "full";
+// The forms hold slots read-only, so only the fields this reads are required.
+type ReadonlySlot = {
+  readonly start_at: string;
+  readonly rooms: readonly { readonly available: boolean }[];
+};
+export function slotTimeStates(slots: readonly ReadonlySlot[]): {
+  times: string[];
+  states: Record<string, TimeState>;
+} {
+  const times: string[] = [];
+  const states: Record<string, TimeState> = {};
+  for (const slot of slots) {
+    // No suitable room at all is not "full": the form explains that case itself.
+    if (!slot.rooms.length) continue;
+    const time = jakartaAppointment(slot.start_at).time;
+    const free = slot.rooms.filter((room) => room.available).length;
+    times.push(time);
+    if (free === 0) states[time] = "full";
+    // "last" only when more rooms exist: with one suitable room every open time would say it.
+    else if (free === 1 && slot.rooms.length > 1) states[time] = "last";
+  }
+  return { times, states };
+}
 export function parseAvailability(value: unknown): AvailabilityResult | null {
   if (
     !record(value) ||
