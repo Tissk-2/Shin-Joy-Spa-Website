@@ -900,4 +900,32 @@ describe("notifications", () => {
     expect(idKeys).toEqual(enKeys);
     expect(idKeys).toHaveLength(28);
   });
+
+  it("renders auto-declined slot_full system history in both languages", async () => {
+    const wrapper = mountPage({
+      ...booking,
+      status: "cancelled",
+      history: [
+        {
+          actor: { name: null, email: null },
+          fromStatus: "pending",
+          toStatus: "cancelled",
+          reason: "slot_full",
+          createdAt: "2026-10-25T08:00:00Z",
+          operationalConfirmedAt: null,
+        },
+      ],
+    });
+    expect(wrapper.text()).toContain(
+      "All suitable rooms for this time are full.",
+    );
+    expect(wrapper.text()).not.toContain("expired automatically");
+
+    await wrapper.get("[data-admin-locale='id']").trigger("click");
+    await settle();
+    expect(wrapper.text()).toContain(
+      "Seluruh ruangan untuk waktu ini sudah terisi.",
+    );
+    expect(wrapper.text()).not.toContain("kedaluwarsa otomatis");
+  });
 });

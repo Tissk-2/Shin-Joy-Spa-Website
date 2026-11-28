@@ -465,6 +465,8 @@ export default {
       "Reservasi ini dibatalkan. Untuk berkunjung, buat reservasi baru.",
     "bookings.statusNote.expired":
       "Staf belum sempat mengonfirmasi permintaan ini sebelum jadwalnya, jadi permintaan ini kedaluwarsa. Untuk berkunjung, buat reservasi baru.",
+    "bookings.statusNote.slotFull":
+      "Maaf, seluruh ruangan untuk waktu yang dipilih sudah terisi. Silakan pesan lagi untuk waktu lain.",
     "bookings.cancelReason": "Alasan dari spa",
     "bookings.room": "Ruangan",
     "bookings.priceFixed":
@@ -1001,8 +1003,10 @@ export default {
     "ad.history.empty": "Belum ada perubahan status.",
     "ad.history.reason": "Alasan",
     "ad.history.noReason": "Tidak ada alasan yang dicatat.",
-    // ponytail: only expiry writes system history today; generalise the label when payments adds a second system actor.
+    // ponytail: only expiry writes null-reason system history; slot_full uses the generic System label below.
     "ad.history.system": "Sistem (kedaluwarsa otomatis)",
+    "ad.history.systemAuto": "Sistem",
+    "ad.history.slotFull": "Seluruh ruangan untuk waktu ini sudah terisi.",
     "ad.notify.title": "Pemberitahuan",
     "ad.notify.empty":
       "Tidak ada pemberitahuan yang tercatat untuk reservasi ini.",
@@ -1534,6 +1538,8 @@ export default {
       "This booking was cancelled. To visit, make a new booking.",
     "bookings.statusNote.expired":
       "Staff could not confirm this request before its time, so it expired. To visit, make a new booking.",
+    "bookings.statusNote.slotFull":
+      "Sorry, all rooms for the chosen time are now full. You are welcome to book again for another time.",
     "bookings.cancelReason": "Reason from the spa",
     "bookings.room": "Room",
     "bookings.priceFixed":
@@ -2065,6 +2071,8 @@ export default {
     "ad.history.reason": "Reason",
     "ad.history.noReason": "No reason was recorded.",
     "ad.history.system": "System (expired automatically)",
+    "ad.history.systemAuto": "System",
+    "ad.history.slotFull": "All suitable rooms for this time are full.",
     "ad.notify.title": "Notifications",
     "ad.notify.empty": "No notifications were recorded for this booking.",
     "ad.notify.contact":

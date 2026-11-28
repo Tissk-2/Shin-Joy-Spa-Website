@@ -35,6 +35,10 @@ return [
             'subject' => 'Permintaan reservasi Shin Joy Spa Anda telah kedaluwarsa',
             'intro' => 'Permintaan reservasi :reference untuk :service pada :date pukul :time tidak sempat kami konfirmasi, sehingga permintaan tersebut kedaluwarsa. Mohon maaf atas ketidaknyamanan ini.',
         ],
+        'slot_full' => [
+            'subject' => 'Waktu reservasi Shin Joy Spa Anda sudah terisi',
+            'intro' => 'Mohon maaf, seluruh ruangan untuk permintaan reservasi :reference (:service pada :date pukul :time) sudah terisi sebelum sempat dikonfirmasi, sehingga permintaan ini dibatalkan.',
+        ],
         'no_show' => [
             'subject' => 'Janji temu Shin Joy Spa Anda terlewat',
             'intro' => 'Janji temu :reference untuk :service pada :date pukul :time tercatat tidak dihadiri.',

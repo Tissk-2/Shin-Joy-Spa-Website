@@ -296,6 +296,7 @@ class BookingPagesTest extends TestCase
             'room',
             'cancellationReason',
             'expired',
+            'slotFull',
         ], array_keys($booking));
         $this->assertSame(['slug', 'nameId', 'nameEn', 'isVip'], array_keys($booking['package']));
         $this->assertSame(['date', 'time', 'timezone'], array_keys($booking['appointment']));
@@ -361,6 +362,7 @@ class BookingPagesTest extends TestCase
             'room' => null,
             'cancellationReason' => null,
             'expired' => false,
+            'slotFull' => false,
         ];
     }
 

@@ -61,9 +61,11 @@ final class SendCustomerBookingNotice implements OutboxHandler
 
         $locale = in_array($booking->locale, ['id', 'en'], true) ? $booking->locale : 'id';   // mutation Lc
 
-        // The expiry job cancelled a request that staff never answered, which reads differently from a decline.
+        // The expiry job and auto-decline system cancellations read differently from a manual staff decline.
         if ($kind === 'cancelled' && $booking->refund_reason === 'expired') {   // mutation X
             $kind = 'expired';
+        } elseif ($kind === 'cancelled' && $booking->refund_reason === 'slot_full') {
+            $kind = 'slot_full';
         }
 
         // Sent at once: the outbox already retries.

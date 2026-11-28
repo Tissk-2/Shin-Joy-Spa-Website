@@ -94,6 +94,8 @@ class BookingPresenter
             'cancellationReason' => $booking->customerCancellationReason(),
             // Cancelled by the expiry job: staff never answered before the visit was due.
             'expired' => $booking->status === BookingStatus::Cancelled && $booking->refund_reason === 'expired',
+            // Cancelled automatically once every suitable room for this time filled up.
+            'slotFull' => $booking->status === BookingStatus::Cancelled && $booking->refund_reason === 'slot_full',
         ];
     }
 

@@ -35,6 +35,10 @@ return [
             'subject' => 'Your Shin Joy Spa booking request has expired',
             'intro' => 'Your booking request :reference for :service on :date at :time was not confirmed in time, so it has expired. We are sorry for the inconvenience.',
         ],
+        'slot_full' => [
+            'subject' => 'Your Shin Joy Spa time slot is now full',
+            'intro' => 'Sorry, all rooms for your booking request :reference (:service on :date at :time) filled up before it could be confirmed, so the request was cancelled.',
+        ],
         'no_show' => [
             'subject' => 'Your Shin Joy Spa appointment was missed',
             'intro' => 'Your appointment :reference for :service on :date at :time was recorded as missed.',

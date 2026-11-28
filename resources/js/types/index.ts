@@ -207,6 +207,7 @@ export interface BookingDetailData extends BookingSummaryData {
   room?: string | null;
   cancellationReason?: string | null;
   expired?: boolean;
+  slotFull?: boolean;
 }
 
 export interface AdminBookingSummaryData {

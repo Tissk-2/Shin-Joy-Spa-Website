@@ -9,6 +9,7 @@ use App\Policies\BookingPolicy;
 use App\Support\ActionContext;
 use App\Support\Bookings\BookingMutation;
 use App\Support\Bookings\BookingStateWriter;
+use App\Support\Scheduling\AutoDeclineUnfillablePending;
 use App\Support\Scheduling\RoomAllocator;
 use App\Support\Staff\StaffAccessLock;
 use Carbon\CarbonImmutable;
@@ -55,6 +56,7 @@ class ApproveBooking
                 }
 
                 $attestedAt = null;
+                $reservation = null;
                 if (config('booking.scheduling_enabled')) {
                     if (! $operationalConfirmed) {
                         throw ValidationException::withMessages(['operationalConfirmed' => __('admin.status.operational_required')]);
@@ -76,7 +78,7 @@ class ApproveBooking
 
                 $locked->approved_at = CarbonImmutable::now('UTC')->setMicrosecond(0);
 
-                return (new BookingStateWriter)->transitionLocked(
+                $approved = (new BookingStateWriter)->transitionLocked(
                     $locked,
                     $online ? BookingStatus::AwaitingPayment : BookingStatus::Confirmed,
                     $reason,
@@ -84,6 +86,16 @@ class ApproveBooking
                     $context,
                     $attestedAt,
                 );
+
+                if ($reservation !== null) {
+                    (new AutoDeclineUnfillablePending)->declineLocked(
+                        CarbonImmutable::instance($reservation->starts_at)->utc(),
+                        CarbonImmutable::instance($reservation->ends_at)->utc(),
+                        $locked->getKey(),
+                    );
+                }
+
+                return $approved;
             });
         });
     }

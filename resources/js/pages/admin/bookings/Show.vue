@@ -433,7 +433,13 @@ async function copyReference(): Promise<void> {
                     >
                   </p>
                   <p>
-                    {{ change.actor.name ?? tr("ad.history.system")
+                    {{
+                      change.actor.name ??
+                      tr(
+                        change.reason === "slot_full"
+                          ? "ad.history.systemAuto"
+                          : "ad.history.system",
+                      )
                     }}<span class="admin-record-secondary">{{
                       change.actor.email
                     }}</span>
@@ -450,9 +456,12 @@ async function copyReference(): Promise<void> {
                       tr("ad.history.reason")
                     }}</span
                     >{{
-                      change.reason?.trim()
-                        ? change.reason
-                        : tr("ad.history.noReason")
+                      change.actor.name === null &&
+                      change.reason === "slot_full"
+                        ? tr("ad.history.slotFull")
+                        : change.reason?.trim()
+                          ? change.reason
+                          : tr("ad.history.noReason")
                     }}
                   </p>
                 </div>

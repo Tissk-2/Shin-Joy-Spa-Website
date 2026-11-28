@@ -68,6 +68,8 @@ function statusLabel(status: BookingStatus): string {
 const statusNote = computed(() => {
   if (props.booking.status === "cancelled" && props.booking.expired)
     return tr("bookings.statusNote.expired");
+  if (props.booking.status === "cancelled" && props.booking.slotFull)
+    return tr("bookings.statusNote.slotFull");
   return ["pending", "confirmed", "cancelled"].includes(props.booking.status)
     ? tr(`bookings.statusNote.${props.booking.status}`)
     : null;

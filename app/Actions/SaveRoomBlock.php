@@ -9,6 +9,7 @@ use App\Support\Rooms\RoomBlockActor;
 use App\Support\Rooms\RoomBlockInput;
 use App\Support\Rooms\RoomBlockInterval;
 use App\Support\Rooms\RoomWriteSchema;
+use App\Support\Scheduling\AutoDeclineUnfillablePending;
 use App\Support\Scheduling\ScheduleLock;
 use App\Support\Staff\StaffAccessLock;
 use App\Support\Staff\StaffSchemaException;
@@ -25,7 +26,13 @@ final class SaveRoomBlock
             $input = (new RoomBlockInput)->validate($validated, $blockId !== null);
             $block = $blockId === null ? null : RoomBlock::query()->whereKey($blockId)->lockForUpdate()->firstOrFail();
 
-            return $this->save($current, $block, $input, $now);
+            $saved = $this->save($current, $block, $input, $now);
+            (new AutoDeclineUnfillablePending)->declineLocked(
+                CarbonImmutable::instance($saved->starts_at)->utc(),
+                CarbonImmutable::instance($saved->ends_at)->utc(),
+            );
+
+            return $saved;
         });
     }
 
@@ -41,6 +48,10 @@ final class SaveRoomBlock
             foreach ($rooms as $room) {
                 $blocks[] = $this->save($current, null, [...$input, 'roomId' => $room->id], $now);
             }
+            (new AutoDeclineUnfillablePending)->declineLocked(
+                CarbonImmutable::instance($blocks[0]->starts_at)->utc(),
+                CarbonImmutable::instance($blocks[0]->ends_at)->utc(),
+            );
 
             return $blocks;
         });

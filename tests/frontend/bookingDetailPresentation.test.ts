@@ -212,6 +212,22 @@ describe("customer booking presentation", () => {
       "Staff could not confirm this request before its time",
     );
     expect(expired.find("[data-booking-cancel-reason]").exists()).toBe(false);
+
+    const slotFull = mount(Show, {
+      props: {
+        booking: {
+          ...detail,
+          status: "cancelled",
+          cancellationReason: null,
+          expired: false,
+          slotFull: true,
+        },
+      },
+    });
+    expect(slotFull.get("[data-booking-status-note]").text()).toContain(
+      "all rooms for the chosen time are now full",
+    );
+    expect(slotFull.find("[data-booking-cancel-reason]").exists()).toBe(false);
   });
 
   it("points a cancelled booking to a new booking without change options.", () => {
