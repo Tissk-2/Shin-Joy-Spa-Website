@@ -197,12 +197,6 @@ onUnmounted(() => {
   width: 1.05rem;
   height: 1.05rem;
 }
-.home-about__caption {
-  margin-top: 0.65rem;
-  color: var(--text-muted);
-  font-size: 0.8125rem;
-  text-align: center;
-}
 
 .fact-list {
   display: grid;
@@ -394,7 +388,7 @@ onUnmounted(() => {
             </div>
           </dl>
         </div>
-        <figure class="home-about__media reveal" data-delay="2">
+        <div class="home-about__media reveal" data-delay="2">
           <div class="home-about__frame">
             <video
               ref="tourVideo"
@@ -425,10 +419,7 @@ onUnmounted(() => {
               <Play v-else aria-hidden="true" />
             </button>
           </div>
-          <figcaption class="home-about__caption">
-            {{ tr("about.videoCaption") }}
-          </figcaption>
-        </figure>
+        </div>
       </div>
     </section>
 
