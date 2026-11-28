@@ -15,18 +15,27 @@ import {
 } from "@/lib/adminBooking";
 import type {
   AdminBookingSummaryData,
+  AdminRoomSummaryData,
   AppPageProps,
   BookingStatus,
 } from "@/types";
 
-const props = defineProps<{
-  queue: AdminBookingSummaryData[];
-  queueTotal: number;
-  today: AdminBookingSummaryData[];
-  pricingUnverified: number | null;
-  roomSchedulingEnabled: boolean;
-  canCreate: boolean;
-}>();
+const props = withDefaults(
+  defineProps<{
+    queue: AdminBookingSummaryData[];
+    queueTotal: number;
+    today: AdminBookingSummaryData[];
+    nextAppointments?: AdminBookingSummaryData[];
+    roomSummary?: AdminRoomSummaryData | null;
+    pricingUnverified: number | null;
+    roomSchedulingEnabled: boolean;
+    canCreate: boolean;
+  }>(),
+  {
+    nextAppointments: () => [],
+    roomSummary: null,
+  },
+);
 
 const { language, tr } = useLanguage();
 const page = usePage<AppPageProps>();
@@ -231,6 +240,54 @@ function onQueueKeydown(event: KeyboardEvent): void {
           }}</Link>
         </p>
 
+        <section
+          v-if="roomSummary"
+          class="admin-room-strip"
+          aria-labelledby="today-rooms-title"
+          data-room-summary
+        >
+          <div class="admin-room-strip__main">
+            <h2 id="today-rooms-title" class="admin-room-strip__title">
+              {{ tr("ad.today.roomsTitle") }}
+            </h2>
+            <ul class="admin-room-strip__counts" role="list">
+              <li class="admin-room-chip admin-room-chip--free">
+                {{ tr("ad.today.roomsFree", { n: roomSummary.free }) }}
+              </li>
+              <li
+                class="admin-room-chip"
+                :class="
+                  roomSummary.occupied > 0
+                    ? 'admin-room-chip--occupied'
+                    : 'admin-room-chip--neutral'
+                "
+              >
+                {{ tr("ad.today.roomsOccupied", { n: roomSummary.occupied }) }}
+              </li>
+              <li
+                v-if="roomSummary.cleaning > 0"
+                class="admin-room-chip admin-room-chip--cleaning"
+              >
+                {{ tr("ad.today.roomsCleaning", { n: roomSummary.cleaning }) }}
+              </li>
+              <li
+                v-if="roomSummary.blocked > 0"
+                class="admin-room-chip admin-room-chip--blocked"
+              >
+                {{ tr("ad.today.roomsBlocked", { n: roomSummary.blocked }) }}
+              </li>
+              <li class="admin-record-secondary">
+                {{
+                  tr("ad.today.roomsOfTotal", { n: roomSummary.totalActive })
+                }}
+              </li>
+            </ul>
+          </div>
+          <Link href="/admin/rooms" class="admin-room-strip__link">
+            {{ tr("ad.today.roomsLink") }}
+          </Link>
+        </section>
+
         <div class="admin-today">
           <section
             class="admin-panel"
@@ -358,9 +415,62 @@ function onQueueKeydown(event: KeyboardEvent): void {
                 }}<span class="admin-tab__count">{{ today.length }}</span>
               </h2>
             </header>
-            <p v-if="!today.length" class="admin-panel__empty">
-              {{ tr("ad.today.scheduleEmpty") }}
-            </p>
+            <template v-if="!today.length">
+              <p class="admin-panel__empty">
+                {{ tr("ad.today.scheduleEmpty") }}
+              </p>
+              <div
+                v-if="nextAppointments.length"
+                class="admin-next-upcoming"
+                data-next-appointments
+              >
+                <h3 class="admin-next-upcoming__title">
+                  {{ tr("ad.today.nextHeading") }}
+                </h3>
+                <ol class="admin-agenda admin-agenda--upcoming">
+                  <li
+                    v-for="booking in nextAppointments"
+                    :key="booking.reference"
+                    :data-booking-row="booking.reference"
+                  >
+                    <div class="admin-agenda__when">
+                      <span class="admin-agenda__day">{{
+                        formatDay(booking.appointment.date, language, "short")
+                      }}</span>
+                      <time class="admin-agenda__time">{{
+                        booking.appointment.time
+                      }}</time>
+                    </div>
+                    <div class="admin-agenda__body">
+                      <Link
+                        class="admin-row-link"
+                        :href="bookingHref(booking)"
+                        :title="booking.reference"
+                        ><span class="admin-row-link__name">{{
+                          booking.customer.name
+                        }}</span></Link
+                      >
+                      <span class="admin-record-secondary"
+                        >{{ packageName(booking, language) }} ·
+                        {{ booking.totalDurationMinutes }}
+                        {{ tr("bookings.minutes") }} ·
+                        {{ tr("ad.list.guests", { n: booking.guests }) }}</span
+                      >
+                    </div>
+                    <span
+                      class="admin-status"
+                      :class="`admin-status--${booking.status}`"
+                      >{{ tr(`ad.status.${booking.status}`) }}</span
+                    >
+                  </li>
+                </ol>
+                <Link
+                  href="/admin/bookings?scope=upcoming"
+                  class="admin-panel__more"
+                  >{{ tr("ad.today.nextAll") }}</Link
+                >
+              </div>
+            </template>
             <p
               v-else-if="!nextVisits.size"
               class="admin-panel__empty admin-agenda__done"

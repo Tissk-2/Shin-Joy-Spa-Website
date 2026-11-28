@@ -8,6 +8,7 @@ use App\Http\Controllers\Admin\AdminContentController;
 use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Http\Controllers\Admin\AdminGuideController;
 use App\Http\Controllers\Admin\AdminLoginController;
+use App\Http\Controllers\Admin\AdminReportController;
 use App\Http\Controllers\Admin\AdminRoomBlockController;
 use App\Http\Controllers\Admin\AdminRoomController;
 use App\Http\Controllers\Admin\AdminScheduleController;
@@ -21,6 +22,7 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
 
     Route::middleware(['auth', 'verified', 'admin'])->group(function (): void {
         Route::get('/', AdminDashboardController::class)->name('index');
+        Route::get('/reports', AdminReportController::class)->name('reports');
         Route::get('/staff', [AdminStaffController::class, 'index'])->name('staff.index');
         Route::patch('/staff/{user}/booking-permission', [AdminStaffController::class, 'update'])
             ->whereNumber('user')->middleware('throttle:room-write')->name('staff.booking-permission.update');

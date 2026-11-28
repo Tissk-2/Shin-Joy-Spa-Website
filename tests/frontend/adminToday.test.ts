@@ -389,4 +389,38 @@ describe("admin Today page", () => {
     );
     expect(wrapper.find("[data-queue-shortcuts]").exists()).toBe(false);
   });
+
+  it("shows live room availability strip and next upcoming visits when today is empty", () => {
+    const wrapper = mountPage({
+      today: [],
+      nextAppointments: [
+        summary("SJ-NEXT-1", "Tomorrow Guest", "confirmed", "11:00"),
+      ],
+      roomSummary: {
+        totalActive: 8,
+        occupied: 2,
+        cleaning: 1,
+        blocked: 1,
+        free: 4,
+      },
+      roomSchedulingEnabled: true,
+    });
+
+    const rooms = wrapper.get("[data-room-summary]");
+    expect(rooms.text()).toContain("Rooms right now");
+    expect(rooms.text()).toContain("4 free");
+    expect(rooms.text()).toContain("2 guests inside");
+    expect(rooms.text()).toContain("1 cleaning");
+    expect(rooms.text()).toContain("1 maintenance");
+    expect(rooms.text()).toContain("of 8 active rooms");
+    expect(rooms.get("a").attributes("href")).toBe("/admin/rooms");
+
+    const upcoming = wrapper.get("[data-next-appointments]");
+    expect(upcoming.text()).toContain("Next upcoming");
+    expect(upcoming.text()).toContain("Tomorrow Guest");
+    expect(upcoming.get("a.admin-panel__more").attributes("href")).toBe(
+      "/admin/bookings?scope=upcoming",
+    );
+    expect(wrapper.find(".admin-agenda__done").exists()).toBe(false);
+  });
 });

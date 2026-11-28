@@ -5,6 +5,7 @@ import "../../../css/admin-catalog.css";
 import { Head, Link, router, usePage } from "@inertiajs/vue3";
 import { useMediaQuery } from "@vueuse/core";
 import {
+  BarChart3,
   BookOpen,
   CalendarClock,
   CalendarDays,
@@ -88,6 +89,11 @@ const navGroups = computed(() => {
       id: "owner",
       label: tr("ad.nav.groupOwner"),
       items: [
+        {
+          href: "/admin/reports",
+          label: tr("ad.nav.reports"),
+          icon: BarChart3,
+        },
         { href: "/admin/staff", label: tr("ad.staff.title"), icon: Users },
         {
           href: "/admin/settings/booking",

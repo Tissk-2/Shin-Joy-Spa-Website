@@ -5,6 +5,7 @@ namespace Tests\Feature\Admin;
 use App\Enums\BookingStatus;
 use App\Enums\PricingBasis;
 use App\Models\Booking;
+use App\Models\Room;
 use App\Models\Service;
 use App\Models\ServiceCategory;
 use App\Models\ServiceVariant;
@@ -107,12 +108,64 @@ class AdminTodayTest extends TestCase
 
         $props = $this->actingAs($staff)->get('/admin')->assertOk()->inertiaProps();
 
-        foreach (['queue', 'queueTotal', 'today', 'pricingUnverified', 'roomSchedulingEnabled', 'canCreate'] as $key) {
+        foreach (['queue', 'queueTotal', 'today', 'nextAppointments', 'roomSummary', 'pricingUnverified', 'roomSchedulingEnabled', 'canCreate'] as $key) {
             $this->assertArrayHasKey($key, $props);
         }
         foreach (['stats', 'upcoming', 'recent', 'categoryStats'] as $key) {
             $this->assertArrayNotHasKey($key, $props);
         }
+    }
+
+    public function test_next_appointments_appear_only_when_today_has_no_visits(): void
+    {
+        $staff = User::factory()->bookingStaff()->create();
+        $first = $this->on('SJ-NEXT-A', '2026-09-08', '10:00', BookingStatus::Confirmed);
+        $second = $this->on('SJ-NEXT-B', '2026-09-09', '14:00', BookingStatus::Pending);
+        $this->on('SJ-NEXT-CANCELLED', '2026-09-08', '09:00', BookingStatus::Cancelled);
+
+        $quiet = $this->actingAs($staff)->get('/admin')->assertOk();
+        $this->assertSame([], $quiet->inertiaProps('today'));
+        $this->assertSame(
+            [$first->reference, $second->reference],
+            array_column($quiet->inertiaProps('nextAppointments'), 'reference'),
+        );
+
+        $this->on('SJ-TODAY-ONE', '2026-09-07', '15:00', BookingStatus::Confirmed);
+        $busy = $this->actingAs($staff)->get('/admin')->assertOk();
+        $this->assertSame(['SJ-TODAY-ONE'], array_column($busy->inertiaProps('today'), 'reference'));
+        $this->assertSame([], $busy->inertiaProps('nextAppointments'));
+    }
+
+    public function test_room_summary_counts_active_room_states_when_scheduling_is_enabled(): void
+    {
+        $staff = User::factory()->bookingStaff()->create();
+        config(['booking.scheduling_enabled' => true]);
+
+        Room::query()->create([
+            'code' => 'R-1',
+            'name' => 'Lotus',
+            'capacity' => 1,
+            'cleaning_minutes' => 15,
+            'is_active' => true,
+            'version' => 1,
+        ]);
+        Room::query()->create([
+            'code' => 'R-2',
+            'name' => 'Rose',
+            'capacity' => 1,
+            'cleaning_minutes' => 15,
+            'is_active' => false,
+            'version' => 1,
+        ]);
+
+        $this->actingAs($staff)->get('/admin')->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->where('roomSummary', [
+                'totalActive' => 1,
+                'occupied' => 0,
+                'cleaning' => 0,
+                'blocked' => 0,
+                'free' => 1,
+            ]));
     }
 
     // Production break caught: every admin page must show how many requests wait, and nobody else may learn it.

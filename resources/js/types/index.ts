@@ -587,3 +587,62 @@ export interface AdminScheduleData {
   /** Every appointment of the day except cancelled ones, in time order. */
   readonly agenda: readonly AdminScheduleUnassigned[];
 }
+export interface AdminRoomSummaryData {
+  readonly totalActive: number;
+  readonly occupied: number;
+  readonly cleaning: number;
+  readonly blocked: number;
+  readonly free: number;
+}
+export type AdminReportPeriod = "7d" | "30d" | "month";
+export interface AdminReportDailyPoint {
+  readonly date: string;
+  readonly total: number;
+  readonly completed: number;
+  readonly active: number;
+  readonly lost: number;
+}
+export interface AdminReportPackageRow {
+  readonly slug: string;
+  readonly nameId: string;
+  readonly nameEn: string;
+  readonly isVip: boolean;
+  readonly treatmentMode: string;
+  readonly durationMinutes: number;
+  readonly count: number;
+  readonly estimatedValueIdr: number;
+}
+export interface AdminReportHourPoint {
+  readonly hour: string;
+  readonly count: number;
+}
+export interface AdminReportChannelRow {
+  readonly key: "website" | "walk_in" | "phone" | "whatsapp";
+  readonly count: number;
+}
+export interface AdminReportData {
+  readonly period: AdminReportPeriod;
+  readonly range: {
+    readonly from: string;
+    readonly to: string;
+  };
+  readonly summary: {
+    readonly totalBookings: number;
+    readonly completedCount: number;
+    readonly confirmedCount: number;
+    readonly pendingCount: number;
+    readonly awaitingPaymentCount: number;
+    readonly cancelledCount: number;
+    readonly noShowCount: number;
+    readonly expiredCount: number;
+    readonly slotFullCount: number;
+    readonly manualCancelledCount: number;
+    readonly estimatedCompletedRevenueIdr: number;
+    readonly confirmedPipelineIdr: number;
+    readonly completionRate: number | null;
+  };
+  readonly dailyTrend: readonly AdminReportDailyPoint[];
+  readonly topPackages: readonly AdminReportPackageRow[];
+  readonly peakHours: readonly AdminReportHourPoint[];
+  readonly channels: readonly AdminReportChannelRow[];
+}

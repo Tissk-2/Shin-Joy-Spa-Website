@@ -317,6 +317,7 @@ describe("administrator layout", () => {
       "/admin/catalog",
       "/admin/content",
       "/admin/guide",
+      "/admin/reports",
       "/admin/staff",
       "/admin/settings/booking",
     ]);
