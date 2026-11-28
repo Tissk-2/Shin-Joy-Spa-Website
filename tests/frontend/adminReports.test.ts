@@ -61,6 +61,7 @@ function sampleReport(
   return {
     period: "30d",
     range: { from: "2026-10-30", to: "2026-11-28" },
+    previousRange: { from: "2026-09-30", to: "2026-10-29" },
     summary: {
       totalBookings: 12,
       completedCount: 6,
@@ -75,6 +76,12 @@ function sampleReport(
       estimatedCompletedRevenueIdr: 1590000,
       confirmedPipelineIdr: 530000,
       completionRate: 67,
+    },
+    previousSummary: {
+      totalBookings: 10,
+      completedCount: 4,
+      lostCount: 4,
+      estimatedCompletedRevenueIdr: 1060000,
     },
     dailyTrend: [
       { date: "2026-11-26", total: 2, completed: 2, active: 0, lost: 0 },
@@ -144,9 +151,17 @@ describe("admin Reports page", () => {
     const wrapper = mountPage();
     expect(wrapper.get("h1").text()).toBe("Reports");
     expect(wrapper.get("[data-kpi='total']").text()).toContain("12");
+    expect(wrapper.get("[data-kpi-delta='total']").text()).toBe("+20%");
+    expect(wrapper.get("[data-kpi-delta='lost']").classes()).toContain(
+      "admin-delta--good",
+    );
     expect(wrapper.get("[data-kpi='completed']").text()).toContain("67%");
     expect(wrapper.get("[data-kpi='lost']").text()).toContain("3");
     expect(wrapper.get("[data-kpi='value']").text()).toContain("Rp 1.590.000");
+    expect(wrapper.get("[data-report-peak-day]").text()).toContain("3");
+    expect(wrapper.get("[data-report-peak-hour]").text()).toContain(
+      "10:00 WIB",
+    );
     expect(wrapper.get("[data-report-estimate-note]").text()).toContain(
       "Payment is collected at the spa",
     );

@@ -147,16 +147,26 @@ class AdminReportTest extends TestCase
                 ->where('report.summary.estimatedCompletedRevenueIdr', 265000)
                 ->where('report.summary.confirmedPipelineIdr', 360000)
                 ->where('report.summary.completionRate', 25)
+                ->where('report.previousRange', ['from' => '2026-11-15', 'to' => '2026-11-21'])
+                ->where('report.previousSummary', [
+                    'totalBookings' => 0,
+                    'completedCount' => 0,
+                    'lostCount' => 0,
+                    'estimatedCompletedRevenueIdr' => 0,
+                ])
                 ->where('report.peakHours.1', ['hour' => '10:00', 'count' => 2]));
 
-        // Invalid period falls back safely to 30d.
+        // Invalid period falls back safely to 30d (and 2026-10-01 lands in its previous 30d window).
         $this->actingAs($owner)->get('/admin/reports?period=drop-table')
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->where('report.period', '30d')
                 ->where('report.summary.totalBookings', 6)
                 ->where('report.summary.completedCount', 2)
-                ->where('report.summary.estimatedCompletedRevenueIdr', 530000));
+                ->where('report.summary.estimatedCompletedRevenueIdr', 530000)
+                ->where('report.previousSummary.totalBookings', 1)
+                ->where('report.previousSummary.completedCount', 1)
+                ->where('report.previousSummary.estimatedCompletedRevenueIdr', 999000));
 
         // Month-to-date starts on 2026-11-01.
         $this->actingAs($owner)->get('/admin/reports?period=month')

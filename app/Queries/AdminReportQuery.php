@@ -28,6 +28,18 @@ final class AdminReportQuery
         $fromDate = $from->toDateString();
         $toDate = $today->toDateString();
 
+        // Equal-length preceding window for honest period-over-period deltas.
+        $spanDays = $from->diffInDays($today) + 1;
+        $previousTo = $from->subDay();
+        $previousFrom = $period === 'month'
+            ? $today->subMonthNoOverflow()->startOfMonth()
+            : $previousTo->subDays($spanDays - 1);
+        if ($period === 'month') {
+            $previousTo = $previousFrom->addDays(min($spanDays - 1, $previousFrom->daysInMonth - 1));
+        }
+        $previousFromDate = $previousFrom->toDateString();
+        $previousToDate = $previousTo->toDateString();
+
         $bookings = Booking::query()
             ->select([
                 'status',
@@ -46,6 +58,24 @@ final class AdminReportQuery
             ->whereDate('appointment_date', '>=', $fromDate)
             ->whereDate('appointment_date', '<=', $toDate)
             ->get();
+
+        $previousBookings = Booking::query()
+            ->select(['status', 'total_price_idr'])
+            ->whereDate('appointment_date', '>=', $previousFromDate)
+            ->whereDate('appointment_date', '<=', $previousToDate)
+            ->get();
+
+        $prevCompletedCount = 0;
+        $prevLostCount = 0;
+        $prevEstimatedCompletedRevenueIdr = 0;
+        foreach ($previousBookings as $prev) {
+            if ($prev->status === BookingStatus::Completed) {
+                $prevCompletedCount++;
+                $prevEstimatedCompletedRevenueIdr += (int) $prev->total_price_idr;
+            } elseif ($prev->status === BookingStatus::Cancelled || $prev->status === BookingStatus::NoShow) {
+                $prevLostCount++;
+            }
+        }
 
         $daily = [];
         for ($cursor = $from; $cursor->lessThanOrEqualTo($today); $cursor = $cursor->addDay()) {
@@ -172,6 +202,10 @@ final class AdminReportQuery
                 'from' => $fromDate,
                 'to' => $toDate,
             ],
+            'previousRange' => [
+                'from' => $previousFromDate,
+                'to' => $previousToDate,
+            ],
             'summary' => [
                 'totalBookings' => $bookings->count(),
                 'completedCount' => $completedCount,
@@ -186,6 +220,12 @@ final class AdminReportQuery
                 'estimatedCompletedRevenueIdr' => $estimatedCompletedRevenueIdr,
                 'confirmedPipelineIdr' => $confirmedPipelineIdr,
                 'completionRate' => $completionRate,
+            ],
+            'previousSummary' => [
+                'totalBookings' => $previousBookings->count(),
+                'completedCount' => $prevCompletedCount,
+                'lostCount' => $prevLostCount,
+                'estimatedCompletedRevenueIdr' => $prevEstimatedCompletedRevenueIdr,
             ],
             'dailyTrend' => array_values($daily),
             'topPackages' => array_slice($packages, 0, self::TOP_PACKAGES_LIMIT),

@@ -626,6 +626,10 @@ export interface AdminReportData {
     readonly from: string;
     readonly to: string;
   };
+  readonly previousRange?: {
+    readonly from: string;
+    readonly to: string;
+  };
   readonly summary: {
     readonly totalBookings: number;
     readonly completedCount: number;
@@ -640,6 +644,12 @@ export interface AdminReportData {
     readonly estimatedCompletedRevenueIdr: number;
     readonly confirmedPipelineIdr: number;
     readonly completionRate: number | null;
+  };
+  readonly previousSummary?: {
+    readonly totalBookings: number;
+    readonly completedCount: number;
+    readonly lostCount: number;
+    readonly estimatedCompletedRevenueIdr: number;
   };
   readonly dailyTrend: readonly AdminReportDailyPoint[];
   readonly topPackages: readonly AdminReportPackageRow[];
