@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import "../../../css/admin.css";
+import "../../../css/admin-catalog.css";
+
 import { Head, Link, router, usePage } from "@inertiajs/vue3";
 import { useMediaQuery } from "@vueuse/core";
 import {

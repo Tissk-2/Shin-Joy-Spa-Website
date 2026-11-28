@@ -12,7 +12,7 @@ final class SecurityHeaders
     {
         $response = $next($request);
 
-        // ponytail: no script-src policy yet; it needs nonces for Vite and Ziggy's inline script.
+        // ponytail: no script-src policy yet; it needs nonces for Vite's inline bootstrap scripts.
         $response->headers->set('Content-Security-Policy', "frame-ancestors 'none'; base-uri 'self'; object-src 'none'");
         $response->headers->set('X-Frame-Options', 'DENY');
         $response->headers->set('X-Content-Type-Options', 'nosniff');

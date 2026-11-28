@@ -77,17 +77,22 @@ const props = defineProps<{
 }>();
 const page = usePage<AppPageProps>();
 const { language, tr } = useLanguage();
+const displayDateFormatter = computed(
+  () =>
+    new Intl.DateTimeFormat(language.value === "id" ? "id-ID" : "en-GB", {
+      timeZone: "UTC",
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    }),
+);
+const idrFormatter = new Intl.NumberFormat("id-ID");
 // The same long date as the booking page, e.g. "Kamis, 3 Desember 2026".
 const displayDate = computed(() => {
   const day = new Date(`${bookingForm.date}T00:00:00Z`);
   if (!bookingForm.date || Number.isNaN(day.getTime())) return bookingForm.date;
-  return new Intl.DateTimeFormat(language.value === "id" ? "id-ID" : "en-GB", {
-    timeZone: "UTC",
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  }).format(day);
+  return displayDateFormatter.value.format(day);
 });
 const contactInformation = useContactInformation();
 const user = page.props.auth.user;
@@ -215,7 +220,7 @@ function choiceName(item: PackageData): string {
 function startingPrice(item: PackageData): string {
   const prices = item.variants.map((variant) => variant.price);
   return prices.length
-    ? `${tr("menu.from")} Rp ${Math.min(...prices).toLocaleString("id-ID")}`
+    ? `${tr("menu.from")} Rp ${idrFormatter.format(Math.min(...prices))}`
     : "";
 }
 const coverage = computed(() =>
@@ -483,7 +488,7 @@ const extensionLabel = computed(() => {
     (item) => item.code === selected.value.extension,
   );
   if (extension)
-    return `${extension.duration} ${tr("d.min")} · Rp ${extension.price.toLocaleString("id-ID")}`;
+    return `${extension.duration} ${tr("d.min")} · Rp ${idrFormatter.format(extension.price)}`;
   // Nothing to add to until a length is chosen, like the other empty rows.
   return selected.value.duration ? labels.value.noExtension : "—";
 });
@@ -688,7 +693,7 @@ function confirm(): void {
                   · {{ pricingBasisLabel }}</template
                 ></span
               ><span class="amt"
-                >Rp {{ total.price.toLocaleString("id-ID") }}</span
+                >Rp {{ idrFormatter.format(total.price) }}</span
               >
             </div>
             <p class="estimate-scope">{{ scopeCopy }}</p>
@@ -1011,7 +1016,7 @@ function confirm(): void {
               >
               <strong
                 >{{ tr("b.total") }}: Rp
-                {{ total.price.toLocaleString("id-ID") }}</strong
+                {{ idrFormatter.format(total.price) }}</strong
               >
             </p>
 
@@ -1061,9 +1066,7 @@ function confirm(): void {
                   · {{ pricingBasisLabel }}</template
                 ></span
               ><span class="amt">{{
-                total.duration
-                  ? `Rp ${total.price.toLocaleString("id-ID")}`
-                  : "—"
+                total.duration ? `Rp ${idrFormatter.format(total.price)}` : "—"
               }}</span>
             </div>
             <p v-if="total.duration" class="estimate-scope">

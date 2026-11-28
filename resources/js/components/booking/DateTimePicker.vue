@@ -78,40 +78,68 @@ const isFullDay = (day: {
 }) => day.inMonth && !day.unavailable && fullSet.value.has(day.iso);
 
 const locale = computed(() => (language.value === "id" ? "id-ID" : "en-GB"));
-const format = (iso: string, options: Intl.DateTimeFormatOptions) =>
-  new Intl.DateTimeFormat(locale.value, { timeZone: "UTC", ...options }).format(
-    new Date(toMs(iso)),
-  );
+const longDateFormatter = computed(
+  () =>
+    new Intl.DateTimeFormat(locale.value, {
+      timeZone: "UTC",
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    }),
+);
+const monthFormatter = computed(
+  () =>
+    new Intl.DateTimeFormat(locale.value, {
+      timeZone: "UTC",
+      month: "long",
+      year: "numeric",
+    }),
+);
+const weekdayShortFormatter = computed(
+  () =>
+    new Intl.DateTimeFormat(locale.value, {
+      timeZone: "UTC",
+      weekday: "short",
+    }),
+);
+const weekdayLongFormatter = computed(
+  () =>
+    new Intl.DateTimeFormat(locale.value, {
+      timeZone: "UTC",
+      weekday: "long",
+    }),
+);
 const longDate = (iso: string) =>
-  format(iso, {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+  longDateFormatter.value.format(new Date(toMs(iso)));
 const monthLabel = computed(() =>
-  format(view.value, { month: "long", year: "numeric" }),
+  monthFormatter.value.format(new Date(toMs(view.value))),
 );
 // 7 to 13 January 2025 run Monday to Sunday.
+const weekdayDates = Array.from(
+  { length: 7 },
+  (_, index) => new Date(Date.UTC(2025, 0, 6 + index)),
+);
 const weekdays = computed(() =>
-  Array.from({ length: 7 }, (_, index) => {
-    const iso = `2025-01-${String(6 + index).padStart(2, "0")}`;
-    return {
-      short: format(iso, { weekday: "short" }),
-      long: format(iso, { weekday: "long" }),
-    };
-  }),
+  weekdayDates.map((date) => ({
+    short: weekdayShortFormatter.value.format(date),
+    long: weekdayLongFormatter.value.format(date),
+  })),
 );
 // Always six weeks, so the calendar keeps its height from month to month.
 const days = computed(() => {
-  const start = addDays(view.value, -weekday(view.value));
+  const startMs = toMs(view.value) - weekday(view.value) * DAY;
+  const viewMonth = view.value.slice(0, 7);
+  const formatter = longDateFormatter.value;
   return Array.from({ length: 42 }, (_, index) => {
-    const iso = addDays(start, index);
+    const ms = startMs + index * DAY;
+    const iso = toIso(ms);
     return {
       iso,
       number: Number(iso.slice(8)),
-      inMonth: iso.slice(0, 7) === view.value.slice(0, 7),
+      inMonth: iso.slice(0, 7) === viewMonth,
       unavailable: iso < today || iso > latest,
+      label: formatter.format(new Date(ms)),
     };
   });
 });
@@ -250,9 +278,7 @@ const summary = computed(() =>
                 :tabindex="day.iso === tabbable ? 0 : -1"
                 :disabled="day.unavailable"
                 :aria-label="
-                  isFullDay(day)
-                    ? `${longDate(day.iso)}, ${tr('dtp.full')}`
-                    : longDate(day.iso)
+                  isFullDay(day) ? `${day.label}, ${tr('dtp.full')}` : day.label
                 "
                 :aria-current="day.iso === today ? 'date' : undefined"
                 @click="choose(day.iso)"

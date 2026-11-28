@@ -77,15 +77,22 @@ export function useRoomAvailability(
       }
       const data = parseAvailability(await response.json());
       if (disposed || request !== generation) return;
-      if (
-        !data ||
-        data.slots.some(
-          (slot) => jakartaAppointment(slot.start_at).date !== expectedDate,
-        ) ||
-        new Set(
-          data.slots.map((slot) => jakartaAppointment(slot.start_at).time),
-        ).size !== data.slots.length
-      ) {
+      const seenTimes = new Set<string>();
+      let validSlots = data !== null;
+      if (data) {
+        for (const slot of data.slots) {
+          const appointment = jakartaAppointment(slot.start_at);
+          if (
+            appointment.date !== expectedDate ||
+            seenTimes.has(appointment.time)
+          ) {
+            validSlots = false;
+            break;
+          }
+          seenTimes.add(appointment.time);
+        }
+      }
+      if (!data || !validSlots) {
         status.value = "unavailable";
         return;
       }

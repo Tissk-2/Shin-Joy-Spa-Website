@@ -52,24 +52,37 @@ function utcTimestamp(value: unknown): value is string {
     date.toISOString().slice(0, 19) === value.slice(0, 19)
   );
 }
+const jakartaAppointmentFormatter = new Intl.DateTimeFormat("en-GB", {
+  timeZone: "Asia/Jakarta",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+});
+
 export function jakartaAppointment(timestamp: string): {
   date: string;
   time: string;
 } {
-  const parts = new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Asia/Jakarta",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-  }).formatToParts(new Date(timestamp));
-  const part = (type: string) =>
-    parts.find((item) => item.type === type)?.value ?? "";
+  let year = "";
+  let month = "";
+  let day = "";
+  let hour = "";
+  let minute = "";
+  for (const item of jakartaAppointmentFormatter.formatToParts(
+    new Date(timestamp),
+  )) {
+    if (item.type === "year") year = item.value;
+    else if (item.type === "month") month = item.value;
+    else if (item.type === "day") day = item.value;
+    else if (item.type === "hour") hour = item.value;
+    else if (item.type === "minute") minute = item.value;
+  }
   return {
-    date: `${part("year")}-${part("month")}-${part("day")}`,
-    time: `${part("hour")}:${part("minute")}`,
+    date: `${year}-${month}-${day}`,
+    time: `${hour}:${minute}`,
   };
 }
 export type TimeState = "last" | "full";

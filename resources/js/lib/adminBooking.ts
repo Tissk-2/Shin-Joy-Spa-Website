@@ -6,8 +6,41 @@ import type {
 
 /** Display helpers shared by the admin booking pages. */
 
+const idrFormatter = new Intl.NumberFormat("id-ID");
+const dayFormatters = new Map<string, Intl.DateTimeFormat>();
+const relativeFormatters = new Map<Locale, Intl.RelativeTimeFormat>();
+
 function intlLocale(language: Locale): string {
   return language === "id" ? "id-ID" : "en-GB";
+}
+
+function dayFormatter(
+  language: Locale,
+  style: "long" | "short",
+): Intl.DateTimeFormat {
+  const key = `${language}:${style}`;
+  let formatter = dayFormatters.get(key);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat(
+      intlLocale(language),
+      style === "long"
+        ? { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }
+        : { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" },
+    );
+    dayFormatters.set(key, formatter);
+  }
+  return formatter;
+}
+
+function relativeFormatter(language: Locale): Intl.RelativeTimeFormat {
+  let formatter = relativeFormatters.get(language);
+  if (!formatter) {
+    formatter = new Intl.RelativeTimeFormat(intlLocale(language), {
+      numeric: "auto",
+    });
+    relativeFormatters.set(language, formatter);
+  }
+  return formatter;
 }
 
 export function timezoneLabel(timezone: string): string {
@@ -21,12 +54,9 @@ export function formatDay(
   style: "long" | "short" = "long",
 ): string {
   const [year, month, day] = date.split("-").map(Number);
-  return new Intl.DateTimeFormat(
-    intlLocale(language),
-    style === "long"
-      ? { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }
-      : { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" },
-  ).format(new Date(Date.UTC(year, month - 1, day)));
+  return dayFormatter(language, style).format(
+    new Date(Date.UTC(year, month - 1, day)),
+  );
 }
 
 export function formatAppointment(
@@ -37,7 +67,7 @@ export function formatAppointment(
 }
 
 export function formatPrice(amount: number): string {
-  return `Rp ${new Intl.NumberFormat("id-ID").format(amount)}`;
+  return `Rp ${idrFormatter.format(amount)}`;
 }
 
 export function packageName(
@@ -62,9 +92,7 @@ export function timeAgo(
   now: number = Date.now(),
 ): string {
   const minutes = Math.max(0, Math.round((now - Date.parse(iso)) / 60000));
-  const format = new Intl.RelativeTimeFormat(intlLocale(language), {
-    numeric: "auto",
-  });
+  const format = relativeFormatter(language);
   if (minutes < 60) return format.format(-minutes, "minute");
   if (minutes < 60 * 24)
     return format.format(-Math.floor(minutes / 60), "hour");

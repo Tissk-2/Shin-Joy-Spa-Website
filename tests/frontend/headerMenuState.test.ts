@@ -79,7 +79,7 @@ describe("Inertia runtime boundary", () => {
     expect(config.test?.include).toContain("tests/frontend/**/*.test.{ts,tsx}");
   });
 
-  it("emits Tailwind before the public shell and admin overrides", async () => {
+  it("emits Tailwind before the public shell and keeps admin overrides in their own stylesheet", async () => {
     const result = await build({
       configFile: resolve(import.meta.dirname, "../../vite.config.ts"),
       build: { write: false },
@@ -87,21 +87,28 @@ describe("Inertia runtime boundary", () => {
     const outputs = (Array.isArray(result) ? result : [result]).flatMap(
       (output) => output.output,
     );
-    const cssSources = outputs
-      .filter(
-        (output) => output.type === "asset" && output.fileName.endsWith(".css"),
-      )
-      .map((output) => String(output.source));
+    const cssAssets = outputs.filter(
+      (output) => output.type === "asset" && output.fileName.endsWith(".css"),
+    );
 
-    expect(cssSources.length).toBeGreaterThan(0);
+    const appAsset = cssAssets.find((asset) =>
+      /^assets\/app-[^/]+\.css$/.test(asset.fileName),
+    );
+    const adminAsset = cssAssets.find((asset) =>
+      /^assets\/AdminLayout-[^/]+\.css$/.test(asset.fileName),
+    );
 
-    const css = cssSources.join("\n");
-    const tailwindBody = css.indexOf("body{line-height:inherit;margin:0}");
-    const publicBody = css.indexOf("body{font-family:var(--font-body)");
-    const adminRules = css.indexOf(".admin-sidebar");
+    expect(appAsset).toBeDefined();
+    expect(adminAsset).toBeDefined();
+
+    const appCss = String(appAsset!.source);
+    const adminCss = String(adminAsset!.source);
+    const tailwindBody = appCss.indexOf("body{line-height:inherit;margin:0}");
+    const publicBody = appCss.indexOf("body{font-family:var(--font-body)");
 
     expect(tailwindBody).toBeGreaterThanOrEqual(0);
     expect(publicBody).toBeGreaterThan(tailwindBody);
-    expect(adminRules).toBeGreaterThan(publicBody);
+    expect(appCss).not.toContain(".admin-sidebar");
+    expect(adminCss).toContain(".admin-sidebar");
   }, 120_000);
 });

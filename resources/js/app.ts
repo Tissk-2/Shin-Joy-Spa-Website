@@ -5,7 +5,6 @@ import { resolvePageComponent } from "laravel-vite-plugin/inertia-helpers";
 import type { DefineComponent } from "vue";
 import { createApp, h, nextTick } from "vue";
 import { initializeReveals } from "@/lib/reveals";
-import { ZiggyVue } from "../../vendor/tightenco/ziggy";
 
 const appName = import.meta.env.VITE_APP_NAME || "Laravel";
 
@@ -32,7 +31,6 @@ createInertiaApp({
   setup({ el, App, props, plugin }) {
     createApp({ render: () => h(App, props) })
       .use(plugin)
-      .use(ZiggyVue)
       .mount(el);
 
     void scheduleReveals();
