@@ -387,5 +387,40 @@ describe("admin manual booking entry", () => {
         wrapper.get('#staff-time input[value="15:30"]').attributes("disabled"),
       ).toBeDefined();
     });
+
+    it("shows the exact waiting-request count on a contested time and stays quiet otherwise", async () => {
+      vi.mocked(fetch).mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          generated_at: "2099-09-05T12:00:00Z",
+          slots: [
+            {
+              start_at: "2099-09-06T08:30:00Z",
+              rooms: [room("A", true), room("B", false)],
+              has_waiting_requests: true,
+              waiting_requests_count: 2,
+            },
+            {
+              start_at: "2099-09-06T09:00:00Z",
+              rooms: [room("A", true), room("B", true)],
+              has_waiting_requests: false,
+              waiting_requests_count: 1,
+            },
+          ],
+        }),
+      } as Response);
+      const wrapper = mountPage(true);
+      await open(wrapper);
+
+      await wrapper.get('#staff-time input[value="15:30"]').setValue(true);
+      expect(wrapper.get("[data-availability-waiting]").text()).toBe(
+        "2 pending requests are waiting for confirmation at this time.",
+      );
+      expect(wrapper.get(".availability-rooms").text()).toContain("Room A");
+
+      await wrapper.get('#staff-time input[value="16:00"]').setValue(true);
+      expect(wrapper.find("[data-availability-waiting]").exists()).toBe(false);
+    });
   });
 });

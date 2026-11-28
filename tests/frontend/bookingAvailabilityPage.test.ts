@@ -221,14 +221,15 @@ beforeEach(() => {
 });
 afterEach(() => vi.useRealTimers());
 describe("booking page availability integration", () => {
-  it("localizes the room list accessible name and explains empty starts in plain English", async () => {
+  it("localizes the guest summary and explains empty starts in plain English", async () => {
     const wrapper = mountPage(true);
     await details(wrapper);
     inertia.page.props.locale = "id";
     await wrapper.vm.$nextTick();
-    expect(wrapper.get(".availability-rooms").attributes("aria-label")).toBe(
-      "Ruangan",
+    expect(wrapper.get("[data-availability-summary]").text()).toBe(
+      "Tinggal 1 ruangan kosong untuk jam 09:00 WIB.",
     );
+    expect(wrapper.find(".availability-rooms").exists()).toBe(false);
     inertia.page.props.locale = "en";
     vi.mocked(fetch).mockResolvedValueOnce(ok({ ...data, slots: [] }));
     await wrapper.get("[data-availability-refresh]").trigger("click");
@@ -249,15 +250,17 @@ describe("booking page availability integration", () => {
       wrapper.unmount();
     },
   );
-  it("replaces legacy times, displays read-only room observations as text, clears synchronously on guests/treatment changes", async () => {
+  it("replaces legacy times, hides internal room names from guests, clears synchronously on guests/treatment changes", async () => {
     const wrapper = mountPage(true);
     expect(wrapper.findAll('#f-time input[type="radio"]')).toHaveLength(0);
     await details(wrapper);
     expect(wrapper.get("[data-room-availability]").text()).toContain(
-      "Quiet <script> room",
+      "Only 1 room left for 09:00 WIB.",
+    );
+    expect(wrapper.get("[data-room-availability]").text()).not.toContain(
+      "Occupied room",
     );
     expect(wrapper.find("script").exists()).toBe(false);
-    expect(wrapper.text()).toContain("Occupied room");
     expect(wrapper.text()).toContain("Staff approval reserves");
     expect(
       wrapper.findAll('input[name="room"],select[name="room"]'),
@@ -471,6 +474,48 @@ describe("booking page availability integration", () => {
       await flushPromises();
       expect(wrapper.findAll("#f-time input[disabled]")).toHaveLength(0);
       expect(wrapper.find(".dtp__state").exists()).toBe(false);
+      wrapper.unmount();
+    });
+
+    it("shows the count-free waiting note on the form and review step when a contested time is chosen", async () => {
+      vi.mocked(fetch).mockResolvedValue(
+        ok({
+          ...data,
+          slots: [
+            {
+              start_at: "2099-09-06T08:30:00Z",
+              rooms: [room("A", true), room("B", false)],
+              has_waiting_requests: true,
+            },
+            {
+              start_at: "2099-09-06T09:00:00Z",
+              rooms: [room("A", true), room("B", true)],
+              has_waiting_requests: false,
+            },
+          ],
+        }),
+      );
+      const wrapper = mountPage(true);
+      await wrapper.get("#f-date").setValue("2099-09-06");
+      await flushPromises();
+      expect(wrapper.find("[data-availability-waiting]").exists()).toBe(false);
+
+      await wrapper.get('#f-time input[value="15:30"]').setValue(true);
+      expect(wrapper.get("[data-availability-waiting]").text()).toContain(
+        "Only 1 room is left for 15:30 WIB and another guest has already requested it.",
+      );
+
+      await wrapper.get("form").trigger("submit");
+      expect(wrapper.get("[data-availability-waiting]").text()).toContain(
+        "Only 1 room is left for 15:30 WIB and another guest has already requested it.",
+      );
+
+      await wrapper.get("[data-booking-edit]").trigger("click");
+      await wrapper.get('#f-time input[value="16:00"]').setValue(true);
+      expect(wrapper.find("[data-availability-waiting]").exists()).toBe(false);
+      expect(wrapper.get("[data-availability-summary]").text()).toBe(
+        "16:00 WIB is available.",
+      );
       wrapper.unmount();
     });
   });

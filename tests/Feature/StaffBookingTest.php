@@ -272,13 +272,19 @@ class StaffBookingTest extends TestCase
         $this->enableScheduling();
         BookingSettings::query()->whereKey(1)->update(['minimum_lead_minutes' => 240]);
         $query = http_build_query(['service' => 'local', 'mode' => 'regular', 'duration' => 60, 'date' => '2026-10-26', 'guests' => 1]);
-        $starts = fn ($response): array => array_column($response->assertOk()->json('slots'), 'start_at');
         $nineWib = '2026-10-26T02:00:00.000000Z'; // three hours from now
 
-        $this->assertContains($nineWib, $starts($this->actingAs(User::factory()->bookingStaff()->create())
-            ->getJson('/admin/bookings/availability?'.$query)));
-        $this->assertNotContains($nineWib, $starts($this->actingAs(User::factory()->create())
-            ->getJson('/booking/availability?'.$query)));
+        $staffSlots = $this->actingAs(User::factory()->bookingStaff()->create())
+            ->getJson('/admin/bookings/availability?'.$query)->assertOk()->json('slots');
+        $guestSlots = $this->actingAs(User::factory()->create())
+            ->getJson('/booking/availability?'.$query)->assertOk()->json('slots');
+
+        $this->assertContains($nineWib, array_column($staffSlots, 'start_at'));
+        $this->assertNotContains($nineWib, array_column($guestSlots, 'start_at'));
+        $this->assertArrayHasKey('has_waiting_requests', $staffSlots[0]);
+        $this->assertArrayHasKey('waiting_requests_count', $staffSlots[0]);
+        $this->assertArrayHasKey('has_waiting_requests', $guestSlots[0]);
+        $this->assertArrayNotHasKey('waiting_requests_count', $guestSlots[0]);
 
         $this->actingAs(User::factory()->create())->getJson('/admin/bookings/availability?'.$query)->assertForbidden();
         $this->actingAs(User::factory()->admin()->create())->getJson('/admin/bookings/availability?'.$query)->assertForbidden();

@@ -8,6 +8,8 @@ export interface AvailabilityRoom {
 export interface AvailabilitySlot {
   start_at: string;
   rooms: AvailabilityRoom[];
+  has_waiting_requests?: boolean;
+  waiting_requests_count?: number;
 }
 export interface AvailabilityResult {
   generated_at: string;
@@ -93,7 +95,12 @@ export function parseAvailability(value: unknown): AvailabilityResult | null {
     if (
       !record(slot) ||
       !utcTimestamp(slot.start_at) ||
-      !Array.isArray(slot.rooms)
+      !Array.isArray(slot.rooms) ||
+      (slot.has_waiting_requests !== undefined &&
+        typeof slot.has_waiting_requests !== "boolean") ||
+      (slot.waiting_requests_count !== undefined &&
+        (!Number.isInteger(slot.waiting_requests_count) ||
+          Number(slot.waiting_requests_count) < 0))
     )
       return null;
     const rooms: AvailabilityRoom[] = [];
@@ -120,7 +127,12 @@ export function parseAvailability(value: unknown): AvailabilityResult | null {
     }
     if (new Set(rooms.map((room) => room.code)).size !== rooms.length)
       return null;
-    slots.push({ start_at: slot.start_at, rooms });
+    const parsed: AvailabilitySlot = { start_at: slot.start_at, rooms };
+    if (typeof slot.has_waiting_requests === "boolean")
+      parsed.has_waiting_requests = slot.has_waiting_requests;
+    if (typeof slot.waiting_requests_count === "number")
+      parsed.waiting_requests_count = slot.waiting_requests_count;
+    slots.push(parsed);
   }
   if (new Set(slots.map((slot) => slot.start_at)).size !== slots.length)
     return null;

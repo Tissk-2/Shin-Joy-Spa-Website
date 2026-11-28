@@ -596,6 +596,7 @@ function submit(): void {
                   :slots="roomSlots"
                   :selected-time="values.time"
                   :generated-at="availabilityGeneratedAt"
+                  show-rooms
                   @refresh="refreshAvailability"
                 />
               </div>

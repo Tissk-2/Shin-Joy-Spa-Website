@@ -83,9 +83,8 @@ test("customer observes real availability, keyboard time selection, safe review,
   await page.locator('#f-time input[value="09:00"]').focus();
   await page.keyboard.press("Space");
   await expect(page.locator('#f-time input[value="09:00"]')).toBeChecked();
-  await expect(availability).toContainText("Quiet room");
-  await expect(availability).toContainText("Garden room");
-  await expect(availability).toContainText("Unavailable");
+  await expect(availability).toContainText("Only 1 room left for 09:00 WIB.");
+  await expect(availability).not.toContainText("Quiet room");
   await expect(availability).toContainText("Staff approval reserves");
   await availability.scrollIntoViewIfNeeded();
   await screenshot(page, "desktop-en");
@@ -126,7 +125,9 @@ test("customer observes real availability, keyboard time selection, safe review,
   await expect(availability).toContainText(
     "Semua ruangan yang sesuai sudah terisi",
   );
-  await expect(page.locator('#f-time input[type="radio"]')).toHaveCount(0);
+  await expect(
+    page.locator('#f-time input[type="radio"]:not([disabled])'),
+  ).toHaveCount(0);
   await availability.scrollIntoViewIfNeeded();
   expect(
     await page.evaluate(
@@ -137,8 +138,9 @@ test("customer observes real availability, keyboard time selection, safe review,
   await page.locator("#f-date").fill(fixture.date);
   await expect(page.locator('#f-time input[value="09:00"]')).toHaveCount(1);
   await page.locator('#f-time input[value="09:00"]').check();
-  await expect(availability).toContainText("Tersedia");
-  await expect(availability).toContainText("Tidak tersedia");
+  await expect(availability).toContainText(
+    "Tinggal 1 ruangan kosong untuk jam 09:00 WIB.",
+  );
   await expect(availability).toContainText("Persetujuan staf");
   await availability.scrollIntoViewIfNeeded();
   expect(

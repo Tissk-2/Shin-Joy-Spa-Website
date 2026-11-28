@@ -12,11 +12,15 @@ const props = defineProps<{
   slots: readonly {
     readonly start_at: string;
     readonly rooms: Readonly<AvailabilitySlot["rooms"]>;
+    readonly has_waiting_requests?: boolean;
+    readonly waiting_requests_count?: number;
   }[];
   selectedTime: string;
   generatedAt: string | null;
   // On the review step the time cannot be changed here, so say how to go on.
   reviewing?: boolean;
+  // Staff see individual rooms; guests only need a plain-language summary.
+  showRooms?: boolean;
   // What is still missing, so the prompt does not ask for a choice already made.
   needs?: "treatment" | "date";
 }>();
@@ -44,13 +48,24 @@ const copy = computed(() =>
           "Tidak ada ruangan yang sesuai dengan perawatan dan jumlah tamu ini.",
         occupied:
           "Semua ruangan yang sesuai sudah terisi untuk waktu yang ditampilkan. Pilih tanggal atau perawatan lain, atau muat ulang.",
-        choose: "Pilih waktu untuk melihat ruangan yang sesuai.",
+        chooseRooms: "Pilih waktu untuk melihat ruangan yang sesuai.",
+        chooseSummary: "Pilih waktu untuk memeriksa ketersediaan.",
+        summaryAvailable: "Jam {time} WIB tersedia.",
+        summaryLastRoom: "Tinggal 1 ruangan kosong untuk jam {time} WIB.",
         available: "Tersedia",
         busy: "Tidak tersedia",
         capacity: "Kapasitas",
         updated: "Diperiksa",
         caveat:
           "Ketersediaan dapat berubah. Persetujuan staf memesan ruangan yang sesuai dan memastikan terapisnya.",
+        waitingGuest:
+          "Sudah ada tamu lain yang lebih dulu memesan jam {time} WIB. Anda tetap bisa mengirim pesanan, atau pilih jam lain agar lebih pasti.",
+        waitingGuestLast:
+          "Tinggal 1 ruangan di jam {time} WIB dan sudah ada tamu lain yang lebih dulu memesan. Anda tetap bisa mengirim pesanan, atau pilih jam lain agar lebih pasti.",
+        waitingOne:
+          "{count} permintaan sedang menunggu konfirmasi untuk waktu ini.",
+        waitingCount:
+          "{count} permintaan sedang menunggu konfirmasi untuk waktu ini.",
         blocked:
           "Periksa ketersediaan terbaru dan pilih kembali waktu yang tersedia sebelum melanjutkan.",
       }
@@ -72,13 +87,24 @@ const copy = computed(() =>
         incompatible: "No compatible rooms for this treatment and guest count.",
         occupied:
           "Suitable rooms are fully occupied for the displayed times. Choose another date or treatment, or refresh.",
-        choose: "Choose a time to see suitable rooms.",
+        chooseRooms: "Choose a time to see suitable rooms.",
+        chooseSummary: "Choose a time to check availability.",
+        summaryAvailable: "{time} WIB is available.",
+        summaryLastRoom: "Only 1 room left for {time} WIB.",
         available: "Available",
         busy: "Unavailable",
         capacity: "Capacity",
         updated: "Checked",
         caveat:
           "Availability can change. Staff approval reserves a suitable room and confirms the therapist.",
+        waitingGuest:
+          "Other guests have already requested {time} WIB. You can still send your request, or pick another time to be surer.",
+        waitingGuestLast:
+          "Only 1 room is left for {time} WIB and another guest has already requested it. You can still send your request, or pick another time to be surer.",
+        waitingOne:
+          "1 pending request is waiting for confirmation at this time.",
+        waitingCount:
+          "{count} pending requests are waiting for confirmation at this time.",
         blocked:
           "Check the latest availability and select an available time again before continuing.",
       },
@@ -87,6 +113,12 @@ const selected = computed(() =>
   props.slots.find(
     (slot) => jakartaAppointment(slot.start_at).time === props.selectedTime,
   ),
+);
+const freeRoomCount = computed(
+  () => selected.value?.rooms.filter((room) => room.available).length ?? 0,
+);
+const isLastRoom = computed(
+  () => freeRoomCount.value === 1 && (selected.value?.rooms.length ?? 0) > 1,
 );
 const message = computed(() => {
   if (props.status === "incomplete" && props.needs)
@@ -98,11 +130,45 @@ const message = computed(() => {
     return copy.value.incompatible;
   if (!props.slots.some((slot) => slot.rooms.some((room) => room.available)))
     return copy.value.occupied;
-  return selected.value ? "" : copy.value.choose;
+  return selected.value
+    ? ""
+    : props.showRooms
+      ? copy.value.chooseRooms
+      : copy.value.chooseSummary;
 });
-const selectedAvailable = computed(
-  () => selected.value?.rooms.some((room) => room.available) ?? false,
-);
+const selectedAvailable = computed(() => freeRoomCount.value > 0);
+const waitingNote = computed(() => {
+  if (
+    props.status !== "success" ||
+    !selected.value ||
+    !selectedAvailable.value ||
+    selected.value.has_waiting_requests !== true
+  )
+    return "";
+  const count = selected.value.waiting_requests_count;
+  if (typeof count === "number" && count > 0) {
+    if (props.language !== "id" && count === 1) return copy.value.waitingOne;
+    return copy.value.waitingCount.replace("{count}", String(count));
+  }
+  const template = isLastRoom.value
+    ? copy.value.waitingGuestLast
+    : copy.value.waitingGuest;
+  return template.replace("{time}", props.selectedTime);
+});
+const guestSummary = computed(() => {
+  if (
+    props.showRooms ||
+    props.status !== "success" ||
+    !selected.value ||
+    !selectedAvailable.value ||
+    waitingNote.value
+  )
+    return "";
+  const template = isLastRoom.value
+    ? copy.value.summaryLastRoom
+    : copy.value.summaryAvailable;
+  return template.replace("{time}", props.selectedTime);
+});
 const checkedAt = computed(() =>
   props.generatedAt ? jakartaAppointment(props.generatedAt) : null,
 );
@@ -128,10 +194,39 @@ const checkedAt = computed(() =>
         {{ copy.refresh }}
       </button>
     </div>
-    <p id="room-availability-status" role="status" aria-live="polite">
+    <p
+      v-if="message"
+      id="room-availability-status"
+      role="status"
+      aria-live="polite"
+    >
       {{ message }}
     </p>
-    <ul v-if="selected" class="availability-rooms" :aria-label="copy.rooms">
+    <p
+      v-else-if="guestSummary"
+      id="room-availability-status"
+      data-availability-summary
+      class="room-availability__summary"
+      role="status"
+      aria-live="polite"
+    >
+      {{ guestSummary }}
+    </p>
+    <p
+      v-if="waitingNote"
+      id="room-availability-waiting"
+      data-availability-waiting
+      class="room-availability__waiting"
+      role="status"
+      aria-live="polite"
+    >
+      {{ waitingNote }}
+    </p>
+    <ul
+      v-if="showRooms && selected"
+      class="availability-rooms"
+      :aria-label="copy.rooms"
+    >
       <li v-for="room in selected.rooms" :key="room.code">
         <strong>{{ room.name }}</strong
         ><span v-if="room.type"> · {{ room.type }}</span>
@@ -195,10 +290,30 @@ const checkedAt = computed(() =>
   cursor: default;
   opacity: 0.55;
 }
+.room-availability__summary {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.5;
+}
 .room-availability__note {
   color: color-mix(in oklch, currentColor 72%, transparent);
   font-size: 0.85rem;
   line-height: 1.55;
+}
+.room-availability__waiting {
+  padding: 0.625rem 0.875rem;
+  border: 1px solid
+    color-mix(
+      in srgb,
+      var(--admin-warning, var(--gold-deep, currentColor)) 30%,
+      transparent
+    );
+  border-radius: var(--admin-radius, 0.625rem);
+  background: var(--admin-warning-bg, var(--gold-soft, transparent));
+  color: var(--admin-warning, var(--ink, currentColor));
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.5;
 }
 .availability-rooms {
   margin: 0;

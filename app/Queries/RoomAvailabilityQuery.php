@@ -48,20 +48,37 @@ class RoomAvailabilityQuery
         $this->validateRooms($rooms);
         $first = $date->setTime(9, 0)->utc();
         $last = $date->setTime(20, 0)->utc();
+        $maxCleaning = (int) $rooms->max('cleaning_minutes');
         try {
             // Coarse inclusive whole-day superset, even when the lead cutoff removes all starts.
-            $occupancy = $this->occupancy($rooms, $first, $last->addMinutes($duration + (int) $rooms->max('cleaning_minutes')));
+            $occupancy = $this->occupancy($rooms, $first, $last->addMinutes($duration + $maxCleaning));
             $this->validateOccupancy($occupancy);
         } catch (ValidationException $error) {
             throw new BookingAvailabilityUnavailable(previous: $error);
         }
+        $pending = $this->pendingRequests($rooms, $first->subMinutes($maxCleaning), $last->addMinutes($duration + $maxCleaning));
         $cutoff = $staffEntry ? $now : $now->addMinutes($settings['minimum_lead_minutes']);
         $closing = $date->setTime(21, 0)->utc();
         $slots = [];
         for ($start = $first; $start <= $last; $start = $start->addMinutes(30)) {
             if ($start > $now && $start >= $cutoff && $start->addMinutes($duration) <= $closing) {
-                $slots[] = ['start_at' => $start->toISOString(),
-                    'rooms' => $this->project($rooms, $start, $duration, $occupancy)];
+                $projected = $this->project($rooms, $start, $duration, $occupancy);
+                $freeRooms = [];
+                foreach ($rooms as $index => $room) {
+                    if ($projected[$index]['available'] === true) {
+                        $freeRooms[] = $room;
+                    }
+                }
+                $waitingCount = $this->countWaitingRequests($freeRooms, $start, $duration, $pending);
+                $slot = [
+                    'start_at' => $start->toISOString(),
+                    'rooms' => $projected,
+                    'has_waiting_requests' => $freeRooms !== [] && $waitingCount >= count($freeRooms),
+                ];
+                if ($staffEntry) {
+                    $slot['waiting_requests_count'] = $waitingCount;
+                }
+                $slots[] = $slot;
             }
         }
 
@@ -178,5 +195,101 @@ class RoomAvailabilityQuery
                 'capacity' => $room->capacity,
                 'available' => ! $occupied];
         })->all();
+    }
+
+    /**
+     * Load unallocated pending requests that overlap the day's schedule window, plus
+     * each eligible room's compatible variants, in two bounded read-only queries.
+     *
+     * @return array{bookings: list<array{variant_id: int, guests: int, room_type: ?string, starts_at: CarbonImmutable, treatment_ends_at: CarbonImmutable}>, room_variants: array<int, array<int, true>>}
+     */
+    private function pendingRequests(Collection $rooms, CarbonImmutable $earliestStart, CarbonImmutable $latestEnd): array
+    {
+        if ($rooms->isEmpty()) {
+            return ['bookings' => [], 'room_variants' => []];
+        }
+
+        $rows = DB::table('bookings')
+            ->where('status', 'pending')
+            ->whereNotNull('starts_at')
+            ->whereNotNull('treatment_ends_at')
+            ->whereNotNull('service_variant_id')
+            ->where('starts_at', '<=', $latestEnd->endOfSecond()->format('Y-m-d H:i:s.u'))
+            ->where('treatment_ends_at', '>=', $earliestStart->startOfSecond()->format('Y-m-d H:i:s'))
+            ->whereNotExists(function ($sub): void {
+                $sub->selectRaw('1')
+                    ->from('room_reservations')
+                    ->whereColumn('room_reservations.booking_id', 'bookings.id')
+                    ->whereNull('room_reservations.released_at');
+            })
+            ->get(['id', 'service_variant_id', 'guests', 'requested_room_type', 'starts_at', 'treatment_ends_at']);
+
+        $roomVariants = [];
+        foreach (DB::table('room_service_variant')->whereIn('room_id', $rooms->modelKeys())->get(['room_id', 'service_variant_id']) as $link) {
+            $roomVariants[(int) $link->room_id][(int) $link->service_variant_id] = true;
+        }
+
+        $interval = new RoomBlockInterval;
+        $bookings = [];
+        foreach ($rows as $row) {
+            if (! RoomInput::integer($row->guests, 1, 4294967295)) {
+                continue;
+            }
+            try {
+                $startsAt = $interval->instant($row, 'starts_at');
+                $treatmentEndsAt = $interval->instant($row, 'treatment_ends_at');
+            } catch (ValidationException) {
+                continue;
+            }
+            if ($treatmentEndsAt <= $startsAt) {
+                continue;
+            }
+            $bookings[] = [
+                'variant_id' => (int) $row->service_variant_id,
+                'guests' => (int) $row->guests,
+                'room_type' => $row->requested_room_type,
+                'starts_at' => $startsAt,
+                'treatment_ends_at' => $treatmentEndsAt,
+            ];
+        }
+
+        return ['bookings' => $bookings, 'room_variants' => $roomVariants];
+    }
+
+    /**
+     * Count pending bookings that could compete for at least one currently free room in this slot.
+     *
+     * @param  list<Room>  $freeRooms
+     * @param  array{bookings: list<array{variant_id: int, guests: int, room_type: ?string, starts_at: CarbonImmutable, treatment_ends_at: CarbonImmutable}>, room_variants: array<int, array<int, true>>}  $pending
+     */
+    private function countWaitingRequests(array $freeRooms, CarbonImmutable $start, int $durationMinutes, array $pending): int
+    {
+        if ($freeRooms === [] || $pending['bookings'] === []) {
+            return 0;
+        }
+
+        $count = 0;
+        $roomVariants = $pending['room_variants'];
+        foreach ($pending['bookings'] as $request) {
+            foreach ($freeRooms as $room) {
+                if ($room->capacity < $request['guests']) {
+                    continue;
+                }
+                if ($request['room_type'] !== null && $room->getRawOriginal('type') !== $request['room_type']) {
+                    continue;
+                }
+                if (! isset($roomVariants[$room->id][$request['variant_id']])) {
+                    continue;
+                }
+                $cleaning = (int) $room->cleaning_minutes;
+                if ($request['starts_at'] < $start->addMinutes($durationMinutes + $cleaning)
+                    && $request['treatment_ends_at']->addMinutes($cleaning) > $start) {
+                    $count++;
+                    break;
+                }
+            }
+        }
+
+        return $count;
     }
 }

@@ -104,7 +104,9 @@ class BookingAvailabilityTest extends TestCase
         $data = $response->json();
         $this->assertSame(['generated_at', 'slots'], array_keys($data));
         $this->assertSame('2026-10-25T23:00:00.123456Z', $data['generated_at']);
-        $this->assertSame(['start_at', 'rooms'], array_keys($data['slots'][0]));
+        $this->assertSame(['start_at', 'rooms', 'has_waiting_requests'], array_keys($data['slots'][0]));
+        $this->assertFalse($data['slots'][0]['has_waiting_requests']);
+        $this->assertArrayNotHasKey('waiting_requests_count', $data['slots'][0]);
         $this->assertSame('2026-10-26T02:00:00.000000Z', $data['slots'][0]['start_at']);
         $this->assertSame('2026-10-26T13:00:00.000000Z', $data['slots'][22]['start_at']);
         $this->assertSame(['small', 'room'], array_column($data['slots'][0]['rooms'], 'code'));
@@ -257,7 +259,9 @@ class BookingAvailabilityTest extends TestCase
         Schema::drop('staff_access_guards');
         $this->assertCount(23, app(RoomAvailabilityQuery::class)->forSelection($this->selection())['slots']);
         foreach ([['services', 'display_order'], ['service_extensions', 'display_order'], ['service_variants', 'duration_minutes'],
-            ['rooms', 'cleaning_minutes'], ['room_reservations', 'released_at'], ['booking_settings', 'booking_horizon_days']] as [$table, $column]) {
+            ['rooms', 'cleaning_minutes'], ['room_reservations', 'released_at'], ['room_reservations', 'booking_id'],
+            ['bookings', 'starts_at'], ['bookings', 'treatment_ends_at'], ['bookings', 'service_variant_id'],
+            ['bookings', 'requested_room_type'], ['booking_settings', 'booking_horizon_days']] as [$table, $column]) {
             Schema::table($table, fn ($blueprint) => $blueprint->renameColumn($column, 'missing_'.$column));
             $this->assertUnavailable();
             Schema::table($table, fn ($blueprint) => $blueprint->renameColumn('missing_'.$column, $column));
@@ -433,10 +437,10 @@ class BookingAvailabilityTest extends TestCase
         $result = app(RoomAvailabilityQuery::class)->forSelection($this->selection());
         $queries = DB::getQueryLog();
         DB::disableQueryLog();
-        // SQLite: 33 uncached schema probes plus eight bounded data reads.
-        $this->assertCount(41, $queries);
-        foreach (['room_reservations', 'room_blocks', 'room_block_terminations'] as $table) {
-            $this->assertCount(1, array_filter($queries, fn ($query) => str_contains($query['query'], 'from "'.$table.'"')));
+        // SQLite: 36 uncached schema probes plus ten bounded data reads.
+        $this->assertCount(46, $queries);
+        foreach (['room_reservations', 'room_blocks', 'room_block_terminations', 'bookings'] as $table) {
+            $this->assertCount(1, array_filter($queries, fn ($query) => preg_match('/\Aselect [^()]* from "'.$table.'"/i', $query['query']) === 1));
         }
         $this->assertSame($before, array_map(fn ($table) => DB::table($table)->get()->toJson(), $tables));
         $this->actingAs($user)->getJson($this->url())->assertOk();
@@ -452,12 +456,118 @@ class BookingAvailabilityTest extends TestCase
         foreach (range(1, 12) as $number) {
             $this->room('additional-'.$number, 4);
         }
+        foreach (range(1, 5) as $number) {
+            Booking::factory()->create([
+                'status' => 'pending',
+                'service_id' => $this->variant->service_id,
+                'service_variant_id' => $this->variant->id,
+                'guests' => 1,
+                'starts_at' => '2026-10-26 12:30:00',
+                'treatment_ends_at' => '2026-10-26 13:30:00',
+            ]);
+        }
         CarbonImmutable::setTestNow('2026-10-26 12:00:00 UTC');
         DB::enableQueryLog();
         DB::flushQueryLog();
         app(RoomAvailabilityQuery::class)->forSelection($this->selection());
         $this->assertSame(count($queries), count(DB::getQueryLog()));
         DB::disableQueryLog();
+    }
+
+    public function test_waiting_requests_respect_threshold_cleaning_compatibility_and_privacy(): void
+    {
+        $roomA = $this->fixture(); // capacity 4, type 'standard', cleaning 15
+        $roomB = $this->room('second', 2); // capacity 2, type 'standard', cleaning 15
+        $otherVariant = ServiceVariant::create([
+            'service_id' => $this->variant->service_id,
+            'code' => 'other-variant',
+            'treatment_mode' => 'double_therapist',
+            'duration_minutes' => 60,
+            'price_idr' => 1,
+            'display_order' => 1,
+            'is_active' => true,
+            'published_at' => now(),
+        ]);
+
+        // Slot 0 = 09:00 WIB (02:00 UTC), 60 min treatment -> ends 03:00 UTC, +15m cleaning = 03:15 UTC.
+        // Slot 3 = 10:30 WIB (03:30 UTC), 60 min treatment -> ends 04:30 UTC, +15m cleaning = 04:45 UTC.
+        $makePending = fn (array $overrides = []): Booking => Booking::factory()->create([
+            'status' => 'pending',
+            'service_id' => $this->variant->service_id,
+            'service_variant_id' => $this->variant->id,
+            'guests' => 1,
+            'requested_room_type' => null,
+            'starts_at' => '2026-10-26 02:00:00',
+            'treatment_ends_at' => '2026-10-26 03:00:00',
+            ...$overrides,
+        ]);
+
+        // 1 pending with 2 free rooms -> below threshold (not contested).
+        $makePending();
+
+        // Noise that must NOT count for slot 0:
+        // - adjacent pending booking ending 15 min before slot 0 starts (no cleaning overlap)
+        $makePending(['starts_at' => '2026-10-26 00:45:00', 'treatment_ends_at' => '2026-10-26 01:45:00']);
+        // - adjacent pending booking starting exactly when slot 0 cleaning finishes (03:15 UTC)
+        $makePending(['starts_at' => '2026-10-26 03:15:00', 'treatment_ends_at' => '2026-10-26 04:15:00']);
+        // - incompatible variant (not linked to any room)
+        $makePending(['service_variant_id' => $otherVariant->id]);
+        // - group too large for every eligible room
+        $makePending(['guests' => 5]);
+        // - wrong requested_room_type (case-sensitive: 'Standard' != 'standard')
+        $makePending(['requested_room_type' => 'Standard']);
+        // - non-pending statuses
+        foreach (['confirmed', 'cancelled', 'completed', 'no_show'] as $status) {
+            $makePending(['status' => $status]);
+        }
+        // - pending booking with missing schedule timestamps (factory default)
+        Booking::factory()->create(['status' => 'pending', 'service_variant_id' => $this->variant->id]);
+        // - pending booking that already holds an unreleased reservation on another room
+        $unlinkedRoom = Room::create(['code' => 'unlinked', 'name' => 'Unlinked', 'type' => 'standard', 'capacity' => 4, 'is_active' => true, 'cleaning_minutes' => 15]);
+        $alreadyHeld = $makePending();
+        RoomReservation::create([
+            'room_id' => $unlinkedRoom->id,
+            'booking_id' => $alreadyHeld->id,
+            'starts_at' => '2026-10-26 02:00:00',
+            'treatment_ends_at' => '2026-10-26 03:00:00',
+            'ends_at' => '2026-10-26 03:15:00',
+            'cleaning_minutes' => 15,
+        ]);
+
+        $query = app(RoomAvailabilityQuery::class);
+        $guestBelow = $query->forSelection($this->selection(), false)['slots'][0];
+        $staffBelow = $query->forSelection($this->selection(), true)['slots'][0];
+        $this->assertFalse($guestBelow['has_waiting_requests']);
+        $this->assertArrayNotHasKey('waiting_requests_count', $guestBelow);
+        $this->assertFalse($staffBelow['has_waiting_requests']);
+        $this->assertSame(1, $staffBelow['waiting_requests_count']);
+
+        // Add a 2nd pending booking overlapping only via cleaning tail (starts 03:14:59 < 03:15:00).
+        // Now 2 pending >= 2 free rooms -> contested!
+        $cleaningOverlap = $makePending(['starts_at' => '2026-10-26 03:14:59', 'treatment_ends_at' => '2026-10-26 04:14:59']);
+        $guestAt = $query->forSelection($this->selection(), false)['slots'][0];
+        $staffAt = $query->forSelection($this->selection(), true)['slots'][0];
+        $this->assertTrue($guestAt['has_waiting_requests']);
+        $this->assertArrayNotHasKey('waiting_requests_count', $guestAt);
+        $this->assertTrue($staffAt['has_waiting_requests']);
+        $this->assertSame(2, $staffAt['waiting_requests_count']);
+
+        // Also test cleaning overlap on the leading side: pending ends 01:45:01 (+15m = 02:00:01 > 02:00:00).
+        $cleaningOverlap->delete();
+        $makePending(['starts_at' => '2026-10-26 00:45:01', 'treatment_ends_at' => '2026-10-26 01:45:01']);
+        $staffLeading = $query->forSelection($this->selection(), true)['slots'][0];
+        $this->assertTrue($staffLeading['has_waiting_requests']);
+        $this->assertSame(2, $staffLeading['waiting_requests_count']);
+
+        // When both rooms are occupied (0 free), the slot is full and has_waiting_requests is false.
+        foreach ([$roomA, $roomB] as $room) {
+            RoomBlock::create(['room_id' => $room->id, 'starts_at' => '2026-10-26 02:00:00', 'ends_at' => '2026-10-26 03:00:00', 'reason' => 'Full']);
+        }
+        $guestFull = $query->forSelection($this->selection(), false)['slots'][0];
+        $staffFull = $query->forSelection($this->selection(), true)['slots'][0];
+        $this->assertFalse($guestFull['has_waiting_requests']);
+        $this->assertFalse($staffFull['has_waiting_requests']);
+        $this->assertSame(0, $staffFull['waiting_requests_count']);
     }
 
     private function assertInvalid(array $selection, string $field): void

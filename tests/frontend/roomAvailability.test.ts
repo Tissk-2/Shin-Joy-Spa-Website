@@ -185,6 +185,22 @@ describe("room availability", () => {
       ...result,
       slots: [{ ...result.slots[0], start_at: "2099-09-06T02:00:00" }],
     },
+    {
+      ...result,
+      slots: [{ ...result.slots[0], has_waiting_requests: "true" }],
+    },
+    {
+      ...result,
+      slots: [{ ...result.slots[0], waiting_requests_count: -1 }],
+    },
+    {
+      ...result,
+      slots: [{ ...result.slots[0], waiting_requests_count: 1.5 }],
+    },
+    {
+      ...result,
+      slots: [{ ...result.slots[0], waiting_requests_count: "2" }],
+    },
   ])(
     "rejects malformed availability rather than authorizing times",
     async (data) => {
@@ -270,6 +286,220 @@ describe("room availability panel", () => {
       props: { ...props, reviewing: true },
     });
     expect(review.text()).toContain("select an available time again");
+  });
+
+  it("shows a plain-language summary for guests without internal room names, and keeps rooms + exact counts for staff", () => {
+    const parsedGuest = parseAvailability({
+      generated_at: "2099-09-05T12:00:00Z",
+      slots: [{ ...slot, has_waiting_requests: true }],
+    });
+    expect(parsedGuest?.slots[0]).toMatchObject({
+      has_waiting_requests: true,
+    });
+    expect(parsedGuest?.slots[0]).not.toHaveProperty("waiting_requests_count");
+
+    const parsedStaff = parseAvailability({
+      generated_at: "2099-09-05T12:00:00Z",
+      slots: [
+        { ...slot, has_waiting_requests: true, waiting_requests_count: 3 },
+      ],
+    });
+    expect(parsedStaff?.slots[0]).toMatchObject({
+      has_waiting_requests: true,
+      waiting_requests_count: 3,
+    });
+
+    const twoRoomLast = {
+      start_at: "2099-09-06T02:00:00Z",
+      rooms: [
+        { code: "A", name: "Room A", type: null, capacity: 2, available: true },
+        {
+          code: "B",
+          name: "Room B",
+          type: null,
+          capacity: 2,
+          available: false,
+        },
+      ],
+    };
+
+    // Guest: open (uncontested) shows plain summary and no room list.
+    const guestOpen = mount(RoomAvailability, {
+      props: {
+        language: "id",
+        status: "success",
+        slots: [slot],
+        selectedTime: "09:00",
+        generatedAt: "2099-09-05T12:00:00Z",
+      },
+    });
+    expect(guestOpen.get("[data-availability-summary]").text()).toBe(
+      "Jam 09:00 WIB tersedia.",
+    );
+    expect(guestOpen.find(".availability-rooms").exists()).toBe(false);
+    expect(guestOpen.text()).not.toContain("Room A");
+
+    // Guest: last room uncontested.
+    const guestLast = mount(RoomAvailability, {
+      props: {
+        language: "en",
+        status: "success",
+        slots: [twoRoomLast],
+        selectedTime: "09:00",
+        generatedAt: "2099-09-05T12:00:00Z",
+      },
+    });
+    expect(guestLast.get("[data-availability-summary]").text()).toBe(
+      "Only 1 room left for 09:00 WIB.",
+    );
+
+    // Guest: last room + contested (EN & ID) gives clear actionable advice without room names.
+    const guestContestedLastEn = mount(RoomAvailability, {
+      props: {
+        language: "en",
+        status: "success",
+        slots: [{ ...twoRoomLast, has_waiting_requests: true }],
+        selectedTime: "09:00",
+        generatedAt: "2099-09-05T12:00:00Z",
+      },
+    });
+    expect(guestContestedLastEn.get("[data-availability-waiting]").text()).toBe(
+      "Only 1 room is left for 09:00 WIB and another guest has already requested it. You can still send your request, or pick another time to be surer.",
+    );
+    expect(guestContestedLastEn.find(".availability-rooms").exists()).toBe(
+      false,
+    );
+
+    const guestContestedLastId = mount(RoomAvailability, {
+      props: {
+        language: "id",
+        status: "success",
+        slots: [{ ...twoRoomLast, has_waiting_requests: true }],
+        selectedTime: "09:00",
+        generatedAt: "2099-09-05T12:00:00Z",
+      },
+    });
+    expect(guestContestedLastId.get("[data-availability-waiting]").text()).toBe(
+      "Tinggal 1 ruangan di jam 09:00 WIB dan sudah ada tamu lain yang lebih dulu memesan. Anda tetap bisa mengirim pesanan, atau pilih jam lain agar lebih pasti.",
+    );
+
+    // Guest: contested when not "last room" (e.g., 1-room slot or >=2 rooms free).
+    const guestContestedGeneral = mount(RoomAvailability, {
+      props: {
+        language: "en",
+        status: "success",
+        slots: [{ ...slot, has_waiting_requests: true }],
+        selectedTime: "09:00",
+        generatedAt: "2099-09-05T12:00:00Z",
+      },
+    });
+    expect(
+      guestContestedGeneral.get("[data-availability-waiting]").text(),
+    ).toBe(
+      "Other guests have already requested 09:00 WIB. You can still send your request, or pick another time to be surer.",
+    );
+
+    // Staff (showRooms): renders room list as text (XSS-safe) plus exact singular/plural count.
+    const staffSingular = mount(RoomAvailability, {
+      props: {
+        language: "en",
+        status: "success",
+        showRooms: true,
+        slots: [
+          {
+            start_at: "2099-09-06T02:00:00Z",
+            rooms: [
+              {
+                code: "A",
+                name: "Quiet <script> room",
+                type: "Private",
+                capacity: 2,
+                available: true,
+              },
+            ],
+            has_waiting_requests: true,
+            waiting_requests_count: 1,
+          },
+        ],
+        selectedTime: "09:00",
+        generatedAt: "2099-09-05T12:00:00Z",
+      },
+    });
+    expect(staffSingular.get("[data-availability-waiting]").text()).toBe(
+      "1 pending request is waiting for confirmation at this time.",
+    );
+    expect(staffSingular.get(".availability-rooms").text()).toContain(
+      "Quiet <script> room",
+    );
+    expect(staffSingular.find("script").exists()).toBe(false);
+
+    const staffPlural = mount(RoomAvailability, {
+      props: {
+        language: "en",
+        status: "success",
+        showRooms: true,
+        slots: [
+          { ...slot, has_waiting_requests: true, waiting_requests_count: 3 },
+        ],
+        selectedTime: "09:00",
+        generatedAt: "2099-09-05T12:00:00Z",
+      },
+    });
+    expect(staffPlural.get("[data-availability-waiting]").text()).toBe(
+      "3 pending requests are waiting for confirmation at this time.",
+    );
+
+    const staffId = mount(RoomAvailability, {
+      props: {
+        language: "id",
+        status: "success",
+        showRooms: true,
+        slots: [
+          { ...slot, has_waiting_requests: true, waiting_requests_count: 3 },
+        ],
+        selectedTime: "09:00",
+        generatedAt: "2099-09-05T12:00:00Z",
+      },
+    });
+    expect(staffId.get("[data-availability-waiting]").text()).toBe(
+      "3 permintaan sedang menunggu konfirmasi untuk waktu ini.",
+    );
+    expect(staffId.get(".availability-rooms").attributes("aria-label")).toBe(
+      "Ruangan",
+    );
+
+    // Uncontested (even with waiting_requests_count > 0) stays quiet.
+    const quiet = mount(RoomAvailability, {
+      props: {
+        language: "en",
+        status: "success",
+        showRooms: true,
+        slots: [
+          { ...slot, has_waiting_requests: false, waiting_requests_count: 1 },
+        ],
+        selectedTime: "09:00",
+        generatedAt: "2099-09-05T12:00:00Z",
+      },
+    });
+    expect(quiet.find("[data-availability-waiting]").exists()).toBe(false);
+
+    // Full slot stays quiet (the blocked/occupied messaging applies instead).
+    const full = mount(RoomAvailability, {
+      props: {
+        language: "en",
+        status: "success",
+        slots: [
+          {
+            ...slot,
+            rooms: [{ ...slot.rooms[0], available: false }],
+            has_waiting_requests: true,
+          },
+        ],
+        selectedTime: "09:00",
+        generatedAt: "2099-09-05T12:00:00Z",
+      },
+    });
+    expect(full.find("[data-availability-waiting]").exists()).toBe(false);
   });
 });
 
