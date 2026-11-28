@@ -135,7 +135,7 @@ onUnmounted(() => {
 }
 @media (min-width: 860px) {
   .home-about {
-    grid-template-columns: minmax(0, 1fr) minmax(260px, 340px);
+    grid-template-columns: minmax(0, 1fr) minmax(260px, 310px);
     align-items: center;
   }
   .home-visit {
@@ -154,13 +154,13 @@ onUnmounted(() => {
 .home-about__media {
   margin: 0;
   width: 100%;
-  max-width: 340px;
+  max-width: 310px;
   justify-self: center;
 }
 .home-about__frame {
   position: relative;
   overflow: hidden;
-  aspect-ratio: 3 / 4;
+  aspect-ratio: 9 / 16;
   border: 1px solid var(--line);
   border-radius: var(--r-md);
   background: var(--surface);
@@ -395,8 +395,8 @@ onUnmounted(() => {
               class="home-about__video"
               :src="tourActivated ? '/img/shin-joy-tour.mp4' : undefined"
               poster="/img/shin-joy-tour-poster.webp"
-              width="540"
-              height="720"
+              width="720"
+              height="1280"
               muted
               loop
               playsinline
