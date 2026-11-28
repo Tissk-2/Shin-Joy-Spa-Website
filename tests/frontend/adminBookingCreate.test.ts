@@ -301,8 +301,12 @@ describe("admin manual booking entry", () => {
     await wrapper.get("#staff-date").setValue("2099-09-06");
     await flushPromises();
     // Final review M5: staff times come from the staff route, which skips the customer notice.
-    expect(String(vi.mocked(fetch).mock.calls.at(-1)?.[0])).toMatch(
-      /^\/admin\/bookings\/availability\?/,
+    const urls = vi.mocked(fetch).mock.calls.map(([url]) => String(url));
+    expect(
+      urls.some((url) => /^\/admin\/bookings\/availability\?/.test(url)),
+    ).toBe(true);
+    expect(urls.some((url) => url.startsWith("/booking/availability"))).toBe(
+      false,
     );
     await wrapper.get('#staff-time input[value="09:00"]').setValue(true);
     await wrapper.setProps({ packages: structuredClone(packages) });
@@ -421,6 +425,44 @@ describe("admin manual booking entry", () => {
 
       await wrapper.get('#staff-time input[value="16:00"]').setValue(true);
       expect(wrapper.find("[data-availability-waiting]").exists()).toBe(false);
+    });
+
+    it("marks full days on the staff calendar using the staff month route", async () => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2099-09-01T00:00:00Z"));
+      try {
+        vi.mocked(fetch).mockImplementation(async (input) => {
+          const url = String(input);
+          if (url.includes("/admin/bookings/availability/month?")) {
+            return {
+              ok: true,
+              status: 200,
+              json: async () => ({
+                generated_at: "2099-09-05T12:00:00Z",
+                month: "2099-09",
+                full_dates: ["2099-09-10"],
+              }),
+            } as Response;
+          }
+          return respond(true);
+        });
+        const wrapper = mountPage(true);
+        await wrapper.get('button[data-mode="regular"]').trigger("click");
+        await wrapper.get('button[data-duration="90"]').trigger("click");
+        await flushPromises();
+        expect(wrapper.get('[data-date="2099-09-10"]').classes()).toContain(
+          "dtp__day--full",
+        );
+        expect(
+          vi
+            .mocked(fetch)
+            .mock.calls.some(([url]) =>
+              String(url).startsWith("/admin/bookings/availability/month?"),
+            ),
+        ).toBe(true);
+      } finally {
+        vi.useRealTimers();
+      }
     });
   });
 });

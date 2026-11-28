@@ -518,5 +518,36 @@ describe("booking page availability integration", () => {
       );
       wrapper.unmount();
     });
+
+    it("marks full days on the calendar from the month endpoint and updates when switching months", async () => {
+      vi.mocked(fetch).mockImplementation(async (input) => {
+        const url = String(input);
+        if (url.includes("/booking/availability/month?")) {
+          const month = new URL(url, "http://test").searchParams.get("month");
+          return ok({
+            generated_at: "2099-09-05T12:00:00Z",
+            month,
+            full_dates: month === "2099-09" ? ["2099-09-08"] : ["2099-10-04"],
+          });
+        }
+        return ok(labelled(true));
+      });
+
+      const wrapper = mountPage(true);
+      await flushPromises();
+      expect(wrapper.get('[data-date="2099-09-08"]').classes()).toContain(
+        "dtp__day--full",
+      );
+      expect(wrapper.get('[data-date="2099-09-09"]').classes()).not.toContain(
+        "dtp__day--full",
+      );
+
+      await wrapper.get("[data-picker-next]").trigger("click");
+      await flushPromises();
+      expect(wrapper.get('[data-date="2099-10-04"]').classes()).toContain(
+        "dtp__day--full",
+      );
+      wrapper.unmount();
+    });
   });
 });

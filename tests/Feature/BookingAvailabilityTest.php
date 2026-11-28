@@ -570,6 +570,111 @@ class BookingAvailabilityTest extends TestCase
         $this->assertSame(0, $staffFull['waiting_requests_count']);
     }
 
+    public function test_month_availability_marks_only_completely_full_days_in_bounded_queries(): void
+    {
+        $roomA = $this->fixture(); // 2026-10-25 23:00 UTC = 2026-10-26 06:00 WIB; horizon 2 days -> Oct 26, 27, 28
+        $roomB = $this->room('second', 2);
+
+        // Oct 26: completely blocked across both rooms (09:00–21:00 WIB = 02:00–14:00 UTC) -> FULL.
+        foreach ([$roomA, $roomB] as $room) {
+            RoomBlock::create([
+                'room_id' => $room->id,
+                'starts_at' => '2026-10-26 02:00:00',
+                'ends_at' => '2026-10-26 14:00:00',
+                'reason' => 'Full day maintenance',
+            ]);
+        }
+
+        // Oct 27: roomA blocked all day, roomB blocked until 13:00 UTC -> 20:00 WIB (13:00 UTC) is still free -> NOT full.
+        RoomBlock::create([
+            'room_id' => $roomA->id,
+            'starts_at' => '2026-10-27 02:00:00',
+            'ends_at' => '2026-10-27 14:00:00',
+            'reason' => 'Room A full',
+        ]);
+        RoomBlock::create([
+            'room_id' => $roomB->id,
+            'starts_at' => '2026-10-27 02:00:00',
+            'ends_at' => '2026-10-27 13:00:00',
+            'reason' => 'Room B almost full',
+        ]);
+
+        // Oct 29 (beyond 2-day horizon): blocked all day -> must NOT appear in full_dates.
+        foreach ([$roomA, $roomB] as $room) {
+            RoomBlock::create([
+                'room_id' => $room->id,
+                'starts_at' => '2026-10-29 02:00:00',
+                'ends_at' => '2026-10-29 14:00:00',
+                'reason' => 'Outside horizon',
+            ]);
+        }
+
+        $monthParams = [
+            'service' => 'local',
+            'mode' => 'regular',
+            'duration' => 60,
+            'guests' => 1,
+            'month' => '2026-10',
+        ];
+        $user = User::factory()->create();
+
+        // Auth & validation guards.
+        $this->getJson('/booking/availability/month?'.http_build_query($monthParams))->assertUnauthorized();
+        $this->actingAs(User::factory()->unverified()->create())
+            ->getJson('/booking/availability/month?'.http_build_query($monthParams))->assertForbidden();
+        $this->actingAs($user)
+            ->getJson('/booking/availability/month?'.http_build_query([...$monthParams, 'month' => '2026-13']))
+            ->assertUnprocessable()->assertJsonValidationErrors('month');
+        $this->actingAs($user)
+            ->getJson('/booking/availability/month?'.http_build_query([...$monthParams, 'date' => '2026-10-26']))
+            ->assertUnprocessable()->assertJsonValidationErrors('date');
+
+        DB::enableQueryLog();
+        DB::flushQueryLog();
+        $response = $this->actingAs($user)->getJson('/booking/availability/month?'.http_build_query($monthParams));
+        $firstCount = count(DB::getQueryLog());
+        DB::disableQueryLog();
+
+        $response->assertOk()
+            ->assertHeader('Cache-Control', 'no-store, private')
+            ->assertExactJson([
+                'generated_at' => '2026-10-25T23:00:00.123456Z',
+                'month' => '2026-10',
+                'full_dates' => ['2026-10-26'],
+            ]);
+
+        // Month outside the booking horizon returns empty full_dates cleanly (not an error).
+        $this->actingAs($user)
+            ->getJson('/booking/availability/month?'.http_build_query([...$monthParams, 'month' => '2026-11']))
+            ->assertOk()
+            ->assertJsonPath('full_dates', []);
+
+        // Adding more rooms keeps the query count constant (batched month read).
+        foreach (range(1, 10) as $number) {
+            $this->room('extra-'.$number, 4);
+        }
+        DB::enableQueryLog();
+        DB::flushQueryLog();
+        $this->actingAs($user)->getJson('/booking/availability/month?'.http_build_query($monthParams))->assertOk();
+        $this->assertSame($firstCount, count(DB::getQueryLog()));
+        DB::disableQueryLog();
+
+        // Today after closing (0 valid slots left) is not marked full.
+        CarbonImmutable::setTestNow('2026-10-26 14:00:00 UTC');
+        $this->actingAs($user)
+            ->getJson('/booking/availability/month?'.http_build_query($monthParams))
+            ->assertOk()
+            ->assertJsonPath('full_dates', []);
+
+        // No compatible rooms at all is not marked full.
+        CarbonImmutable::setTestNow('2026-10-25 23:00:00 UTC');
+        Room::query()->update(['is_active' => false]);
+        $this->actingAs($user)
+            ->getJson('/booking/availability/month?'.http_build_query($monthParams))
+            ->assertOk()
+            ->assertJsonPath('full_dates', []);
+    }
+
     private function assertInvalid(array $selection, string $field): void
     {
         try {

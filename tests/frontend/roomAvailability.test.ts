@@ -2,10 +2,13 @@ import { mount, flushPromises } from "@vue/test-utils";
 import { defineComponent, h, ref, nextTick } from "vue";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import RoomAvailability from "@/components/booking/RoomAvailability.vue";
+import { useMonthAvailability } from "@/composables/useMonthAvailability";
 import { useRoomAvailability } from "@/composables/useRoomAvailability";
 import {
   jakartaAppointment,
+  monthAvailabilityQueryKey,
   parseAvailability,
+  parseMonthAvailability,
   slotTimeStates,
 } from "@/lib/roomAvailability";
 
@@ -541,5 +544,94 @@ describe("slotTimeStates", () => {
 
   it("returns nothing for no slots", () => {
     expect(slotTimeStates([])).toEqual({ times: [], states: {} });
+  });
+});
+
+describe("month availability", () => {
+  const monthSelection = {
+    service: "nezuko",
+    mode: "regular",
+    duration: 90,
+    extension: "",
+    month: "2099-09",
+    guests: 1,
+  };
+  const monthResult = {
+    generated_at: "2099-09-05T18:00:00Z",
+    month: "2099-09",
+    full_dates: ["2099-09-06", "2099-09-12"],
+  };
+
+  it("builds valid month query keys and rejects malformed months", () => {
+    expect(monthAvailabilityQueryKey(monthSelection)).toBe(
+      "service=nezuko&mode=regular&duration=90&month=2099-09&guests=1",
+    );
+    expect(
+      monthAvailabilityQueryKey({ ...monthSelection, month: "2099-13" }),
+    ).toBeNull();
+    expect(
+      monthAvailabilityQueryKey({ ...monthSelection, month: "2099-09-01" }),
+    ).toBeNull();
+  });
+
+  it("parses valid month responses and rejects wrong-month or duplicate dates", () => {
+    expect(parseMonthAvailability(monthResult)).toEqual(monthResult);
+    expect(
+      parseMonthAvailability({ ...monthResult, full_dates: ["2099-10-01"] }),
+    ).toBeNull();
+    expect(
+      parseMonthAvailability({
+        ...monthResult,
+        full_dates: ["2099-09-06", "2099-09-06"],
+      }),
+    ).toBeNull();
+    expect(
+      parseMonthAvailability({ ...monthResult, full_dates: ["2099-02-29"] }),
+    ).toBeNull();
+  });
+
+  it("fetches full dates, ignores stale responses, and falls back to empty on error", async () => {
+    const first = deferred<Response>();
+    const second = deferred<Response>();
+    const fetcher = vi
+      .fn()
+      .mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(second.promise)
+      .mockResolvedValueOnce(response({}, 503));
+    vi.stubGlobal("fetch", fetcher);
+
+    const enabled = ref<unknown>(true);
+    const query = ref({ ...monthSelection });
+    let api!: ReturnType<typeof useMonthAvailability>;
+    const wrapper = mount(
+      defineComponent({
+        setup() {
+          api = useMonthAvailability(enabled, query);
+          return () => h("div");
+        },
+      }),
+    );
+
+    expect(fetcher.mock.calls[0]?.[0]).toBe(
+      "/booking/availability/month?service=nezuko&mode=regular&duration=90&month=2099-09&guests=1",
+    );
+    query.value = { ...monthSelection, month: "2099-10" };
+    first.resolve(response(monthResult));
+    await flushPromises();
+    expect(api.fullDates.value).toEqual([]);
+
+    second.resolve(
+      response({
+        generated_at: "2099-09-05T18:00:00Z",
+        month: "2099-10",
+        full_dates: ["2099-10-03"],
+      }),
+    );
+    await flushPromises();
+    expect(api.fullDates.value).toEqual(["2099-10-03"]);
+
+    await api.refresh();
+    expect(api.fullDates.value).toEqual([]);
+    wrapper.unmount();
   });
 });

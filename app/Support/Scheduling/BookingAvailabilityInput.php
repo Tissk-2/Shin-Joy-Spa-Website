@@ -13,7 +13,26 @@ final class BookingAvailabilityInput
 {
     public function validate(array $input): array
     {
-        $unknown = array_diff(array_keys($input), ['service', 'mode', 'duration', 'extension', 'date', 'guests', 'room_type']);
+        return $this->validateFor($input, 'date', function ($attribute, $value, $fail): void {
+            if (! is_string($value) || ! preg_match('/\A([0-9]{4})-([0-9]{2})-([0-9]{2})\z/', $value, $parts)
+                || ! checkdate((int) $parts[2], (int) $parts[3], (int) $parts[1])) {
+                $fail(__('validation.availability.date'));
+            }
+        });
+    }
+
+    public function validateMonth(array $input): array
+    {
+        return $this->validateFor($input, 'month', function ($attribute, $value, $fail): void {
+            if (! is_string($value) || ! preg_match('/\A([0-9]{4})-(0[1-9]|1[0-2])\z/', $value)) {
+                $fail(__('validation.availability.date'));
+            }
+        });
+    }
+
+    private function validateFor(array $input, string $periodField, callable $periodRule): array
+    {
+        $unknown = array_diff(array_keys($input), ['service', 'mode', 'duration', 'extension', $periodField, 'guests', 'room_type']);
         if ($unknown !== []) {
             throw ValidationException::withMessages(array_fill_keys($unknown, __('validation.availability.unsupported')));
         }
@@ -26,18 +45,12 @@ final class BookingAvailabilityInput
                 $fail(__('validation.availability.integer'));
             }
         };
-        $date = function ($attribute, $value, $fail): void {
-            if (! is_string($value) || ! preg_match('/\A([0-9]{4})-([0-9]{2})-([0-9]{2})\z/', $value, $parts)
-                || ! checkdate((int) $parts[2], (int) $parts[3], (int) $parts[1])) {
-                $fail(__('validation.availability.date'));
-            }
-        };
         $data = Validator::make($normalized, [
             'service' => ['bail', 'required', 'string', 'max:'.BookingSelectionLimits::CODE_LENGTH],
             'mode' => ['bail', 'required', 'string', Rule::in(array_column(TreatmentMode::cases(), 'value'))],
             'duration' => ['bail', 'required', $integer(BookingSelectionLimits::BASE_DURATION_MINUTES)],
             'guests' => ['bail', 'required', $integer(4)],
-            'date' => ['bail', 'required', $date],
+            $periodField => ['bail', 'required', $periodRule],
             'extension' => ['bail', 'nullable', 'string', 'max:'.BookingSelectionLimits::CODE_LENGTH],
             'room_type' => ['bail', 'nullable', 'string', 'regex:/\A[\pL\pN][\pL\pN _-]{0,63}\z/u'],
         ])->validate();

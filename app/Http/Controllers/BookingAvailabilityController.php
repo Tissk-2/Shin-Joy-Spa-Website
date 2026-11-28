@@ -13,7 +13,7 @@ final class BookingAvailabilityController
 {
     public function __invoke(BookingAvailabilityRequest $request, RoomAvailabilityQuery $query): JsonResponse
     {
-        return $this->respond($request, $query, false);
+        return $this->respond(fn (): array => $query->forSelection($request->selection(), false));
     }
 
     /** The staff booking form's times: no minimum notice, for walk-ins and calls. */
@@ -21,13 +21,28 @@ final class BookingAvailabilityController
     {
         abort_unless((new BookingPolicy)->create($request->user()), 403);
 
-        return $this->respond($request, $query, true);
+        return $this->respond(fn (): array => $query->forSelection($request->selection(), true));
     }
 
-    private function respond(BookingAvailabilityRequest $request, RoomAvailabilityQuery $query, bool $staffEntry): JsonResponse
+    /** Full dates in a visible calendar month for the customer booking form. */
+    public function month(BookingAvailabilityRequest $request, RoomAvailabilityQuery $query): JsonResponse
+    {
+        return $this->respond(fn (): array => $query->forMonth($request->monthSelection(), false));
+    }
+
+    /** Full dates in a visible calendar month for the staff booking form (no customer notice). */
+    public function staffMonth(BookingAvailabilityRequest $request, RoomAvailabilityQuery $query): JsonResponse
+    {
+        abort_unless((new BookingPolicy)->create($request->user()), 403);
+
+        return $this->respond(fn (): array => $query->forMonth($request->monthSelection(), true));
+    }
+
+    /** @param callable(): array<string, mixed> $resolve */
+    private function respond(callable $resolve): JsonResponse
     {
         try {
-            return response()->json($query->forSelection($request->selection(), $staffEntry))
+            return response()->json($resolve())
                 ->header('Cache-Control', 'private, no-store');
         } catch (BookingAvailabilityUnavailable) {
             return response()->json(['message' => __('validation.availability.unavailable'),

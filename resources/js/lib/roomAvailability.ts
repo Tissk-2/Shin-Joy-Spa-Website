@@ -23,6 +23,19 @@ export interface AvailabilityQuery {
   date: string;
   guests: number;
 }
+export interface MonthAvailabilityQuery {
+  service: string;
+  mode: string;
+  duration: number | null;
+  extension: string;
+  month: string;
+  guests: number;
+}
+export interface MonthAvailabilityResult {
+  generated_at: string;
+  month: string;
+  full_dates: string[];
+}
 
 function record(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -167,6 +180,65 @@ export function availabilityQueryKey(
     mode: query.mode,
     duration: String(query.duration),
     date: query.date,
+    guests: String(query.guests),
+  });
+  if (query.extension) params.set("extension", query.extension);
+  return params.toString();
+}
+function isIsoDate(value: unknown): value is string {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value))
+    return false;
+  const date = new Date(`${value}T00:00:00Z`);
+  return (
+    Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value
+  );
+}
+export function parseMonthAvailability(
+  value: unknown,
+): MonthAvailabilityResult | null {
+  if (
+    !record(value) ||
+    !utcTimestamp(value.generated_at) ||
+    typeof value.month !== "string" ||
+    !/^\d{4}-(0[1-9]|1[0-2])$/.test(value.month) ||
+    !Array.isArray(value.full_dates)
+  )
+    return null;
+  const fullDates: string[] = [];
+  for (const date of value.full_dates) {
+    if (!isIsoDate(date) || date.slice(0, 7) !== value.month) return null;
+    fullDates.push(date);
+  }
+  if (new Set(fullDates).size !== fullDates.length) return null;
+  return {
+    generated_at: value.generated_at,
+    month: value.month,
+    full_dates: fullDates,
+  };
+}
+export function monthAvailabilityQueryKey(
+  query: MonthAvailabilityQuery | null,
+): string | null {
+  if (
+    !query ||
+    !query.service ||
+    query.service.length > 80 ||
+    !["regular", "double_therapist"].includes(query.mode) ||
+    !Number.isInteger(query.duration) ||
+    Number(query.duration) < 1 ||
+    Number(query.duration) > 480 ||
+    !Number.isInteger(query.guests) ||
+    query.guests < 1 ||
+    query.guests > 4 ||
+    query.extension.length > 80 ||
+    !/^\d{4}-(0[1-9]|1[0-2])$/.test(query.month)
+  )
+    return null;
+  const params = new URLSearchParams({
+    service: query.service,
+    mode: query.mode,
+    duration: String(query.duration),
+    month: query.month,
     guests: String(query.guests),
   });
   if (query.extension) params.set("extension", query.extension);

@@ -64,6 +64,9 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
         Route::get('/bookings/availability', [BookingAvailabilityController::class, 'staff'])
             ->middleware('throttle:booking-availability')
             ->name('bookings.availability');
+        Route::get('/bookings/availability/month', [BookingAvailabilityController::class, 'staffMonth'])
+            ->middleware('throttle:booking-availability')
+            ->name('bookings.availability.month');
         Route::post('/bookings', [AdminBookingController::class, 'store'])
             ->middleware('throttle:admin-booking-status')
             ->name('bookings.store');

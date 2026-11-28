@@ -12,10 +12,12 @@ import RoomAvailability from "@/components/booking/RoomAvailability.vue";
 import DateTimePicker from "@/components/booking/DateTimePicker.vue";
 import { useContactInformation } from "@/composables/useContactInformation";
 import { useLanguage } from "@/composables/useLanguage";
+import { useMonthAvailability } from "@/composables/useMonthAvailability";
 import { useRoomAvailability } from "@/composables/useRoomAvailability";
 import { jakartaAppointment, slotTimeStates } from "@/lib/roomAvailability";
 import {
   buildBookingSubmissionPayload,
+  todayIso,
   treatmentFitsBusinessHours,
   timeSlots,
   validateBooking,
@@ -251,6 +253,7 @@ const pricingBasisLabel = computed(() =>
   }),
 );
 const availabilityEnabled = computed(() => props.availabilityEnabled === true);
+const visibleMonth = ref((bookingForm.date || todayIso()).slice(0, 7));
 const availabilityQuery = computed(() => {
   const candidate = selected.value;
   const service = servicePackage.value;
@@ -270,15 +273,32 @@ const availabilityQuery = computed(() => {
     return null;
   return { ...candidate, date: bookingForm.date, guests: bookingForm.guests };
 });
+const monthAvailabilityQuery = computed(() => {
+  const base = availabilityQuery.value;
+  if (!base) return null;
+  return {
+    service: base.service,
+    mode: base.mode,
+    duration: base.duration,
+    extension: base.extension,
+    month: visibleMonth.value,
+    guests: base.guests,
+  };
+});
 const availability = useRoomAvailability(
   availabilityEnabled,
   availabilityQuery,
+);
+const monthAvailability = useMonthAvailability(
+  availabilityEnabled,
+  monthAvailabilityQuery,
 );
 const {
   slots: roomSlots,
   status: availabilityStatus,
   generatedAt: availabilityGeneratedAt,
 } = availability;
+const { fullDates: monthFullDates } = monthAvailability;
 // Clear immediately, including before Vue renders a changed selection or refresh.
 watch(
   [availabilityQuery, availabilityEnabled],
@@ -290,6 +310,7 @@ watch(
 function refreshAvailability(): void {
   bookingForm.time = "";
   void availability.refresh();
+  void monthAvailability.refresh();
 }
 const availabilityAllowsTime = computed(
   () =>
@@ -862,6 +883,7 @@ function confirm(): void {
                     v-model:time="bookingForm.time"
                     :times="availableTimeSlots"
                     :time-states="slotStates?.states ?? {}"
+                    :full-dates="monthFullDates"
                     date-id="f-date"
                     time-id="f-time"
                     :date-label="tr('b.fdate')"
@@ -881,6 +903,7 @@ function confirm(): void {
                       )
                     "
                     :empty-text="timesEmptyText"
+                    @update:month="visibleMonth = $event"
                   />
                   <div class="field">
                     <span id="f-date-error" class="err">{{

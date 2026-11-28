@@ -10,6 +10,7 @@ use App\Enums\PricingBasis;
 use App\Models\Booking;
 use App\Models\BookingSettings;
 use App\Models\Room;
+use App\Models\RoomBlock;
 use App\Models\RoomReservation;
 use App\Models\Service;
 use App\Models\ServiceCategory;
@@ -288,6 +289,28 @@ class StaffBookingTest extends TestCase
 
         $this->actingAs(User::factory()->create())->getJson('/admin/bookings/availability?'.$query)->assertForbidden();
         $this->actingAs(User::factory()->admin()->create())->getJson('/admin/bookings/availability?'.$query)->assertForbidden();
+
+        // Month availability route obeys the same booking-capability check and skips customer lead notice.
+        $monthQuery = http_build_query(['service' => 'local', 'mode' => 'regular', 'duration' => 60, 'month' => '2026-10', 'guests' => 1]);
+        $room = Room::query()->firstOrFail();
+        // Block 10:15–21:00 WIB (03:15–14:00 UTC): 09:00 WIB (02:00–03:15 incl. 15m cleaning) is free for staff,
+        // while customers cannot book 09:00 due to 240-min notice -> customer sees Oct 26 full, staff sees it open.
+        RoomBlock::create([
+            'room_id' => $room->id,
+            'starts_at' => '2026-10-26 03:15:00',
+            'ends_at' => '2026-10-26 14:00:00',
+            'reason' => 'Afternoon block',
+        ]);
+        $this->actingAs(User::factory()->bookingStaff()->create())
+            ->getJson('/admin/bookings/availability/month?'.$monthQuery)
+            ->assertOk()
+            ->assertJsonPath('full_dates', []);
+        $this->actingAs(User::factory()->create())
+            ->getJson('/booking/availability/month?'.$monthQuery)
+            ->assertOk()
+            ->assertJsonPath('full_dates', ['2026-10-26']);
+        $this->actingAs(User::factory()->create())->getJson('/admin/bookings/availability/month?'.$monthQuery)->assertForbidden();
+        $this->actingAs(User::factory()->admin()->create())->getJson('/admin/bookings/availability/month?'.$monthQuery)->assertForbidden();
     }
 
     // Production break caught: staff without the booking capability and customers must not create bookings.

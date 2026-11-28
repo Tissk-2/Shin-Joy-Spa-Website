@@ -85,6 +85,75 @@ class RoomAvailabilityQuery
         return ['generated_at' => $now->toISOString(), 'slots' => $slots];
     }
 
+    /**
+     * Read-only month scan: returns bookable dates in the requested Jakarta month
+     * where compatible rooms exist, at least one start time is eligible, and every
+     * eligible start time has zero free rooms.
+     *
+     * @return array{generated_at: string, month: string, full_dates: list<string>}
+     */
+    public function forMonth(array $validatedSelection, bool $staffEntry = false): array
+    {
+        $selection = (new BookingAvailabilityInput)->validateMonth($validatedSelection);
+        if (config('booking.scheduling_enabled') !== true) {
+            throw new BookingAvailabilityUnavailable;
+        }
+        $now = CarbonImmutable::now('UTC');
+        (new BookingAvailabilitySchema)->requireReadable();
+        $settings = $this->settings();
+        $today = $now->setTimezone('Asia/Jakarta')->startOfDay();
+        $latestAllowed = $today->addDays($settings['booking_horizon_days']);
+        $monthStart = CarbonImmutable::createFromFormat('!Y-m-d', $selection['month'].'-01', 'Asia/Jakarta');
+        $monthEnd = $monthStart->endOfMonth()->startOfDay();
+        ['variant' => $variant, 'duration' => $duration] = (new BookingAvailabilityChoice)->resolve($selection);
+        $rooms = $this->rooms($variant, $selection['guests'], $selection['room_type'])
+            ->filter(fn (Room $room) => $selection['room_type'] === null || $room->getRawOriginal('type') === $selection['room_type'])->values();
+        $this->validateRooms($rooms);
+        $maxCleaning = (int) $rooms->max('cleaning_minutes');
+        try {
+            $occupancy = $this->occupancy(
+                $rooms,
+                $monthStart->setTime(9, 0)->utc(),
+                $monthEnd->setTime(20, 0)->utc()->addMinutes($duration + $maxCleaning),
+            );
+            $this->validateOccupancy($occupancy);
+        } catch (ValidationException $error) {
+            throw new BookingAvailabilityUnavailable(previous: $error);
+        }
+
+        $fromDay = $monthStart->max($today);
+        $toDay = $monthEnd->min($latestAllowed);
+        $fullDates = [];
+        if ($rooms->isNotEmpty() && $fromDay <= $toDay) {
+            $cutoff = $staffEntry ? $now : $now->addMinutes($settings['minimum_lead_minutes']);
+            for ($day = $fromDay; $day <= $toDay; $day = $day->addDay()) {
+                $first = $day->setTime(9, 0)->utc();
+                $last = $day->setTime(20, 0)->utc();
+                $closing = $day->setTime(21, 0)->utc();
+                $hasEligibleSlot = false;
+                $hasOpenSlot = false;
+                for ($start = $first; $start <= $last; $start = $start->addMinutes(30)) {
+                    if ($start > $now && $start >= $cutoff && $start->addMinutes($duration) <= $closing) {
+                        $hasEligibleSlot = true;
+                        if ($this->hasOpenRoom($rooms, $start, $duration, $occupancy)) {
+                            $hasOpenSlot = true;
+                            break;
+                        }
+                    }
+                }
+                if ($hasEligibleSlot && ! $hasOpenSlot) {
+                    $fullDates[] = $day->format('Y-m-d');
+                }
+            }
+        }
+
+        return [
+            'generated_at' => $now->toISOString(),
+            'month' => $selection['month'],
+            'full_dates' => $fullDates,
+        ];
+    }
+
     private function settings(): array
     {
         $settings = BookingSettings::query()->find(1);
@@ -195,6 +264,22 @@ class RoomAvailabilityQuery
                 'capacity' => $room->capacity,
                 'available' => ! $occupied];
         })->all();
+    }
+
+    private function hasOpenRoom(Collection $rooms, CarbonImmutable $start, int $durationMinutes, array $occupancy): bool
+    {
+        ['holds' => $holds, 'blocks' => $blocks, 'terminal' => $terminal] = $occupancy;
+        $interval = new RoomBlockInterval;
+        foreach ($rooms as $room) {
+            $end = $start->addMinutes($durationMinutes + $room->cleaning_minutes);
+            $occupied = $holds->get($room->id, collect())->contains(fn ($row) => $interval->overlaps($row, null, $start, $end))
+                || $blocks->get($room->id, collect())->contains(fn ($row) => $interval->overlaps($row, $terminal[$row->id] ?? null, $start, $end));
+            if (! $occupied) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

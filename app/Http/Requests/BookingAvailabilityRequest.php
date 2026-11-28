@@ -21,4 +21,9 @@ final class BookingAvailabilityRequest extends FormRequest
     {
         return (new BookingAvailabilityInput)->validate($this->all());
     }
+
+    public function monthSelection(): array
+    {
+        return (new BookingAvailabilityInput)->validateMonth($this->all());
+    }
 }

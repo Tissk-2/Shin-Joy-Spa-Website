@@ -25,12 +25,15 @@ const props = withDefaults(
     tone?: "site" | "admin";
     // From room availability: a time with one room left, or none. Plain times have no entry.
     timeStates?: Readonly<Record<string, TimeState>>;
+    // Bookable dates in the visible month that have zero free rooms left.
+    fullDates?: readonly string[];
   }>(),
-  { tone: "site", timeStates: () => ({}) },
+  { tone: "site", timeStates: () => ({}), fullDates: () => [] },
 );
 const emit = defineEmits<{
   "update:date": [value: string];
   "update:time": [value: string];
+  "update:month": [value: string];
 }>();
 const { language, tr } = useLanguage();
 
@@ -63,6 +66,16 @@ watch(chosen, (value) => {
   view.value = monthOf(value);
   focusDate.value = value;
 });
+watch(
+  () => view.value.slice(0, 7),
+  (month) => emit("update:month", month),
+);
+const fullSet = computed(() => new Set(props.fullDates));
+const isFullDay = (day: {
+  iso: string;
+  inMonth: boolean;
+  unavailable: boolean;
+}) => day.inMonth && !day.unavailable && fullSet.value.has(day.iso);
 
 const locale = computed(() => (language.value === "id" ? "id-ID" : "en-GB"));
 const format = (iso: string, options: Intl.DateTimeFormatOptions) =>
@@ -107,6 +120,7 @@ const weeks = computed(() =>
     days.value.slice(week * 7, week * 7 + 7),
   ),
 );
+const hasFullInView = computed(() => days.value.some((day) => isFullDay(day)));
 // One day in the grid takes Tab focus; the arrow keys move it (roving tabindex).
 const tabbable = computed(
   () =>
@@ -230,11 +244,16 @@ const summary = computed(() =>
                 :class="{
                   'dtp__day--other': !day.inMonth,
                   'dtp__day--chosen': day.iso === chosen,
+                  'dtp__day--full': isFullDay(day),
                 }"
                 :data-date="day.iso"
                 :tabindex="day.iso === tabbable ? 0 : -1"
                 :disabled="day.unavailable"
-                :aria-label="longDate(day.iso)"
+                :aria-label="
+                  isFullDay(day)
+                    ? `${longDate(day.iso)}, ${tr('dtp.full')}`
+                    : longDate(day.iso)
+                "
                 :aria-current="day.iso === today ? 'date' : undefined"
                 @click="choose(day.iso)"
               >
@@ -244,6 +263,10 @@ const summary = computed(() =>
           </tr>
         </tbody>
       </table>
+      <p v-if="hasFullInView" class="dtp__legend" data-picker-full-legend>
+        <span class="dtp__legend-swatch" aria-hidden="true" />
+        <span>{{ tr("dtp.full") }}</span>
+      </p>
       <div class="dtp__foot">
         <input
           :id="dateId"
@@ -455,6 +478,42 @@ const summary = computed(() =>
 }
 .dtp__day--chosen[aria-current="date"]::after {
   background: var(--dtp-on-accent);
+}
+/* Full day: still clickable so guests can inspect the full times or refresh. */
+.dtp__day--full {
+  border: 1px dashed var(--dtp-line);
+  color: var(--dtp-muted);
+  text-decoration: line-through;
+  text-decoration-thickness: 1.5px;
+}
+.dtp__day--full.dtp__day--chosen {
+  border-color: var(--dtp-accent);
+  color: var(--dtp-on-accent);
+}
+.dtp__legend {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0.5rem 0 0;
+  font-size: 0.75rem;
+  color: var(--dtp-muted);
+}
+.dtp__legend-swatch {
+  position: relative;
+  display: inline-block;
+  width: 1rem;
+  height: 1rem;
+  border: 1px dashed var(--dtp-line);
+  border-radius: 0.25rem;
+}
+.dtp__legend-swatch::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0.15rem;
+  top: 50%;
+  height: 1.5px;
+  background: var(--dtp-muted);
+  transform: translateY(-50%);
 }
 .dtp__foot {
   display: flex;

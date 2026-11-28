@@ -7,13 +7,14 @@ import PackageConfigurator from "@/components/PackageConfigurator.vue";
 import RoomAvailability from "@/components/booking/RoomAvailability.vue";
 import DateTimePicker from "@/components/booking/DateTimePicker.vue";
 import { useLanguage } from "@/composables/useLanguage";
+import { useMonthAvailability } from "@/composables/useMonthAvailability";
 import { useRoomAvailability } from "@/composables/useRoomAvailability";
 import {
   availabilityQueryKey,
   jakartaAppointment,
   slotTimeStates,
 } from "@/lib/roomAvailability";
-import { treatmentFitsBusinessHours, timeSlots } from "@/lib/booking";
+import { todayIso, treatmentFitsBusinessHours, timeSlots } from "@/lib/booking";
 import {
   emptySelection,
   guestCoverage,
@@ -135,6 +136,7 @@ const total = computed(() =>
 );
 
 const availabilityEnabled = computed(() => props.availabilityEnabled === true);
+const visibleMonth = ref(todayIso().slice(0, 7));
 const availabilityQuery = computed(() => {
   const candidate = selected.value;
   const service = servicePackage.value;
@@ -154,16 +156,34 @@ const availabilityQuery = computed(() => {
     return null;
   return { ...candidate, date: values.value.date, guests: values.value.guests };
 });
+const monthAvailabilityQuery = computed(() => {
+  const base = availabilityQuery.value;
+  if (!base) return null;
+  return {
+    service: base.service,
+    mode: base.mode,
+    duration: base.duration,
+    extension: base.extension,
+    month: visibleMonth.value,
+    guests: base.guests,
+  };
+});
 const availability = useRoomAvailability(
   availabilityEnabled,
   availabilityQuery,
   "/admin/bookings/availability",
+);
+const monthAvailability = useMonthAvailability(
+  availabilityEnabled,
+  monthAvailabilityQuery,
+  "/admin/bookings/availability/month",
 );
 const {
   slots: roomSlots,
   status: availabilityStatus,
   generatedAt: availabilityGeneratedAt,
 } = availability;
+const { fullDates: monthFullDates } = monthAvailability;
 // Compare the query by value: re-sent props after a server error rebuild the
 // query object without changing the selection, and must not wipe the time.
 watch(
@@ -176,6 +196,7 @@ watch(
 function refreshAvailability(): void {
   values.value.time = "";
   void availability.refresh();
+  void monthAvailability.refresh();
 }
 const availabilityAllowsTime = computed(
   () =>
@@ -559,6 +580,7 @@ function submit(): void {
                   tone="admin"
                   :times="availableTimeSlots"
                   :time-states="slotStates?.states ?? {}"
+                  :full-dates="monthFullDates"
                   date-id="staff-date"
                   time-id="staff-time"
                   :date-label="tr('ad.manual.date')"
@@ -572,6 +594,7 @@ function submit(): void {
                     errors.time ? 'staff-time-error' : undefined
                   "
                   :empty-text="timesEmptyText"
+                  @update:month="visibleMonth = $event"
                 />
                 <p
                   v-if="errors.date"

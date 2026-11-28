@@ -27,6 +27,10 @@ Route::get('/booking/availability', BookingAvailabilityController::class)
     ->middleware(['auth', 'verified', 'throttle:booking-availability'])
     ->name('booking.availability');
 
+Route::get('/booking/availability/month', [BookingAvailabilityController::class, 'month'])
+    ->middleware(['auth', 'verified', 'throttle:booking-availability'])
+    ->name('booking.availability.month');
+
 Route::get('/bookings', [BookingController::class, 'index'])
     ->middleware(['auth', 'verified'])
     ->name('bookings.index');

@@ -237,4 +237,44 @@ describe("date and time picker", () => {
     expect(wrapper.findAll("#f-time input[disabled]")).toHaveLength(0);
     expect(wrapper.find(".dtp__state").exists()).toBe(false);
   });
+
+  it("marks full in-month days with a legend, keeps them clickable, and emits month changes", async () => {
+    const wrapper = render({
+      fullDates: ["2026-11-11", "2026-11-20", "2026-12-01"],
+    });
+    // Past day (Nov 11) and out-of-month day (Dec 1) are not marked full in November's view.
+    expect(day(wrapper, "2026-11-11").classes()).not.toContain(
+      "dtp__day--full",
+    );
+    expect(day(wrapper, "2026-12-01").classes()).not.toContain(
+      "dtp__day--full",
+    );
+
+    const fullDay = day(wrapper, "2026-11-20");
+    expect(fullDay.classes()).toContain("dtp__day--full");
+    expect(fullDay.attributes("disabled")).toBeUndefined();
+    expect(fullDay.attributes("aria-label")).toBe(
+      "Friday, 20 November 2026, Full",
+    );
+    expect(wrapper.get("[data-picker-full-legend]").text()).toContain("Full");
+
+    // Still clickable so guests can inspect the full times or refresh.
+    await fullDay.trigger("click");
+    expect(wrapper.emitted("update:date")?.at(-1)).toEqual(["2026-11-20"]);
+
+    state.page.props.locale = "id";
+    await nextTick();
+    expect(fullDay.attributes("aria-label")).toBe(
+      "Jumat, 20 November 2026, Penuh",
+    );
+    expect(wrapper.get("[data-picker-full-legend]").text()).toContain("Penuh");
+
+    // Switching month emits update:month and hides the legend if no full day is visible there.
+    await wrapper.get("[data-picker-next]").trigger("click");
+    expect(wrapper.emitted("update:month")?.at(-1)).toEqual(["2026-12"]);
+    expect(day(wrapper, "2026-12-01").classes()).toContain("dtp__day--full");
+    await wrapper.setProps({ fullDates: [] });
+    expect(wrapper.find("[data-picker-full-legend]").exists()).toBe(false);
+    wrapper.unmount();
+  });
 });
