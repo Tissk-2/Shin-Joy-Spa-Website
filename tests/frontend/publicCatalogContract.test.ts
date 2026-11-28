@@ -138,4 +138,15 @@ describe("public grouped catalog page", () => {
       );
     }
   });
+
+  it("tells guests coming with a friend or partner to book separately per person", () => {
+    const entry = faq.find(
+      (item) => item.qEn === "Can I come with a friend or partner?",
+    );
+
+    expect(entry?.aId).toContain("1 orang");
+    expect(entry?.aId).toContain("reservasi terpisah");
+    expect(entry?.aEn).toContain("1 person");
+    expect(entry?.aEn).toContain("separate booking");
+  });
 });

@@ -92,6 +92,22 @@ function formatPriceFull(price: number): string {
   return `Rp ${new Intl.NumberFormat("id-ID").format(price)}`;
 }
 
+const pricingScopeLabel = computed(() => {
+  const min = props.servicePackage.minGuests ?? 1;
+  const max = props.servicePackage.maxGuests ?? 4;
+  const perPerson = props.servicePackage.pricingBasis === "per_person";
+  if (min === max) {
+    return tr(
+      perPerson ? "menu.pricesPerPersonExact" : "menu.pricesPerBookingExact",
+      { count: min },
+    );
+  }
+  return tr(perPerson ? "menu.pricesPerPerson" : "menu.pricesPerBooking", {
+    min,
+    max,
+  });
+});
+
 function keepFocusedDisclosureVisible(event: FocusEvent): void {
   const summary = event.currentTarget;
   if (!(summary instanceof HTMLElement) || !summary.matches(":focus-visible")) {
@@ -143,17 +159,7 @@ function keepFocusedDisclosureVisible(event: FocusEvent): void {
         class="package-menu-card__booking-note"
         data-pricing-scope
       >
-        {{
-          tr(
-            servicePackage.pricingBasis === "per_person"
-              ? "menu.pricesPerPerson"
-              : "menu.pricesPerBooking",
-            {
-              min: servicePackage.minGuests ?? 1,
-              max: servicePackage.maxGuests ?? 4,
-            },
-          )
-        }}
+        {{ pricingScopeLabel }}
       </p>
     </header>
 

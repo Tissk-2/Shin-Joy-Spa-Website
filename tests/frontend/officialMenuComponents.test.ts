@@ -87,6 +87,32 @@ describe("verified public menu pricing", () => {
     },
   );
 
+  it.each([
+    ["en", "per_person", 1, 1, "Prices per person · 1 guest"],
+    ["en", "per_booking", 1, 1, "Prices per booking · 1 guest"],
+    ["en", "per_person", 2, 2, "Prices per person · 2 guests"],
+    ["id", "per_person", 1, 1, "Harga per orang · 1 tamu"],
+    ["id", "per_booking", 1, 1, "Harga per reservasi · 1 tamu"],
+  ] as const)(
+    "shows a single guest count instead of a repeated range in %s for %s (%d-%d)",
+    (locale, pricingBasis, minGuests, maxGuests, label) => {
+      inertia.props.locale = locale;
+      const wrapper = mount(PackageMenuCard, {
+        props: {
+          servicePackage: {
+            ...nezuko,
+            pricingVerified: true,
+            pricingBasis,
+            minGuests,
+            maxGuests,
+          },
+        },
+      });
+      expect(wrapper.get("[data-pricing-scope]").text()).toBe(label);
+      wrapper.unmount();
+    },
+  );
+
   it("does not infer pricing scope for legacy packages", () => {
     const wrapper = mount(PackageMenuCard, {
       props: { servicePackage: nezuko },

@@ -32,8 +32,8 @@ export default [
   {
     qId: "Bisakah saya datang bersama teman atau pasangan?",
     qEn: "Can I come with a friend or partner?",
-    aId: "Bisa. Pilih jumlah tamu di formulir reservasi, sesuai batas paketnya. Bila jumlah yang Anda perlukan tidak tersedia, hubungi kami lebih dulu.",
-    aEn: "Yes. Choose the number of guests in the booking form, up to what the package allows. If the number you need is not offered, contact us first.",
+    aId: "Bisa datang bersamaan, tetapi setiap reservasi berlaku untuk 1 orang (1 ruangan). Silakan buat reservasi terpisah untuk masing-masing orang pada waktu yang sama, atau hubungi kami lewat WhatsApp bila perlu bantuan.",
+    aEn: "You can come at the same time, but each booking is for 1 person (1 room). Please make a separate booking for each person at the same time, or contact us on WhatsApp if you need help.",
   },
   {
     qId: "Bagaimana kebijakan bila air panas terganggu?",

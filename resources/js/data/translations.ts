@@ -351,7 +351,9 @@ export default {
     "b.totalGuest": "Untuk {count} tamu",
     "b.totalGuests": "Untuk {count} tamu",
     "menu.pricesPerPerson": "Harga per orang · {min}–{max} tamu",
+    "menu.pricesPerPersonExact": "Harga per orang · {count} tamu",
     "menu.pricesPerBooking": "Harga per reservasi · {min}–{max} tamu",
+    "menu.pricesPerBookingExact": "Harga per reservasi · {count} tamu",
     "b.perBooking": "Per reservasi",
     "b.scopePerPerson":
       "Total ini mengalikan harga per tamu dengan jumlah tamu dan mencakup perawatan yang dipilih serta tambahan apa pun.",
@@ -1424,7 +1426,11 @@ export default {
     "b.totalGuest": "For {count} guest",
     "b.totalGuests": "For {count} guests",
     "menu.pricesPerPerson": "Prices per person · {min}–{max} guests",
+    "menu.pricesPerPersonExact":
+      "Prices per person · {count} guest|Prices per person · {count} guests",
     "menu.pricesPerBooking": "Prices per booking · {min}–{max} guests",
+    "menu.pricesPerBookingExact":
+      "Prices per booking · {count} guest|Prices per booking · {count} guests",
     "b.perBooking": "Per booking",
     "b.scopePerPerson":
       "This total multiplies the per-guest price by the number of guests and covers the selected treatment and any extension.",
