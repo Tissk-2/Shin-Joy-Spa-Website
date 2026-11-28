@@ -54,5 +54,11 @@
     "@rollup/rollup-linux-x64-gnu": "4.9.5",
     "@tailwindcss/oxide-linux-x64-gnu": "^4.0.1",
     "lightningcss-linux-x64-gnu": "^1.29.1"
+  },
+  "overrides": {
+    "js-beautify": {
+      "editorconfig": "^4.0.1",
+      "glob": "^14.0.6"
+    }
   }
 }
