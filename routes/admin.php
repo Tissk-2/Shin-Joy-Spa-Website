@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\AdminCatalogController;
 use App\Http\Controllers\Admin\AdminCatalogPackageController;
 use App\Http\Controllers\Admin\AdminContentController;
 use App\Http\Controllers\Admin\AdminDashboardController;
+use App\Http\Controllers\Admin\AdminGuideController;
 use App\Http\Controllers\Admin\AdminLoginController;
 use App\Http\Controllers\Admin\AdminRoomBlockController;
 use App\Http\Controllers\Admin\AdminRoomController;
@@ -41,6 +42,7 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
         Route::post('/content/reset', [AdminContentController::class, 'reset'])
             ->middleware('throttle:catalog-write')
             ->name('content.reset');
+        Route::get('/guide', AdminGuideController::class)->name('guide');
         Route::get('/catalog', [AdminCatalogController::class, 'index'])->name('catalog.index');
         Route::get('/catalog/packages/{service:slug}/edit', [AdminCatalogPackageController::class, 'edit'])
             ->name('catalog.packages.edit');

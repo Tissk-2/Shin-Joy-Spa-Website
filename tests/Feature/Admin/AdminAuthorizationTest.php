@@ -71,6 +71,21 @@ class AdminAuthorizationTest extends TestCase
         $this->actingAs($admin)->get("/admin/bookings/{$booking->reference}")
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page->component('admin/bookings/Show', false));
+
+        config([
+            'booking.scheduling_enabled' => true,
+            'booking.customer_notices_enabled' => true,
+            'services.telegram.actions_enabled' => true,
+        ]);
+
+        $this->actingAs($admin)->get('/admin/guide')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('admin/Guide', false)
+                ->where('roomSchedulingEnabled', true)
+                ->where('customerNoticesEnabled', true)
+                ->where('telegramActionsEnabled', true)
+                ->has('canCreateBooking'));
     }
 
     public function test_revoked_admin_is_denied_using_the_current_database_role_for_every_admin_content_route(): void
@@ -225,6 +240,7 @@ class AdminAuthorizationTest extends TestCase
             '/admin/bookings',
             "/admin/bookings/{$booking->reference}",
             '/admin/content',
+            '/admin/guide',
         ];
     }
 }

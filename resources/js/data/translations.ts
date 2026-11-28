@@ -510,6 +510,7 @@ export default {
     "ad.nav.catalog": "Katalog",
     "ad.nav.dashboard": "Hari ini",
     "ad.nav.content": "Konten",
+    "ad.nav.guide": "Panduan",
     "ad.nav.rooms": "Ruangan",
     "ad.nav.schedule": "Jadwal",
     "ad.nav.groupDaily": "Harian",
@@ -674,6 +675,9 @@ export default {
     "ad.content.captionEn": "Inggris",
     "ad.content.note":
       "Kolom kosong memakai teks bawaan situs, yang tampil samar di dalam kolom.",
+    "ad.guide.title": "Panduan staf",
+    "ad.guide.subtitle":
+      "Langkah kerja harian untuk menanggapi reservasi, jadwal ruangan, dan kendala umum.",
     "ad.catalog.title": "Katalog perawatan",
     "ad.catalog.subtitle":
       "Atur nama, harga, dan detail paket yang tampil di menu resmi.",
@@ -1500,6 +1504,7 @@ export default {
     "ad.nav.catalog": "Catalog",
     "ad.nav.dashboard": "Today",
     "ad.nav.content": "Content",
+    "ad.nav.guide": "Guide",
     "ad.nav.rooms": "Rooms",
     "ad.nav.schedule": "Schedule",
     "ad.nav.groupDaily": "Daily",
@@ -1662,6 +1667,9 @@ export default {
     "ad.content.captionEn": "English",
     "ad.content.note":
       "An empty field uses the site's default text, shown faintly inside it.",
+    "ad.guide.title": "Staff guide",
+    "ad.guide.subtitle":
+      "Day-to-day procedures for handling bookings, rooms, and common issues.",
     "ad.catalog.title": "Treatment catalog",
     "ad.catalog.subtitle":
       "Manage the names, prices, and details of the packages shown on the official menu.",

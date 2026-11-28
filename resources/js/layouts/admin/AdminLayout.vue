@@ -5,6 +5,7 @@ import {
   BookOpen,
   CalendarClock,
   CalendarDays,
+  CircleHelp,
   DoorOpen,
   FileText,
   LayoutDashboard,
@@ -75,6 +76,7 @@ const navGroups = computed(() => {
         { href: "/admin/rooms", label: tr("ad.nav.rooms"), icon: DoorOpen },
         { href: "/admin/catalog", label: tr("ad.nav.catalog"), icon: BookOpen },
         { href: "/admin/content", label: tr("ad.nav.content"), icon: FileText },
+        { href: "/admin/guide", label: tr("ad.nav.guide"), icon: CircleHelp },
       ],
     },
   ];

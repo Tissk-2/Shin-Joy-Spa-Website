@@ -304,6 +304,7 @@ describe("administrator layout", () => {
       "/admin/rooms",
       "/admin/catalog",
       "/admin/content",
+      "/admin/guide",
     ]);
 
     inertia.page.props.auth.isOwner = true;
@@ -315,6 +316,7 @@ describe("administrator layout", () => {
       "/admin/rooms",
       "/admin/catalog",
       "/admin/content",
+      "/admin/guide",
       "/admin/staff",
       "/admin/settings/booking",
     ]);
