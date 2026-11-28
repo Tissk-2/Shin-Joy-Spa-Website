@@ -294,4 +294,99 @@ describe("admin Today page", () => {
       vi.useRealTimers();
     }
   });
+
+  it("navigates the waiting queue with the keyboard and opens approve/decline safely", async () => {
+    const wrapper = mountPage({
+      queue: [
+        summary("SJ-ONE", "First Guest", "pending", "09:30", 5),
+        summary("SJ-TWO", "Second Guest", "pending", "11:00", 3),
+        summary("SJ-THREE", "Third Guest", "pending", "14:00", 1),
+      ],
+      queueTotal: 3,
+    });
+    const rowLink = (ref: string) =>
+      wrapper.get<HTMLAnchorElement>(
+        `[data-queue] [data-booking-row='${ref}'] a.admin-row-link`,
+      );
+
+    expect(wrapper.find("[data-queue-shortcuts]").exists()).toBe(true);
+    rowLink("SJ-ONE").element.focus();
+    expect(document.activeElement).toBe(rowLink("SJ-ONE").element);
+
+    await rowLink("SJ-ONE").trigger("keydown", { key: "ArrowDown" });
+    expect(document.activeElement).toBe(rowLink("SJ-TWO").element);
+
+    await rowLink("SJ-TWO").trigger("keydown", { key: "j" });
+    expect(document.activeElement).toBe(rowLink("SJ-THREE").element);
+
+    await rowLink("SJ-THREE").trigger("keydown", { key: "Home" });
+    expect(document.activeElement).toBe(rowLink("SJ-ONE").element);
+
+    await rowLink("SJ-ONE").trigger("keydown", { key: "End" });
+    expect(document.activeElement).toBe(rowLink("SJ-THREE").element);
+
+    await rowLink("SJ-THREE").trigger("keydown", { key: "k" });
+    expect(document.activeElement).toBe(rowLink("SJ-TWO").element);
+
+    // Modifier combos like Ctrl+A must never hijack browser shortcuts.
+    await rowLink("SJ-TWO").trigger("keydown", { key: "a", ctrlKey: true });
+    await settle();
+    expect(document.querySelector("[role='alertdialog']")).toBeNull();
+
+    // Pressing "a" opens the approve confirmation dialog for the focused row.
+    await rowLink("SJ-TWO").trigger("keydown", { key: "a" });
+    await settle();
+    expect(dialog().get("h2").text()).toBe("Approve this booking?");
+    expect(dialog().text()).toContain("Second Guest");
+
+    // Cancelling returns focus to the trigger button.
+    await dialog().get("[data-cancel-status]").trigger("click");
+    await settle();
+    expect(document.querySelector("[role='alertdialog']")).toBeNull();
+    expect(document.activeElement).toBe(
+      wrapper.get(
+        "[data-queue] [data-booking-row='SJ-TWO'] [data-answer='confirmed']",
+      ).element,
+    );
+
+    // Pressing "d" opens the decline confirmation dialog and advancing after
+    // submission moves focus to the next waiting row.
+    await wrapper
+      .get("[data-queue] [data-booking-row='SJ-TWO'] [data-answer='confirmed']")
+      .trigger("keydown", { key: "d" });
+    await settle();
+    expect(dialog().get("h2").text()).toBe("Decline this booking?");
+    await dialog().get("form").trigger("submit");
+    await wrapper.setProps({
+      queue: [
+        summary("SJ-ONE", "First Guest", "pending", "09:30", 5),
+        summary("SJ-THREE", "Third Guest", "pending", "14:00", 1),
+      ],
+      queueTotal: 2,
+    });
+    inertia.options.onSuccess?.();
+    await settle();
+    expect(document.activeElement).toBe(rowLink("SJ-THREE").element);
+  });
+
+  it("moves focus to the queue heading after the last waiting request is answered", async () => {
+    const wrapper = mountPage({
+      queue: [summary("SJ-LAST", "Last Guest", "pending", "15:00", 1)],
+      queueTotal: 1,
+    });
+    await wrapper
+      .get(
+        "[data-queue] [data-booking-row='SJ-LAST'] [data-answer='confirmed']",
+      )
+      .trigger("click");
+    await settle();
+    await dialog().get("form").trigger("submit");
+    await wrapper.setProps({ queue: [], queueTotal: 0 });
+    inertia.options.onSuccess?.();
+    await settle();
+    expect(document.activeElement).toBe(
+      wrapper.get("#today-queue-title").element,
+    );
+    expect(wrapper.find("[data-queue-shortcuts]").exists()).toBe(false);
+  });
 });

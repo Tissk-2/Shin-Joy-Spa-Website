@@ -35,7 +35,9 @@ const answering = ref<{
   next: BookingStatus;
 } | null>(null);
 const answerTrigger = ref<HTMLElement | null>(null);
+const answeredIndex = ref<number | null>(null);
 const queueHeading = ref<HTMLElement | null>(null);
+const queueList = ref<HTMLUListElement | null>(null);
 
 const todayLabel = computed(() =>
   new Intl.DateTimeFormat(language.value === "id" ? "id-ID" : "en-GB", {
@@ -80,23 +82,120 @@ function bookingHref(booking: AdminBookingSummaryData): string {
   return `/admin/bookings/${encodeURIComponent(booking.reference)}`;
 }
 
+function queueRows(): HTMLElement[] {
+  return Array.from(
+    queueList.value?.querySelectorAll<HTMLElement>(
+      ":scope > li[data-booking-row]",
+    ) ?? [],
+  );
+}
+
+function focusQueueRow(index: number): boolean {
+  const rows = queueRows();
+  if (!rows.length) return false;
+  const clamped = Math.max(0, Math.min(index, rows.length - 1));
+  rows[clamped].querySelector<HTMLElement>(".admin-row-link")?.focus();
+  return true;
+}
+
+function openAnswer(
+  booking: AdminBookingSummaryData,
+  next: BookingStatus,
+  trigger: HTMLElement | null,
+): void {
+  answerTrigger.value = trigger;
+  const index = props.queue.findIndex(
+    (item) => item.reference === booking.reference,
+  );
+  answeredIndex.value = index >= 0 ? index : null;
+  answering.value = { booking, next };
+}
+
 function answer(
   booking: AdminBookingSummaryData,
   next: BookingStatus,
   event: MouseEvent,
 ): void {
-  answerTrigger.value = event.currentTarget as HTMLElement;
-  answering.value = { booking, next };
+  openAnswer(booking, next, event.currentTarget as HTMLElement);
 }
 
-// An answered request leaves the queue, so focus moves to the queue heading.
-function answered(): void {
+// Keep keyboard triage moving: cancelling returns to the trigger, while an
+// answered request advances focus to the next waiting item (or the heading when empty).
+function answered(changed: boolean): void {
+  const previousIndex = answeredIndex.value;
   answering.value = null;
+  answeredIndex.value = null;
   void nextTick(() => {
-    const target = answerTrigger.value;
-    if (target?.isConnected) target.focus();
-    else queueHeading.value?.focus();
+    if (!changed) {
+      const target = answerTrigger.value;
+      if (target?.isConnected) target.focus();
+      else if (previousIndex !== null && focusQueueRow(previousIndex)) return;
+      else queueHeading.value?.focus();
+      return;
+    }
+
+    if (previousIndex !== null && focusQueueRow(previousIndex)) return;
+    queueHeading.value?.focus();
   });
+}
+
+function onQueueKeydown(event: KeyboardEvent): void {
+  if (answering.value || event.ctrlKey || event.metaKey || event.altKey) return;
+  const rawTarget = event.target as HTMLElement | null;
+  const target =
+    rawTarget === queueList.value
+      ? (document.activeElement as HTMLElement | null)
+      : rawTarget;
+  if (!target || target.closest("input, textarea, select, [contenteditable]"))
+    return;
+  const row = target.closest<HTMLElement>("[data-booking-row]");
+  if (!row || !queueList.value?.contains(row)) return;
+
+  const rows = queueRows();
+  const index = rows.indexOf(row);
+  if (index < 0) return;
+
+  const key = event.key;
+  if (key === "ArrowDown" || key === "j" || key === "J") {
+    event.preventDefault();
+    focusQueueRow(index + 1);
+    return;
+  }
+  if (key === "ArrowUp" || key === "k" || key === "K") {
+    event.preventDefault();
+    focusQueueRow(index - 1);
+    return;
+  }
+  if (key === "Home") {
+    event.preventDefault();
+    focusQueueRow(0);
+    return;
+  }
+  if (key === "End") {
+    event.preventDefault();
+    focusQueueRow(rows.length - 1);
+    return;
+  }
+
+  if (event.repeat) return;
+  const booking = props.queue[index];
+  if (!booking || !booking.allowedTransitions.includes("confirmed")) return;
+
+  if (key === "a" || key === "A") {
+    event.preventDefault();
+    openAnswer(
+      booking,
+      "confirmed",
+      row.querySelector<HTMLElement>("[data-answer='confirmed']") ?? target,
+    );
+  } else if (key === "d" || key === "D") {
+    event.preventDefault();
+    openAnswer(
+      booking,
+      "cancelled",
+      row.querySelector<HTMLElement>("[data-answer='cancelled']") ?? target,
+    );
+  }
 }
 </script>
 
@@ -152,7 +251,13 @@ function answered(): void {
             <p v-if="!queue.length" class="admin-panel__empty">
               {{ tr("ad.today.queueEmpty") }}
             </p>
-            <ul v-else class="admin-queue" role="list">
+            <ul
+              v-else
+              ref="queueList"
+              class="admin-queue"
+              role="list"
+              @keydown="onQueueKeydown"
+            >
               <li
                 v-for="booking in queue"
                 :key="booking.reference"
@@ -205,6 +310,7 @@ function answered(): void {
                     type="button"
                     class="admin-button admin-button--danger"
                     data-answer="cancelled"
+                    aria-keyshortcuts="d"
                     :aria-label="`${tr(`ad.action.${booking.status}.cancelled`)} ${booking.customer.name}`"
                     @click="answer(booking, 'cancelled', $event)"
                   >
@@ -214,6 +320,7 @@ function answered(): void {
                     type="button"
                     class="admin-button admin-button--primary"
                     data-answer="confirmed"
+                    aria-keyshortcuts="a"
                     :aria-label="`${tr(`ad.action.${booking.status}.confirmed`)} ${booking.customer.name}`"
                     @click="answer(booking, 'confirmed', $event)"
                   >
@@ -222,6 +329,16 @@ function answered(): void {
                 </div>
               </li>
             </ul>
+            <p
+              v-if="queue.length"
+              class="admin-queue__hint"
+              data-queue-shortcuts
+            >
+              <kbd>↑</kbd><kbd>↓</kbd> {{ tr("ad.today.keyMove") }} ·
+              <kbd>A</kbd> {{ tr("ad.today.keyApprove") }} · <kbd>D</kbd>
+              {{ tr("ad.today.keyDecline") }} · <kbd>Enter</kbd>
+              {{ tr("ad.today.keyOpen") }}
+            </p>
             <Link
               v-if="queueTotal > queue.length"
               href="/admin/bookings?scope=pending"

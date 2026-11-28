@@ -1298,6 +1298,40 @@
   text-decoration: underline;
   text-underline-offset: 0.2em;
 }
+.admin-queue > li:focus-within {
+  background: var(--admin-hover);
+}
+.admin-queue__hint {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.45rem;
+  margin: 0;
+  padding: 0.625rem 1rem;
+  border-top: 1px solid var(--admin-line);
+  color: var(--admin-muted);
+  font-size: 0.75rem;
+}
+.admin-queue__hint kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.35rem;
+  padding: 0.05rem 0.35rem;
+  border: 1px solid var(--admin-line-strong);
+  border-radius: 0.25rem;
+  background: var(--admin-canvas);
+  color: var(--admin-ink);
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+@media (max-width: 1023px), (hover: none) {
+  .admin-queue__hint {
+    display: none;
+  }
+}
 .admin-agenda > li {
   display: grid;
   grid-template-columns: 3.5rem minmax(0, 1fr) auto;
