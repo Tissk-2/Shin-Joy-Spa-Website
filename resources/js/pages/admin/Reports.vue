@@ -17,11 +17,14 @@ const props = defineProps<{
 
 const { language, tr } = useLanguage();
 const periods: readonly AdminReportPeriod[] = ["7d", "30d", "month"];
-const selectedDay = ref<string | null>(null);
+const pinnedDay = ref<string | null>(null);
+const hoveredDay = ref<string | null>(null);
+const activeDay = computed(() => hoveredDay.value ?? pinnedDay.value);
 
 function switchPeriod(period: AdminReportPeriod): void {
   if (period === props.report.period) return;
-  selectedDay.value = null;
+  pinnedDay.value = null;
+  hoveredDay.value = null;
   router.get(
     "/admin/reports",
     { period },
@@ -57,9 +60,9 @@ const hasPeakHours = computed(() =>
 );
 
 const activeDayPoint = computed<AdminReportDailyPoint | null>(() => {
-  if (!selectedDay.value) return null;
+  if (!activeDay.value) return null;
   return (
-    props.report.dailyTrend.find((point) => point.date === selectedDay.value) ??
+    props.report.dailyTrend.find((point) => point.date === activeDay.value) ??
     null
   );
 });
@@ -315,13 +318,15 @@ const channelTotal = computed(() =>
                 :key="point.date"
                 type="button"
                 class="admin-trend__col"
-                :class="{ 'is-selected': selectedDay === point.date }"
+                :class="{ 'is-selected': activeDay === point.date }"
                 :aria-label="dayDetailText(point)"
-                :aria-pressed="selectedDay === point.date"
-                @mouseenter="selectedDay = point.date"
-                @focus="selectedDay = point.date"
+                :aria-pressed="pinnedDay === point.date"
+                @mouseenter="hoveredDay = point.date"
+                @mouseleave="if (hoveredDay === point.date) hoveredDay = null;"
+                @focus="hoveredDay = point.date"
+                @blur="if (hoveredDay === point.date) hoveredDay = null;"
                 @click="
-                  selectedDay = selectedDay === point.date ? null : point.date
+                  pinnedDay = pinnedDay === point.date ? null : point.date
                 "
               >
                 <span class="admin-trend__track" aria-hidden="true">

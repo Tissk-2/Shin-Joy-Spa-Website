@@ -151,15 +151,23 @@ describe("admin Reports page", () => {
       "Payment is collected at the spa",
     );
 
-    // Selecting a bar reveals its exact day summary.
+    // Real mouse order (mouseenter -> focus -> click) must pin the day rather than toggling it off.
     const trendCols = wrapper.findAll(
       "[data-report-trend] button.admin-trend__col",
     );
     expect(trendCols).toHaveLength(3);
+    await trendCols[1].trigger("mouseenter");
+    await trendCols[1].trigger("focus");
     await trendCols[1].trigger("click");
+    expect(trendCols[1].attributes("aria-pressed")).toBe("true");
+    await trendCols[1].trigger("mouseleave");
+    await trendCols[1].trigger("blur");
     expect(wrapper.get("[data-report-trend] header p").text()).toContain(
       "3 bookings (1 completed, 1 active, 1 lost)",
     );
+    // Clicking the pinned bar a second time unpins it.
+    await trendCols[1].trigger("click");
+    expect(trendCols[1].attributes("aria-pressed")).toBe("false");
 
     expect(wrapper.get("[data-report-packages]").text()).toContain(
       "Nezuko VIP",
