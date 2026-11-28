@@ -299,7 +299,10 @@ function onQueueKeydown(event: KeyboardEvent): void {
                 {{ tr("ad.today.queue")
                 }}<span
                   class="admin-tab__count"
-                  :class="{ 'admin-tab__count--alert': queueTotal > 0 }"
+                  :class="{
+                    'admin-tab__count--alert': queueTotal > 0,
+                    'admin-tab__count--zero': queueTotal === 0,
+                  }"
                   >{{ queueTotal }}</span
                 >
               </h2>
@@ -412,13 +415,42 @@ function onQueueKeydown(event: KeyboardEvent): void {
             <header class="admin-panel__head">
               <h2 id="today-agenda-title">
                 {{ tr("ad.today.schedule")
-                }}<span class="admin-tab__count">{{ today.length }}</span>
+                }}<span
+                  class="admin-tab__count"
+                  :class="{ 'admin-tab__count--zero': today.length === 0 }"
+                  >{{ today.length }}</span
+                >
               </h2>
             </header>
             <template v-if="!today.length">
               <p class="admin-panel__empty">
                 {{ tr("ad.today.scheduleEmpty") }}
               </p>
+              <div
+                v-if="!queue.length && !nextAppointments.length"
+                class="admin-quiet-links"
+                data-quiet-links
+              >
+                <span class="admin-quiet-links__label">{{
+                  tr("ad.today.quietLinks")
+                }}</span>
+                <div class="admin-quiet-links__row">
+                  <Link href="/admin/schedule" class="admin-quiet-link">{{
+                    tr("ad.today.openSchedule")
+                  }}</Link>
+                  <Link
+                    href="/admin/bookings?scope=all"
+                    class="admin-quiet-link"
+                    >{{ tr("ad.today.openBookings") }}</Link
+                  >
+                  <Link
+                    v-if="page.props.auth.isOwner"
+                    href="/admin/reports"
+                    class="admin-quiet-link"
+                    >{{ tr("ad.today.openReports") }}</Link
+                  >
+                </div>
+              </div>
               <div
                 v-if="nextAppointments.length"
                 class="admin-next-upcoming"

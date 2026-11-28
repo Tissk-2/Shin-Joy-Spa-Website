@@ -210,7 +210,7 @@ function logout(): void {
       v-if="drawerOpen"
       class="admin-backdrop"
       aria-hidden="true"
-      @click="closeMenu()"
+      @click="closeMenu(false)"
     />
 
     <aside
@@ -233,7 +233,7 @@ function logout(): void {
           type="button"
           class="admin-icon-button"
           :aria-label="tr('ad.nav.close')"
-          @click="closeMenu()"
+          @click="(e) => closeMenu(e.detail === 0)"
         >
           <X aria-hidden="true" />
         </button>

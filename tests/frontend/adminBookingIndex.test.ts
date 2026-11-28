@@ -507,28 +507,46 @@ describe("admin booking console", () => {
     expect(next.attributes("data-preserve-scroll")).toBe("true");
   });
 
-  // Catches unhelpful no-bookings copy after filtering, or a single page showing pagination.
+  // Catches unhelpful or misleading empty copy across scoped tabs and filtered searches.
   it.each([
-    emptyFilters,
-    { ...emptyFilters, scope: "past" as const },
-    filtered,
-  ])("distinguishes unfiltered and filtered empty results: %j", (filters) => {
-    const wrapper = mountPage(filters, {
-      ...bookings,
-      data: [],
-      total: 0,
-      links: [],
-      lastPage: 1,
-    });
-    expect(wrapper.get("[data-booking-empty]").text()).toBe(
-      filters.q
-        ? "No bookings match these filters."
-        : "There are no bookings yet.",
-    );
-    expect(wrapper.find(".admin-booking-table").exists()).toBe(false);
-    expect(wrapper.find(".admin-booking-list").exists()).toBe(false);
-    expect(wrapper.find(".admin-pagination").exists()).toBe(false);
-  });
+    [emptyFilters, "No upcoming bookings."],
+    [
+      { ...emptyFilters, scope: "pending" as const },
+      "No requests are waiting for a response.",
+    ],
+    [{ ...emptyFilters, scope: "today" as const }, "No bookings for today."],
+    [{ ...emptyFilters, scope: "past" as const }, "No past bookings yet."],
+    [{ ...emptyFilters, scope: "all" as const }, "There are no bookings yet."],
+    [filtered, "No bookings match these filters."],
+  ])(
+    "distinguishes scoped and filtered empty results: %j",
+    async (filters, expectedText) => {
+      const wrapper = mountPage(filters, {
+        ...bookings,
+        data: [],
+        total: 0,
+        links: [],
+        lastPage: 1,
+      });
+      expect(
+        wrapper.get("[data-booking-empty] .admin-empty__text").text(),
+      ).toBe(expectedText);
+      if (filters.scope === "upcoming" && !filters.q) {
+        const viewPast = wrapper.get("[data-view-past]");
+        expect(viewPast.text()).toBe("View 30 past bookings");
+        await viewPast.trigger("click");
+        expect(inertia.gets.at(-1)).toEqual({
+          url: "/admin/bookings",
+          data: { scope: "past" },
+        });
+      } else {
+        expect(wrapper.find("[data-view-past]").exists()).toBe(false);
+      }
+      expect(wrapper.find(".admin-booking-table").exists()).toBe(false);
+      expect(wrapper.find(".admin-booking-list").exists()).toBe(false);
+      expect(wrapper.find(".admin-pagination").exists()).toBe(false);
+    },
+  );
 
   // Catches operational labels/statuses that remain in English after the real shell locale action.
   it("switches every index label, status, package and date with the server locale", async () => {

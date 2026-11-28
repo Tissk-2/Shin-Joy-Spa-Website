@@ -386,7 +386,28 @@ function paginationLabel(label: string, index: number): string {
           data-booking-empty
           role="status"
         >
-          {{ tr(hasOptionalFilters ? "ad.empty.filtered" : "ad.empty.all") }}
+          <p class="admin-empty__text">
+            {{
+              tr(
+                hasOptionalFilters
+                  ? "ad.empty.filtered"
+                  : `ad.empty.${props.filters.scope}`,
+              )
+            }}
+          </p>
+          <button
+            v-if="
+              !hasOptionalFilters &&
+              props.filters.scope === 'upcoming' &&
+              props.counts.past > 0
+            "
+            type="button"
+            class="admin-empty__action"
+            data-view-past
+            @click="selectScope('past')"
+          >
+            {{ tr("ad.empty.viewPast", { n: props.counts.past }) }}
+          </button>
         </div>
         <template v-else>
           <div class="admin-booking-table-wrap admin-bookings-table">

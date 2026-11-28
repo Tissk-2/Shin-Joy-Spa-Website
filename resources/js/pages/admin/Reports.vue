@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Link, router } from "@inertiajs/vue3";
+import { ArrowUpRight } from "lucide-vue-next";
 import { computed, ref } from "vue";
 
 import { useLanguage } from "@/composables/useLanguage";
@@ -17,6 +18,7 @@ const props = defineProps<{
 
 const { language, tr } = useLanguage();
 const periods: readonly AdminReportPeriod[] = ["7d", "30d", "month"];
+const loading = ref(false);
 const pinnedDay = ref<string | null>(null);
 const hoveredDay = ref<string | null>(null);
 const activeDay = computed(() => hoveredDay.value ?? pinnedDay.value);
@@ -28,14 +30,24 @@ function switchPeriod(period: AdminReportPeriod): void {
   router.get(
     "/admin/reports",
     { period },
-    { preserveState: true, preserveScroll: true, replace: true },
+    {
+      preserveState: true,
+      preserveScroll: true,
+      replace: true,
+      onStart: () => {
+        loading.value = true;
+      },
+      onFinish: () => {
+        loading.value = false;
+      },
+    },
   );
 }
 
 const rangeLabel = computed(() =>
   tr("ad.reports.range", {
-    from: formatDay(props.report.range.from, language.value, "long"),
-    to: formatDay(props.report.range.to, language.value, "long"),
+    from: formatDay(props.report.range.from, language.value, "medium"),
+    to: formatDay(props.report.range.to, language.value, "medium"),
   }),
 );
 
@@ -56,6 +68,10 @@ interface DeltaBadge {
   readonly detail: string;
 }
 
+/**
+ * Only paint semantic green/red deltas when comparing against a real non-zero
+ * baseline; comparing against 0 stays calm neutral text so noise never screams.
+ */
 function buildDelta(
   current: number,
   previous: number | undefined,
@@ -65,6 +81,15 @@ function buildDelta(
   const formatPrev = options.formatPrev ?? ((v: number) => String(v));
   const diff = current - previous;
   const detail = tr("ad.reports.vsPrev", { prev: formatPrev(previous) });
+
+  if (previous === 0) {
+    if (current === 0) return null;
+    return {
+      label: tr("ad.reports.prevPeriodZero"),
+      tone: "neutral",
+      detail,
+    };
+  }
 
   if (diff === 0) {
     return {
@@ -76,14 +101,6 @@ function buildDelta(
 
   const isPositiveMove = options.invert ? diff < 0 : diff > 0;
   const tone = isPositiveMove ? "good" : "bad";
-
-  if (previous === 0) {
-    const label = options.formatPrev
-      ? `+${formatPrev(diff)}`
-      : tr("ad.reports.deltaNew", { diff });
-    return { label, tone, detail };
-  }
-
   const pct = Math.round((diff / previous) * 100);
   const sign = pct > 0 ? "+" : "";
   return { label: `${sign}${pct}%`, tone, detail };
@@ -117,8 +134,22 @@ const revenueDelta = computed(() =>
   ),
 );
 
-// SVG completion ring (radius 25 -> circumference ~157.08).
-const RING_RADIUS = 25;
+// Elevate confirmed booking value when nothing has completed yet so owners
+// never stare at a 30px "Rp 0" while real confirmed revenue sits in tiny gray subtext.
+const isPipelineLead = computed(
+  () =>
+    props.report.summary.estimatedCompletedRevenueIdr === 0 &&
+    props.report.summary.confirmedPipelineIdr > 0,
+);
+
+const hasCompletionRing = computed(
+  () =>
+    props.report.summary.completionRate !== null &&
+    props.report.summary.completionRate > 0,
+);
+
+// SVG completion ring (radius 22 -> circumference ~138.23).
+const RING_RADIUS = 22;
 const RING_CIRCUMFERENCE = Number((2 * Math.PI * RING_RADIUS).toFixed(2));
 const ringOffset = computed(() => {
   const rate = props.report.summary.completionRate;
@@ -128,14 +159,19 @@ const ringOffset = computed(() => {
   );
 });
 
-const maxDailyTotal = computed(() =>
-  Math.max(1, ...props.report.dailyTrend.map((point) => point.total)),
+// Round the Y-axis ceiling up to an even integer so the midpoint guide line at
+// 50% always represents an exact whole number (e.g. 6 / 3 / 0 instead of 5 / 3 / 0).
+const rawMaxDailyTotal = computed(() =>
+  Math.max(0, ...props.report.dailyTrend.map((point) => point.total)),
 );
 
-const dailyMidTick = computed(() => {
-  const max = maxDailyTotal.value;
-  return max <= 1 ? null : Math.ceil(max / 2);
+const yAxisMax = computed(() => {
+  const raw = rawMaxDailyTotal.value;
+  if (raw <= 2) return 2;
+  return Math.ceil(raw / 2) * 2;
 });
+
+const dailyMidTick = computed(() => yAxisMax.value / 2);
 
 const peakDay = computed<AdminReportDailyPoint | null>(() => {
   let best: AdminReportDailyPoint | null = null;
@@ -143,32 +179,6 @@ const peakDay = computed<AdminReportDailyPoint | null>(() => {
     if (point.total > 0 && (!best || point.total > best.total)) best = point;
   }
   return best;
-});
-
-const sparkline = computed(() => {
-  const points = props.report.dailyTrend;
-  if (!points.length || props.report.summary.totalBookings === 0) return null;
-  const width = 84;
-  const height = 26;
-  const padY = 3;
-  const usableHeight = height - padY * 2;
-  const max = maxDailyTotal.value;
-  const stepX = points.length > 1 ? width / (points.length - 1) : 0;
-
-  const coords = points.map((point, index) => {
-    const x =
-      points.length > 1 ? Number((index * stepX).toFixed(1)) : width / 2;
-    const y = Number(
-      (height - padY - (point.total / max) * usableHeight).toFixed(1),
-    );
-    return { x, y };
-  });
-
-  const line = coords
-    .map((pt, i) => `${i === 0 ? "M" : "L"}${pt.x} ${pt.y}`)
-    .join(" ");
-  const area = `${line} L${coords[coords.length - 1].x} ${height} L${coords[0].x} ${height} Z`;
-  return { line, area };
 });
 
 const maxPackageCount = computed(() =>
@@ -204,12 +214,29 @@ const activeDayPoint = computed<AdminReportDailyPoint | null>(() =>
     : null,
 );
 
+const pinnedDayPoint = computed<AdminReportDailyPoint | null>(() => {
+  if (!pinnedDay.value) return null;
+  return (
+    props.report.dailyTrend.find((point) => point.date === pinnedDay.value) ??
+    null
+  );
+});
+
 const tooltipLeftPercent = computed(() => {
   const total = props.report.dailyTrend.length;
   if (activeDayIndex.value < 0 || total <= 0) return "50%";
   const raw = ((activeDayIndex.value + 0.5) / total) * 100;
   return `${Math.min(86, Math.max(14, raw)).toFixed(1)}%`;
 });
+
+function dayBookingsHref(date: string): string {
+  const params = new URLSearchParams({
+    scope: "all",
+    dateFrom: date,
+    dateTo: date,
+  });
+  return `/admin/bookings?${params.toString()}`;
+}
 
 function dayDetailText(point: AdminReportDailyPoint): string {
   return tr("ad.reports.trendDetail", {
@@ -224,20 +251,19 @@ function dayDetailText(point: AdminReportDailyPoint): string {
 
 function showAxisTick(index: number): boolean {
   const total = props.report.dailyTrend.length;
-  if (total <= 10) return true;
+  if (total <= 8) return true;
   if (index === 0 || index === total - 1) return true;
   const step = Math.ceil(total / 5);
   return index % step === 0 && total - 1 - index >= Math.floor(step / 2);
 }
 
-function shortAxisDate(iso: string): string {
-  const [, month, day] = iso.split("-");
-  return `${Number(day)}/${Number(month)}`;
+function axisDateLabel(iso: string): string {
+  return formatDay(iso, language.value, "axis");
 }
 
 function barHeightPercent(value: number, max: number): string {
   if (value <= 0 || max <= 0) return "0%";
-  return `${Math.max(5, Math.round((value / max) * 100))}%`;
+  return `${Math.max(3, Math.round((value / max) * 1000) / 10)}%`;
 }
 
 function meterWidthPercent(value: number, max: number): string {
@@ -270,7 +296,7 @@ const outcomeBarSegments = computed(() => {
   ].filter((seg) => seg.count > 0);
 });
 
-const outcomes = computed(() => [
+const allOutcomes = computed(() => [
   {
     key: "completed",
     label: tr("ad.reports.outcomeCompleted"),
@@ -315,6 +341,16 @@ const outcomes = computed(() => [
   },
 ]);
 
+const activeOutcomes = computed(() =>
+  allOutcomes.value.filter((item) => item.count > 0),
+);
+
+const zeroOutcomeNames = computed(() =>
+  allOutcomes.value
+    .filter((item) => item.count === 0)
+    .map((item) => item.label),
+);
+
 const channelTotal = computed(() =>
   props.report.channels.reduce((sum, row) => sum + row.count, 0),
 );
@@ -327,8 +363,9 @@ const channelTotal = computed(() =>
       :subtitle="tr('ad.reports.subtitle')"
     >
       <template #actions>
-        <Link href="/admin/bookings" class="admin-button">
+        <Link href="/admin/bookings" class="admin-header-link">
           {{ tr("ad.reports.viewBookings") }}
+          <ArrowUpRight aria-hidden="true" />
         </Link>
       </template>
 
@@ -352,14 +389,28 @@ const channelTotal = computed(() =>
               {{ tr(`ad.reports.period.${period}`) }}
             </button>
           </div>
-          <p class="admin-record-secondary admin-nowrap" data-report-range>
-            {{ rangeLabel }}
-          </p>
+          <div class="admin-report-toolbar__meta">
+            <p
+              v-if="loading"
+              class="admin-loading"
+              data-report-loading
+              role="status"
+              aria-live="polite"
+            >
+              {{ tr("ad.reports.loading") }}
+            </p>
+            <p class="admin-record-secondary" data-report-range>
+              {{ rangeLabel }}
+            </p>
+          </div>
         </div>
 
-        <!-- 2-column executive split workspace (Boulevard / Attio analytics layout) -->
-        <div class="admin-reports-workspace">
-          <!-- LEFT PRIMARY STAGE: unified volume+value hero chart + peak hours -->
+        <div
+          class="admin-reports-workspace"
+          :class="{ 'is-loading': loading }"
+          :aria-busy="loading"
+        >
+          <!-- LEFT PRIMARY STAGE: KPI + accurate daily trend, peak hours, booking channels -->
           <div class="admin-reports-primary">
             <section
               class="admin-panel admin-hero-report"
@@ -367,10 +418,7 @@ const channelTotal = computed(() =>
               data-report-kpis
             >
               <div class="admin-hero-report__head">
-                <article
-                  class="admin-hero-metric admin-hero-metric--lead"
-                  data-kpi="total"
-                >
+                <article class="admin-hero-metric" data-kpi="total">
                   <div class="admin-metric-cell__top">
                     <span class="admin-metric-cell__label">{{
                       tr("ad.reports.kpiTotal")
@@ -384,22 +432,9 @@ const channelTotal = computed(() =>
                       >{{ totalDelta.label }}</span
                     >
                   </div>
-                  <div class="admin-metric-cell__figure">
-                    <p class="admin-hero-metric__value">
-                      {{ report.summary.totalBookings }}
-                    </p>
-                    <svg
-                      v-if="sparkline"
-                      class="admin-sparkline"
-                      viewBox="0 0 84 26"
-                      width="84"
-                      height="26"
-                      aria-hidden="true"
-                    >
-                      <path class="admin-sparkline__area" :d="sparkline.area" />
-                      <path class="admin-sparkline__line" :d="sparkline.line" />
-                    </svg>
-                  </div>
+                  <p class="admin-hero-metric__value">
+                    {{ report.summary.totalBookings }}
+                  </p>
                   <p class="admin-metric-cell__sub">
                     {{
                       report.summary.confirmedCount > 0 ||
@@ -416,10 +451,12 @@ const channelTotal = computed(() =>
                 <article class="admin-hero-metric" data-kpi="value">
                   <div class="admin-metric-cell__top">
                     <span class="admin-metric-cell__label">{{
-                      tr("ad.reports.kpiValue")
+                      isPipelineLead
+                        ? tr("ad.reports.kpiValuePipeline")
+                        : tr("ad.reports.kpiValue")
                     }}</span>
                     <span
-                      v-if="revenueDelta"
+                      v-if="!isPipelineLead && revenueDelta"
                       class="admin-delta"
                       :class="`admin-delta--${revenueDelta.tone}`"
                       :title="revenueDelta.detail"
@@ -429,18 +466,24 @@ const channelTotal = computed(() =>
                   </div>
                   <p class="admin-hero-metric__value admin-price">
                     {{
-                      formatPrice(report.summary.estimatedCompletedRevenueIdr)
+                      formatPrice(
+                        isPipelineLead
+                          ? report.summary.confirmedPipelineIdr
+                          : report.summary.estimatedCompletedRevenueIdr,
+                      )
                     }}
                   </p>
                   <p class="admin-metric-cell__sub">
                     {{
-                      report.summary.confirmedPipelineIdr > 0
-                        ? tr("ad.reports.kpiValueConfirmed", {
-                            amount: formatPrice(
-                              report.summary.confirmedPipelineIdr,
-                            ),
-                          })
-                        : tr("ad.reports.kpiValueAtSpa")
+                      isPipelineLead
+                        ? tr("ad.reports.kpiValuePendingOnly")
+                        : report.summary.confirmedPipelineIdr > 0
+                          ? tr("ad.reports.kpiValueConfirmed", {
+                              amount: formatPrice(
+                                report.summary.confirmedPipelineIdr,
+                              ),
+                            })
+                          : tr("ad.reports.kpiValueAtSpa")
                     }}
                   </p>
                 </article>
@@ -466,15 +509,30 @@ const channelTotal = computed(() =>
                         }}
                       </span>
                     </div>
-                    <p aria-live="polite" class="admin-trend-readout">
-                      {{
-                        activeDayPoint
-                          ? dayDetailText(activeDayPoint)
-                          : report.summary.totalBookings > 0
-                            ? tr("ad.reports.trendHint")
-                            : tr("ad.reports.trendEmpty")
-                      }}
-                    </p>
+                    <div class="admin-trend-readout-row">
+                      <p aria-live="polite" class="admin-trend-readout">
+                        {{
+                          activeDayPoint
+                            ? dayDetailText(activeDayPoint)
+                            : report.summary.totalBookings > 0
+                              ? tr("ad.reports.trendHint")
+                              : tr("ad.reports.trendEmpty")
+                        }}
+                      </p>
+                      <Link
+                        v-if="pinnedDayPoint && pinnedDayPoint.total > 0"
+                        :href="dayBookingsHref(pinnedDayPoint.date)"
+                        class="admin-trend-drilldown"
+                        data-trend-drilldown
+                      >
+                        {{
+                          tr("ad.reports.trendOpenDay", {
+                            date: axisDateLabel(pinnedDayPoint.date),
+                          })
+                        }}
+                        <ArrowUpRight aria-hidden="true" />
+                      </Link>
+                    </div>
                   </div>
                   <ul
                     v-if="report.summary.totalBookings > 0"
@@ -512,9 +570,13 @@ const channelTotal = computed(() =>
                   {{ tr("ad.reports.trendEmpty") }}
                 </p>
                 <div v-else class="admin-trend-chart">
-                  <div class="admin-trend-chart__yaxis" aria-hidden="true">
-                    <span>{{ maxDailyTotal }}</span>
-                    <span>{{ dailyMidTick ?? "" }}</span>
+                  <div
+                    class="admin-trend-chart__yaxis"
+                    aria-hidden="true"
+                    data-trend-yaxis
+                  >
+                    <span>{{ yAxisMax }}</span>
+                    <span>{{ dailyMidTick }}</span>
                     <span>0</span>
                   </div>
                   <div class="admin-trend-chart__plot">
@@ -533,15 +595,11 @@ const channelTotal = computed(() =>
                       aria-hidden="true"
                     >
                       <span class="admin-chart-tooltip__date">{{
-                        formatDay(activeDayPoint.date, language, "short")
+                        axisDateLabel(activeDayPoint.date)
                       }}</span>
-                      <span class="admin-chart-tooltip__count">
-                        {{
-                          tr("ad.reports.bookingCount", {
-                            n: activeDayPoint.total,
-                          })
-                        }}
-                      </span>
+                      <span class="admin-chart-tooltip__count">{{
+                        activeDayPoint.total
+                      }}</span>
                     </div>
 
                     <div
@@ -583,7 +641,7 @@ const channelTotal = computed(() =>
                             :style="{
                               height:
                                 point.total > 0
-                                  ? barHeightPercent(point.total, maxDailyTotal)
+                                  ? barHeightPercent(point.total, yAxisMax)
                                   : '0%',
                             }"
                           >
@@ -606,7 +664,7 @@ const channelTotal = computed(() =>
                         </span>
                         <span class="admin-trend__tick">
                           {{
-                            showAxisTick(index) ? shortAxisDate(point.date) : ""
+                            showAxisTick(index) ? axisDateLabel(point.date) : ""
                           }}
                         </span>
                       </button>
@@ -688,9 +746,53 @@ const channelTotal = computed(() =>
                 </div>
               </div>
             </section>
+
+            <section
+              class="admin-panel"
+              aria-labelledby="report-channels-title"
+              data-report-channels
+            >
+              <header class="admin-panel__head">
+                <h2 id="report-channels-title">
+                  {{ tr("ad.reports.channelsTitle") }}
+                </h2>
+              </header>
+              <ul class="admin-report-list" role="list">
+                <li
+                  v-for="channel in report.channels"
+                  :key="channel.key"
+                  class="admin-report-bar-row"
+                  :class="{ 'is-zero': channel.count === 0 }"
+                >
+                  <div class="admin-report-bar-row__top">
+                    <span>{{ tr(`ad.reports.channel.${channel.key}`) }}</span>
+                    <span class="admin-report-bar-row__metric">
+                      <strong>{{ channel.count }}</strong>
+                      <span
+                        v-if="channelTotal > 0"
+                        class="admin-record-secondary"
+                      >
+                        {{ Math.round((channel.count / channelTotal) * 100) }}%
+                      </span>
+                    </span>
+                  </div>
+                  <div class="admin-report-meter" aria-hidden="true">
+                    <span
+                      class="admin-report-meter__fill admin-report-meter__fill--channel"
+                      :style="{
+                        width:
+                          channel.count > 0
+                            ? meterWidthPercent(channel.count, channelTotal)
+                            : '0%',
+                      }"
+                    />
+                  </div>
+                </li>
+              </ul>
+            </section>
           </div>
 
-          <!-- RIGHT INTELLIGENCE RAIL: completion ring + outcomes, top treatments, channels -->
+          <!-- RIGHT RAIL: non-redundant status breakdown + top treatments -->
           <div class="admin-reports-rail">
             <section
               class="admin-panel"
@@ -710,33 +812,49 @@ const channelTotal = computed(() =>
                 </p>
               </header>
 
-              <div class="admin-health-top">
-                <div class="admin-ring" aria-hidden="true">
-                  <svg viewBox="0 0 64 64" width="64" height="64">
+              <div
+                class="admin-health-top"
+                :class="{ 'admin-health-top--no-ring': !hasCompletionRing }"
+              >
+                <div
+                  v-if="hasCompletionRing"
+                  class="admin-ring"
+                  role="img"
+                  :aria-label="
+                    tr('ad.reports.ringAria', {
+                      rate: report.summary.completionRate ?? 0,
+                    })
+                  "
+                  data-completion-ring
+                >
+                  <svg
+                    viewBox="0 0 56 56"
+                    width="56"
+                    height="56"
+                    aria-hidden="true"
+                  >
                     <circle
                       class="admin-ring__track"
-                      cx="32"
-                      cy="32"
+                      cx="28"
+                      cy="28"
                       :r="RING_RADIUS"
                     />
                     <circle
                       class="admin-ring__arc"
-                      cx="32"
-                      cy="32"
+                      cx="28"
+                      cy="28"
                       :r="RING_RADIUS"
                       :stroke-dasharray="RING_CIRCUMFERENCE"
                       :stroke-dashoffset="ringOffset"
                     />
                   </svg>
-                  <span class="admin-ring__label">{{
-                    report.summary.completionRate !== null
-                      ? `${report.summary.completionRate}%`
-                      : "0%"
-                  }}</span>
+                  <span class="admin-ring__label" aria-hidden="true"
+                    >{{ report.summary.completionRate }}%</span
+                  >
                 </div>
 
-                <div class="admin-health-stats">
-                  <article class="admin-health-stat" data-kpi="completed">
+                <div class="admin-health-summary">
+                  <div class="admin-health-line" data-kpi="completed">
                     <div class="admin-metric-cell__top">
                       <span class="admin-metric-cell__label">{{
                         tr("ad.reports.kpiCompleted")
@@ -750,21 +868,27 @@ const channelTotal = computed(() =>
                         >{{ completedDelta.label }}</span
                       >
                     </div>
-                    <p class="admin-health-stat__value">
-                      {{ report.summary.completedCount }}
+                    <p
+                      v-if="hasCompletionRing"
+                      class="admin-health-line__value"
+                    >
+                      <strong>{{ report.summary.completedCount }}</strong>
+                      <span class="admin-metric-cell__sub">{{
+                        tr("ad.reports.kpiCompletedRate", {
+                          rate: report.summary.completionRate ?? 0,
+                        })
+                      }}</span>
                     </p>
-                    <p class="admin-metric-cell__sub">
+                    <p v-else class="admin-metric-cell__sub">
                       {{
-                        report.summary.completionRate !== null
-                          ? tr("ad.reports.kpiCompletedRate", {
-                              rate: report.summary.completionRate,
-                            })
-                          : tr("ad.reports.kpiCompletedNone")
+                        report.summary.completionRate === null
+                          ? tr("ad.reports.kpiCompletedNone")
+                          : tr("ad.reports.kpiCompletedZero")
                       }}
                     </p>
-                  </article>
+                  </div>
 
-                  <article class="admin-health-stat" data-kpi="lost">
+                  <div class="admin-health-line" data-kpi="lost">
                     <div class="admin-metric-cell__top">
                       <span class="admin-metric-cell__label">{{
                         tr("ad.reports.kpiLost")
@@ -778,16 +902,16 @@ const channelTotal = computed(() =>
                         >{{ lostDelta.label }}</span
                       >
                     </div>
-                    <p class="admin-health-stat__value">{{ lostTotal }}</p>
-                    <p class="admin-metric-cell__sub">
-                      {{
+                    <p class="admin-health-line__value">
+                      <strong>{{ lostTotal }}</strong>
+                      <span class="admin-metric-cell__sub">{{
                         tr("ad.reports.kpiLostBreakdown", {
                           cancelled: report.summary.cancelledCount,
                           noShow: report.summary.noShowCount,
                         })
-                      }}
+                      }}</span>
                     </p>
-                  </article>
+                  </div>
                 </div>
               </div>
 
@@ -807,12 +931,15 @@ const channelTotal = computed(() =>
                 </div>
               </div>
 
-              <ul class="admin-report-list" role="list">
+              <ul
+                v-if="activeOutcomes.length"
+                class="admin-report-list"
+                role="list"
+              >
                 <li
-                  v-for="item in outcomes"
+                  v-for="item in activeOutcomes"
                   :key="item.key"
                   class="admin-report-stat-row"
-                  :class="{ 'is-zero': item.count === 0 }"
                 >
                   <span class="admin-outcome-label">
                     <span
@@ -825,6 +952,14 @@ const channelTotal = computed(() =>
                   <span class="admin-outcome-count">{{ item.count }}</span>
                 </li>
               </ul>
+
+              <p v-if="zeroOutcomeNames.length" class="admin-outcome-zeros">
+                {{
+                  tr("ad.reports.outcomesZeroNote", {
+                    items: zeroOutcomeNames.join(", "),
+                  })
+                }}
+              </p>
             </section>
 
             <section
@@ -878,7 +1013,7 @@ const channelTotal = computed(() =>
                   </div>
                   <div class="admin-report-meter" aria-hidden="true">
                     <span
-                      class="admin-report-meter__fill"
+                      class="admin-report-meter__fill admin-report-meter__fill--package"
                       :style="{
                         width: meterWidthPercent(row.count, maxPackageCount),
                       }"
@@ -886,50 +1021,6 @@ const channelTotal = computed(() =>
                   </div>
                 </li>
               </ol>
-            </section>
-
-            <section
-              class="admin-panel"
-              aria-labelledby="report-channels-title"
-              data-report-channels
-            >
-              <header class="admin-panel__head">
-                <h2 id="report-channels-title">
-                  {{ tr("ad.reports.channelsTitle") }}
-                </h2>
-              </header>
-              <ul class="admin-report-list" role="list">
-                <li
-                  v-for="channel in report.channels"
-                  :key="channel.key"
-                  class="admin-report-bar-row"
-                  :class="{ 'is-zero': channel.count === 0 }"
-                >
-                  <div class="admin-report-bar-row__top">
-                    <span>{{ tr(`ad.reports.channel.${channel.key}`) }}</span>
-                    <span class="admin-report-bar-row__metric">
-                      <strong>{{ channel.count }}</strong>
-                      <span
-                        v-if="channelTotal > 0"
-                        class="admin-record-secondary"
-                      >
-                        {{ Math.round((channel.count / channelTotal) * 100) }}%
-                      </span>
-                    </span>
-                  </div>
-                  <div class="admin-report-meter" aria-hidden="true">
-                    <span
-                      class="admin-report-meter__fill admin-report-meter__fill--soft"
-                      :style="{
-                        width:
-                          channel.count > 0
-                            ? meterWidthPercent(channel.count, channelTotal)
-                            : '0%',
-                      }"
-                    />
-                  </div>
-                </li>
-              </ul>
             </section>
           </div>
         </div>

@@ -34,8 +34,12 @@ vi.mock("@inertiajs/vue3", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@inertiajs/vue3")>();
   const { reactive, defineComponent, h } = await import("vue");
   inertia.page = reactive(inertia.page);
-  vi.spyOn(actual.router, "get").mockImplementation((url, data) => {
+  vi.spyOn(actual.router, "get").mockImplementation((url, data, options) => {
     inertia.gets.push({ url: String(url), data });
+    const opts = options as
+      { onStart?: () => void; onFinish?: () => void } | undefined;
+    opts?.onStart?.();
+    opts?.onFinish?.();
   });
   vi.spyOn(actual.router, "post").mockImplementation((url, data) => {
     if (url === "/locale")
@@ -171,6 +175,10 @@ describe("admin Reports page", () => {
       "[data-report-trend] button.admin-trend__col",
     );
     expect(trendCols).toHaveLength(3);
+    // Max daily total = 3 -> even Y-axis ceiling = 4 with exact midpoint 2 and 0.
+    expect(
+      wrapper.findAll("[data-trend-yaxis] span").map((s) => s.text()),
+    ).toEqual(["4", "2", "0"]);
     await trendCols[1].trigger("mouseenter");
     await trendCols[1].trigger("focus");
     await trendCols[1].trigger("click");
@@ -180,9 +188,13 @@ describe("admin Reports page", () => {
     expect(wrapper.get("[data-report-trend] header p").text()).toContain(
       "3 bookings (1 completed, 1 active, 1 lost)",
     );
+    expect(wrapper.get("[data-trend-drilldown]").attributes("href")).toBe(
+      "/admin/bookings?scope=all&dateFrom=2026-11-27&dateTo=2026-11-27",
+    );
     // Clicking the pinned bar a second time unpins it.
     await trendCols[1].trigger("click");
     expect(trendCols[1].attributes("aria-pressed")).toBe("false");
+    expect(wrapper.find("[data-trend-drilldown]").exists()).toBe(false);
 
     expect(wrapper.get("[data-report-packages]").text()).toContain(
       "Nezuko VIP",
@@ -198,6 +210,51 @@ describe("admin Reports page", () => {
       "Online website",
     );
     expect(wrapper.get("[data-report-channels]").text()).toContain("75%");
+    expect(wrapper.find("[data-completion-ring]").exists()).toBe(true);
+  });
+
+  it("elevates confirmed pipeline when nothing is completed yet, hides a 0% ring, and keeps even Y-axis ticks", () => {
+    const wrapper = mountPage(
+      sampleReport({
+        summary: {
+          ...sampleReport().summary,
+          totalBookings: 11,
+          completedCount: 0,
+          confirmedCount: 6,
+          pendingCount: 0,
+          cancelledCount: 5,
+          noShowCount: 0,
+          estimatedCompletedRevenueIdr: 0,
+          confirmedPipelineIdr: 1786000,
+          completionRate: 0,
+        },
+        previousSummary: {
+          totalBookings: 0,
+          completedCount: 0,
+          lostCount: 0,
+          estimatedCompletedRevenueIdr: 0,
+        },
+        dailyTrend: [
+          { date: "2026-11-18", total: 5, completed: 0, active: 2, lost: 3 },
+          { date: "2026-11-19", total: 3, completed: 0, active: 3, lost: 0 },
+        ],
+      }),
+    );
+
+    // Value card elevates confirmed pipeline instead of shouting Rp 0.
+    expect(wrapper.get("[data-kpi='value']").text()).toContain("Rp 1.786.000");
+    expect(wrapper.find("[data-completion-ring]").exists()).toBe(false);
+    // Comparing against a 0 baseline stays calm neutral text instead of screaming green/red.
+    expect(wrapper.get("[data-kpi-delta='total']").classes()).toContain(
+      "admin-delta--neutral",
+    );
+    expect(wrapper.get("[data-kpi-delta='lost']").classes()).toContain(
+      "admin-delta--neutral",
+    );
+    // Peak 5 -> Y-axis 6 / 3 / 0 so midpoint line at 50% is mathematically exact (3).
+    expect(
+      wrapper.findAll("[data-trend-yaxis] span").map((s) => s.text()),
+    ).toEqual(["6", "3", "0"]);
   });
 
   it("switches report period through Inertia and localizes cleanly into Indonesian", async () => {

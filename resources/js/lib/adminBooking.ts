@@ -14,19 +14,26 @@ function intlLocale(language: Locale): string {
   return language === "id" ? "id-ID" : "en-GB";
 }
 
-function dayFormatter(
-  language: Locale,
-  style: "long" | "short",
-): Intl.DateTimeFormat {
+type DayStyle = "long" | "medium" | "short" | "axis";
+
+function dayFormatter(language: Locale, style: DayStyle): Intl.DateTimeFormat {
   const key = `${language}:${style}`;
   let formatter = dayFormatters.get(key);
   if (!formatter) {
-    formatter = new Intl.DateTimeFormat(
-      intlLocale(language),
+    const options: Intl.DateTimeFormatOptions =
       style === "long"
         ? { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }
-        : { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" },
-    );
+        : style === "medium"
+          ? { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }
+          : style === "axis"
+            ? { day: "numeric", month: "short", timeZone: "UTC" }
+            : {
+                weekday: "short",
+                day: "numeric",
+                month: "short",
+                timeZone: "UTC",
+              };
+    formatter = new Intl.DateTimeFormat(intlLocale(language), options);
     dayFormatters.set(key, formatter);
   }
   return formatter;
@@ -51,7 +58,7 @@ export function timezoneLabel(timezone: string): string {
 export function formatDay(
   date: string,
   language: Locale,
-  style: "long" | "short" = "long",
+  style: DayStyle = "long",
 ): string {
   const [year, month, day] = date.split("-").map(Number);
   return dayFormatter(language, style).format(
