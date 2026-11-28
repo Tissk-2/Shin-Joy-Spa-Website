@@ -108,6 +108,17 @@ describe("Laravel-owned public pages", () => {
     expect(later.find(".site-notice").exists()).toBe(false);
   });
 
+  it("explains why a signed-in visitor was redirected away from a password reset link", async () => {
+    (inertia.page.props.flash as Record<string, unknown>).status =
+      "password-reset-signed-in";
+    const wrapper = mount(MainLayout, { slots: { default: "<h1>Page</h1>" } });
+    expect(wrapper.get(".site-notice").attributes("role")).toBe("status");
+    expect(wrapper.get(".site-notice").text()).toContain("already signed in");
+
+    await wrapper.get(".site-notice__close").trigger("click");
+    expect(wrapper.find(".site-notice").exists()).toBe(false);
+  });
+
   it("names the account in the phone menu instead of showing only an initial", () => {
     const wrapper = mount(MainLayout, { slots: { default: "<h1>Page</h1>" } });
     const toggle = wrapper.get(".account-toggle");

@@ -189,4 +189,34 @@ class PasswordResetTest extends TestCase
             'password_confirmation' => ['x'],
         ])->assertSessionHasErrors(['email', 'password']);
     }
+
+    public function test_signed_in_verified_user_opening_reset_link_goes_to_profile_password_with_notice(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->get('/reset-password/some-token?email='.urlencode($user->email))
+            ->assertRedirect(route('profile').'#password')
+            ->assertSessionHas('status', 'password-reset-signed-in');
+
+        $this->actingAs($user)
+            ->get('/forgot-password')
+            ->assertRedirect(route('profile').'#password')
+            ->assertSessionHas('status', 'password-reset-signed-in');
+    }
+
+    public function test_signed_in_unverified_user_opening_reset_link_goes_home_with_notice_and_login_stays_quiet(): void
+    {
+        $unverified = User::factory()->unverified()->create();
+
+        $this->actingAs($unverified)
+            ->get('/reset-password/some-token?email='.urlencode($unverified->email))
+            ->assertRedirect(route('home'))
+            ->assertSessionHas('status', 'password-reset-signed-in');
+
+        $this->actingAs($unverified)
+            ->get('/login')
+            ->assertRedirect(route('home'))
+            ->assertSessionMissing('status');
+    }
 }

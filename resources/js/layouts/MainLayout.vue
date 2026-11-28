@@ -14,11 +14,17 @@ import type { AppPageProps } from "@/types";
 
 const page = usePage<AppPageProps>();
 const { language, setLanguage, tr } = useLanguage();
-// Account deletion signs the customer out and lands here; say it worked.
+// Flash notices shown on public/member pages (account deletion, already signed in on reset link).
+const siteNoticeKeys: Record<string, string> = {
+  "account-deleted": "account.deleted",
+  "password-reset-signed-in": "auth.resetSignedIn",
+};
 const noticeClosed = ref(false);
-const accountDeleted = computed(
-  () => !noticeClosed.value && page.props.flash?.status === "account-deleted",
-);
+const siteNoticeKey = computed(() => {
+  if (noticeClosed.value) return null;
+  const status = page.props.flash?.status;
+  return status ? (siteNoticeKeys[status] ?? null) : null;
+});
 const contactInformation = useContactInformation();
 
 const headerMenuState = ref(initialHeaderMenuState);
@@ -512,8 +518,8 @@ onUnmounted(() => {
       <slot />
     </main>
 
-    <p v-if="accountDeleted" class="site-notice" role="status">
-      <span>{{ tr("account.deleted") }}</span>
+    <p v-if="siteNoticeKey" class="site-notice" role="status">
+      <span>{{ tr(siteNoticeKey) }}</span>
       <button
         type="button"
         class="site-notice__close"

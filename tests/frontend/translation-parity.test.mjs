@@ -322,6 +322,11 @@ test("admin booking operations keep paired copy within the approved scope", () =
       "auth.admin.title",
       "auth.admin.sub",
       "auth.admin.submit",
+      "b.sub",
+      "b.successs",
+      "booking.historyWarning",
+      "profile.historyUnavailable",
+      "auth.demo.title",
     ]) {
       assert.equal(translations[locale][unsupportedKey], undefined);
     }

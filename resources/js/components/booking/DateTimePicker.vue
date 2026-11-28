@@ -345,11 +345,14 @@ const summary = computed(() =>
   --dtp-ink: var(--admin-ink);
   --dtp-muted: var(--admin-muted);
   --dtp-line: var(--admin-line);
-  --dtp-paper: var(--admin-ivory);
+  --dtp-paper: transparent;
   --dtp-accent: var(--admin-action);
   --dtp-on-accent: var(--admin-on-action);
   --dtp-soft: var(--admin-selected);
   --dtp-mark: var(--admin-gold);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
 }
 .dtp {
   display: grid;

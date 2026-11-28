@@ -40,6 +40,18 @@ return Application::configure(basePath: dirname(__DIR__))
 
             return route('login');
         });
+        // Signed-in visitors opening a password-reset link get a clear notice instead of a silent bounce.
+        $middleware->redirectUsersTo(function (Request $request): string {
+            if ($request->routeIs('password.reset', 'password.request')) {
+                $request->session()->flash('status', 'password-reset-signed-in');
+
+                return $request->user()?->hasVerifiedEmail()
+                    ? route('profile').'#password'
+                    : route('home');
+            }
+
+            return route('home');
+        });
         $beforeBindingsAndThrottling = [
             ThrottleRequests::class,
             ThrottleRequestsWithRedis::class,
