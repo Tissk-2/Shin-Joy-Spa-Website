@@ -211,6 +211,10 @@ export default {
     "about.f3t": "Bersih dan nyaman",
     "about.f3d":
       "Ruang perawatan dibersihkan sebelum tiap sesi, dan setiap tamu punya ruang privat.",
+    "about.videoLabel": "Cuplikan singkat suasana ruangan Shin Joy Spa Malang",
+    "about.videoCaption": "Suasana ruangan Shin Joy Spa, Malang",
+    "about.videoPause": "Jeda video suasana",
+    "about.videoPlay": "Putar video suasana",
     "loc.title": "Lokasi kami di Malang",
     "loc.addresst": "Alamat",
     "loc.address": "Jalan Terusan Batubara No. 12, Lantai 2",
@@ -1199,6 +1203,10 @@ export default {
     "about.f3t": "Clean and comfortable",
     "about.f3d":
       "Treatment rooms are cleaned before each session, and every guest gets a private room.",
+    "about.videoLabel": "Short tour of the rooms at Shin Joy Spa Malang",
+    "about.videoCaption": "Inside Shin Joy Spa, Malang",
+    "about.videoPause": "Pause spa tour video",
+    "about.videoPlay": "Play spa tour video",
     "loc.title": "Where we are in Malang",
     "loc.addresst": "Address",
     "loc.address": "Jalan Terusan Batubara No. 12, Lantai 2",

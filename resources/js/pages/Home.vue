@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Head, Link, usePage } from "@inertiajs/vue3";
-import { MapPin } from "lucide-vue-next";
-import { computed, nextTick, ref } from "vue";
+import { MapPin, Pause, Play } from "lucide-vue-next";
+import { computed, nextTick, onMounted, onUnmounted, ref } from "vue";
 import CatalogMenuFooter from "@/components/CatalogMenuFooter.vue";
 import PackageMenuCard from "@/components/PackageMenuCard.vue";
 import { useContactInformation } from "@/composables/useContactInformation";
@@ -36,6 +36,78 @@ function loadMap(): void {
   // The button disappears; keep keyboard focus where the visitor was.
   nextTick(() => mapFrame.value?.focus());
 }
+
+// Keep the tour clip off the initial load and respect reduced motion.
+const tourVideo = ref<HTMLVideoElement | null>(null);
+const tourActivated = ref(false);
+const tourPlaying = ref(false);
+const tourPausedByUser = ref(false);
+let tourObserver: IntersectionObserver | null = null;
+
+function prefersReducedMotion(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  );
+}
+
+function startTourPlayback(): void {
+  const el = tourVideo.value;
+  if (!el) return;
+  if (!tourActivated.value) {
+    tourActivated.value = true;
+    nextTick(() => {
+      const target = tourVideo.value;
+      if (!target) return;
+      target.load();
+      void target.play()?.catch(() => {
+        tourPlaying.value = false;
+      });
+    });
+    return;
+  }
+  void el.play()?.catch(() => {
+    tourPlaying.value = false;
+  });
+}
+
+function toggleTourVideo(): void {
+  const el = tourVideo.value;
+  if (!el) return;
+  if (tourPlaying.value) {
+    tourPausedByUser.value = true;
+    el.pause();
+    tourPlaying.value = false;
+    return;
+  }
+  tourPausedByUser.value = false;
+  startTourPlayback();
+}
+
+onMounted(() => {
+  const el = tourVideo.value;
+  if (!el || typeof IntersectionObserver === "undefined") return;
+  tourObserver = new IntersectionObserver(
+    (entries) => {
+      const visible = entries.some((entry) => entry.isIntersecting);
+      if (visible) {
+        if (!tourPausedByUser.value && !prefersReducedMotion()) {
+          startTourPlayback();
+        }
+      } else if (tourPlaying.value) {
+        el.pause();
+      }
+    },
+    { rootMargin: "200px 0px" },
+  );
+  tourObserver.observe(el);
+});
+
+onUnmounted(() => {
+  tourObserver?.disconnect();
+  tourObserver = null;
+});
 </script>
 
 <style scoped>
@@ -63,16 +135,73 @@ function loadMap(): void {
 }
 @media (min-width: 860px) {
   .home-about {
-    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+    grid-template-columns: minmax(0, 1fr) minmax(260px, 340px);
+    align-items: center;
   }
   .home-visit {
     grid-template-columns: minmax(0, 6fr) minmax(0, 5fr);
   }
 }
+.home-about__body {
+  display: grid;
+  gap: 2rem;
+}
 .home-about__intro p {
   margin-top: 1.2rem;
   max-width: 60ch;
   color: var(--text-muted);
+}
+.home-about__media {
+  margin: 0;
+  width: 100%;
+  max-width: 340px;
+  justify-self: center;
+}
+.home-about__frame {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 3 / 4;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+}
+.home-about__video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.home-about__toggle {
+  position: absolute;
+  right: 0.75rem;
+  bottom: 0.75rem;
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid rgb(255 255 255 / 0.28);
+  border-radius: 999px;
+  background: rgb(36 26 24 / 0.72);
+  color: #ffffff;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+.home-about__toggle:hover {
+  background: rgb(36 26 24 / 0.88);
+}
+.home-about__toggle:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
+.home-about__toggle svg {
+  width: 1.05rem;
+  height: 1.05rem;
+}
+.home-about__caption {
+  margin-top: 0.65rem;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  text-align: center;
 }
 
 .fact-list {
@@ -245,24 +374,61 @@ function loadMap(): void {
 
     <section id="about" class="section" aria-labelledby="about-title">
       <div class="container home-about">
-        <div class="home-about__intro">
-          <h2 id="about-title" class="reveal">{{ c("about.title") }}</h2>
-          <p class="reveal" data-delay="1">{{ c("about.body") }}</p>
+        <div class="home-about__body">
+          <div class="home-about__intro">
+            <h2 id="about-title" class="reveal">{{ c("about.title") }}</h2>
+            <p class="reveal" data-delay="1">{{ c("about.body") }}</p>
+          </div>
+          <dl class="fact-list reveal" data-delay="2">
+            <div>
+              <dt>{{ tr("about.f1t") }}</dt>
+              <dd>{{ tr("about.f1d") }}</dd>
+            </div>
+            <div>
+              <dt>{{ tr("about.f2t") }}</dt>
+              <dd>{{ tr("about.f2d") }}</dd>
+            </div>
+            <div>
+              <dt>{{ tr("about.f3t") }}</dt>
+              <dd>{{ tr("about.f3d") }}</dd>
+            </div>
+          </dl>
         </div>
-        <dl class="fact-list reveal" data-delay="2">
-          <div>
-            <dt>{{ tr("about.f1t") }}</dt>
-            <dd>{{ tr("about.f1d") }}</dd>
+        <figure class="home-about__media reveal" data-delay="2">
+          <div class="home-about__frame">
+            <video
+              ref="tourVideo"
+              class="home-about__video"
+              :src="tourActivated ? '/img/shin-joy-tour.mp4' : undefined"
+              poster="/img/shin-joy-tour-poster.webp"
+              width="540"
+              height="720"
+              muted
+              loop
+              playsinline
+              preload="none"
+              :aria-label="tr('about.videoLabel')"
+              @play="tourPlaying = true"
+              @pause="tourPlaying = false"
+            />
+            <button
+              type="button"
+              class="home-about__toggle"
+              data-tour-toggle
+              :aria-pressed="tourPlaying"
+              :aria-label="
+                tourPlaying ? tr('about.videoPause') : tr('about.videoPlay')
+              "
+              @click="toggleTourVideo"
+            >
+              <Pause v-if="tourPlaying" aria-hidden="true" />
+              <Play v-else aria-hidden="true" />
+            </button>
           </div>
-          <div>
-            <dt>{{ tr("about.f2t") }}</dt>
-            <dd>{{ tr("about.f2d") }}</dd>
-          </div>
-          <div>
-            <dt>{{ tr("about.f3t") }}</dt>
-            <dd>{{ tr("about.f3d") }}</dd>
-          </div>
-        </dl>
+          <figcaption class="home-about__caption">
+            {{ tr("about.videoCaption") }}
+          </figcaption>
+        </figure>
       </div>
     </section>
 

@@ -67,4 +67,34 @@ describe("home page images", () => {
       expect(existsSync(resolve(publicRoot, `.${url}`)), url).toBe(true);
     }
   });
+
+  it("lazy-loads the muted spa tour loop with an existing poster, video file, and pause/play toggle", async () => {
+    const wrapper = mount(Home, { props: { categories: [] } });
+    const video = wrapper.get("video.home-about__video");
+    const toggle = wrapper.get("[data-tour-toggle]");
+
+    const videoEl = video.element as HTMLVideoElement;
+    expect(video.attributes("poster")).toBe("/img/shin-joy-tour-poster.webp");
+    expect(video.attributes("preload")).toBe("none");
+    expect(videoEl.muted).toBe(true);
+    expect(videoEl.loop).toBe(true);
+    expect(video.attributes("playsinline")).toBeDefined();
+    expect(video.attributes("src")).toBeUndefined();
+    expect(
+      existsSync(resolve(publicRoot, "./img/shin-joy-tour-poster.webp")),
+    ).toBe(true);
+    expect(existsSync(resolve(publicRoot, "./img/shin-joy-tour.mp4"))).toBe(
+      true,
+    );
+
+    const play = vi.fn().mockResolvedValue(undefined);
+    const load = vi.fn();
+    Object.defineProperty(video.element, "play", { value: play });
+    Object.defineProperty(video.element, "load", { value: load });
+
+    await toggle.trigger("click");
+    expect(video.attributes("src")).toBe("/img/shin-joy-tour.mp4");
+    expect(load).toHaveBeenCalledTimes(1);
+    expect(play).toHaveBeenCalledTimes(1);
+  });
 });
