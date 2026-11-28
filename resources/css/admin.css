@@ -1569,7 +1569,7 @@
   display: grid;
   grid-template-columns: 2rem minmax(0, 1fr);
   gap: 0.625rem;
-  padding: 1.5rem 1.25rem 1rem 0.875rem;
+  padding: 2.25rem 1.35rem 1rem 0.875rem;
 }
 .admin-trend-chart__yaxis {
   display: flex;
@@ -1605,7 +1605,7 @@
 }
 .admin-chart-tooltip {
   position: absolute;
-  top: -1.125rem;
+  top: -1.875rem;
   z-index: 3;
   display: inline-flex;
   align-items: center;
@@ -1683,9 +1683,12 @@
   border-radius: 0.25rem 0.25rem 0 0;
   overflow: hidden;
 }
-.admin-trend__col.is-pinned .admin-trend__stack {
-  outline: 2px solid var(--admin-ink);
-  outline-offset: 1px;
+.admin-trend__col.is-pinned .admin-trend__tick {
+  color: var(--admin-ink);
+  font-weight: 700;
+}
+.admin-trend__col.is-pinned .admin-trend__crosshair {
+  background: var(--admin-rose);
 }
 .admin-trend__seg--completed {
   background: var(--admin-success);
@@ -1926,7 +1929,7 @@
   }
   .admin-trend-chart {
     grid-template-columns: 1.5rem minmax(0, 1fr);
-    padding: 1.25rem 0.75rem 0.875rem 0.5rem;
+    padding: 1.25rem 1.125rem 0.875rem 0.5rem;
   }
   .admin-chart-tooltip {
     display: none;
