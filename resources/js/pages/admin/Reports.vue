@@ -117,6 +117,17 @@ const revenueDelta = computed(() =>
   ),
 );
 
+// SVG completion ring (radius 25 -> circumference ~157.08).
+const RING_RADIUS = 25;
+const RING_CIRCUMFERENCE = Number((2 * Math.PI * RING_RADIUS).toFixed(2));
+const ringOffset = computed(() => {
+  const rate = props.report.summary.completionRate;
+  if (rate === null || rate <= 0) return RING_CIRCUMFERENCE;
+  return Number(
+    (RING_CIRCUMFERENCE * (1 - Math.min(100, rate) / 100)).toFixed(2),
+  );
+});
+
 const maxDailyTotal = computed(() =>
   Math.max(1, ...props.report.dailyTrend.map((point) => point.total)),
 );
@@ -134,12 +145,11 @@ const peakDay = computed<AdminReportDailyPoint | null>(() => {
   return best;
 });
 
-// Compact 76x24 sparkline for the lead KPI cell (Stripe-style inline shape cue).
 const sparkline = computed(() => {
   const points = props.report.dailyTrend;
   if (!points.length || props.report.summary.totalBookings === 0) return null;
-  const width = 76;
-  const height = 24;
+  const width = 84;
+  const height = 26;
   const padY = 3;
   const usableHeight = height - padY * 2;
   const max = maxDailyTotal.value;
@@ -347,545 +357,581 @@ const channelTotal = computed(() =>
           </p>
         </div>
 
-        <!-- Unified hairline KPI band inspired by Stripe Dashboard overview -->
-        <section
-          class="admin-panel admin-metric-band"
-          :aria-label="tr('ad.reports.title')"
-          data-report-kpis
-        >
-          <div class="admin-metric-strip">
-            <article
-              class="admin-metric-cell admin-metric-cell--lead"
-              data-kpi="total"
+        <!-- 2-column executive split workspace (Boulevard / Attio analytics layout) -->
+        <div class="admin-reports-workspace">
+          <!-- LEFT PRIMARY STAGE: unified volume+value hero chart + peak hours -->
+          <div class="admin-reports-primary">
+            <section
+              class="admin-panel admin-hero-report"
+              :aria-label="tr('ad.reports.title')"
+              data-report-kpis
             >
-              <div class="admin-metric-cell__top">
-                <span class="admin-metric-cell__label">{{
-                  tr("ad.reports.kpiTotal")
-                }}</span>
-                <span
-                  v-if="totalDelta"
-                  class="admin-delta"
-                  :class="`admin-delta--${totalDelta.tone}`"
-                  :title="totalDelta.detail"
-                  data-kpi-delta="total"
-                  >{{ totalDelta.label }}</span
+              <div class="admin-hero-report__head">
+                <article
+                  class="admin-hero-metric admin-hero-metric--lead"
+                  data-kpi="total"
                 >
+                  <div class="admin-metric-cell__top">
+                    <span class="admin-metric-cell__label">{{
+                      tr("ad.reports.kpiTotal")
+                    }}</span>
+                    <span
+                      v-if="totalDelta"
+                      class="admin-delta"
+                      :class="`admin-delta--${totalDelta.tone}`"
+                      :title="totalDelta.detail"
+                      data-kpi-delta="total"
+                      >{{ totalDelta.label }}</span
+                    >
+                  </div>
+                  <div class="admin-metric-cell__figure">
+                    <p class="admin-hero-metric__value">
+                      {{ report.summary.totalBookings }}
+                    </p>
+                    <svg
+                      v-if="sparkline"
+                      class="admin-sparkline"
+                      viewBox="0 0 84 26"
+                      width="84"
+                      height="26"
+                      aria-hidden="true"
+                    >
+                      <path class="admin-sparkline__area" :d="sparkline.area" />
+                      <path class="admin-sparkline__line" :d="sparkline.line" />
+                    </svg>
+                  </div>
+                  <p class="admin-metric-cell__sub">
+                    {{
+                      report.summary.confirmedCount > 0 ||
+                      report.summary.pendingCount > 0
+                        ? tr("ad.reports.kpiTotalSub", {
+                            confirmed: report.summary.confirmedCount,
+                            pending: report.summary.pendingCount,
+                          })
+                        : tr("ad.reports.kpiTotalAll")
+                    }}
+                  </p>
+                </article>
+
+                <article class="admin-hero-metric" data-kpi="value">
+                  <div class="admin-metric-cell__top">
+                    <span class="admin-metric-cell__label">{{
+                      tr("ad.reports.kpiValue")
+                    }}</span>
+                    <span
+                      v-if="revenueDelta"
+                      class="admin-delta"
+                      :class="`admin-delta--${revenueDelta.tone}`"
+                      :title="revenueDelta.detail"
+                      data-kpi-delta="value"
+                      >{{ revenueDelta.label }}</span
+                    >
+                  </div>
+                  <p class="admin-hero-metric__value admin-price">
+                    {{
+                      formatPrice(report.summary.estimatedCompletedRevenueIdr)
+                    }}
+                  </p>
+                  <p class="admin-metric-cell__sub">
+                    {{
+                      report.summary.confirmedPipelineIdr > 0
+                        ? tr("ad.reports.kpiValueConfirmed", {
+                            amount: formatPrice(
+                              report.summary.confirmedPipelineIdr,
+                            ),
+                          })
+                        : tr("ad.reports.kpiValueAtSpa")
+                    }}
+                  </p>
+                </article>
               </div>
-              <div class="admin-metric-cell__figure">
-                <p class="admin-metric-cell__value">
-                  {{ report.summary.totalBookings }}
+
+              <div class="admin-hero-report__trend" data-report-trend>
+                <header class="admin-hero-report__subhead">
+                  <div class="admin-report-panel__heading">
+                    <div class="admin-report-panel__title-row">
+                      <h2 id="report-trend-title">
+                        {{ tr("ad.reports.trendTitle") }}
+                      </h2>
+                      <span
+                        v-if="peakDay"
+                        class="admin-report-pill"
+                        data-report-peak-day
+                      >
+                        {{
+                          tr("ad.reports.peakDaySummary", {
+                            date: formatDay(peakDay.date, language, "short"),
+                            count: peakDay.total,
+                          })
+                        }}
+                      </span>
+                    </div>
+                    <p aria-live="polite" class="admin-trend-readout">
+                      {{
+                        activeDayPoint
+                          ? dayDetailText(activeDayPoint)
+                          : report.summary.totalBookings > 0
+                            ? tr("ad.reports.trendHint")
+                            : tr("ad.reports.trendEmpty")
+                      }}
+                    </p>
+                  </div>
+                  <ul
+                    v-if="report.summary.totalBookings > 0"
+                    class="admin-report-legend"
+                    role="list"
+                  >
+                    <li>
+                      <span
+                        class="admin-report-swatch admin-report-swatch--completed"
+                        aria-hidden="true"
+                      />
+                      {{ tr("ad.reports.trendLegendCompleted") }}
+                    </li>
+                    <li>
+                      <span
+                        class="admin-report-swatch admin-report-swatch--active"
+                        aria-hidden="true"
+                      />
+                      {{ tr("ad.reports.trendLegendActive") }}
+                    </li>
+                    <li>
+                      <span
+                        class="admin-report-swatch admin-report-swatch--lost"
+                        aria-hidden="true"
+                      />
+                      {{ tr("ad.reports.trendLegendLost") }}
+                    </li>
+                  </ul>
+                </header>
+
+                <p
+                  v-if="report.summary.totalBookings === 0"
+                  class="admin-panel__empty"
+                >
+                  {{ tr("ad.reports.trendEmpty") }}
                 </p>
-                <svg
-                  v-if="sparkline"
-                  class="admin-sparkline"
-                  viewBox="0 0 76 24"
-                  width="76"
-                  height="24"
-                  aria-hidden="true"
-                >
-                  <path class="admin-sparkline__area" :d="sparkline.area" />
-                  <path class="admin-sparkline__line" :d="sparkline.line" />
-                </svg>
-              </div>
-              <p class="admin-metric-cell__sub">
-                {{
-                  report.summary.confirmedCount > 0 ||
-                  report.summary.pendingCount > 0
-                    ? tr("ad.reports.kpiTotalSub", {
-                        confirmed: report.summary.confirmedCount,
-                        pending: report.summary.pendingCount,
-                      })
-                    : tr("ad.reports.kpiTotalAll")
-                }}
-              </p>
-            </article>
+                <div v-else class="admin-trend-chart">
+                  <div class="admin-trend-chart__yaxis" aria-hidden="true">
+                    <span>{{ maxDailyTotal }}</span>
+                    <span>{{ dailyMidTick ?? "" }}</span>
+                    <span>0</span>
+                  </div>
+                  <div class="admin-trend-chart__plot">
+                    <div class="admin-trend-chart__guides" aria-hidden="true">
+                      <span class="admin-trend-chart__guide" />
+                      <span class="admin-trend-chart__guide" />
+                      <span
+                        class="admin-trend-chart__guide admin-trend-chart__guide--base"
+                      />
+                    </div>
 
-            <article class="admin-metric-cell" data-kpi="completed">
-              <div class="admin-metric-cell__top">
-                <span class="admin-metric-cell__label">{{
-                  tr("ad.reports.kpiCompleted")
-                }}</span>
-                <span
-                  v-if="completedDelta"
-                  class="admin-delta"
-                  :class="`admin-delta--${completedDelta.tone}`"
-                  :title="completedDelta.detail"
-                  data-kpi-delta="completed"
-                  >{{ completedDelta.label }}</span
-                >
-              </div>
-              <p class="admin-metric-cell__value">
-                {{ report.summary.completedCount }}
-              </p>
-              <p class="admin-metric-cell__sub">
-                {{
-                  report.summary.completionRate !== null
-                    ? tr("ad.reports.kpiCompletedRate", {
-                        rate: report.summary.completionRate,
-                      })
-                    : tr("ad.reports.kpiCompletedNone")
-                }}
-              </p>
-            </article>
+                    <div
+                      v-if="activeDayPoint"
+                      class="admin-chart-tooltip"
+                      :style="{ left: tooltipLeftPercent }"
+                      aria-hidden="true"
+                    >
+                      <span class="admin-chart-tooltip__date">{{
+                        formatDay(activeDayPoint.date, language, "short")
+                      }}</span>
+                      <span class="admin-chart-tooltip__count">
+                        {{
+                          tr("ad.reports.bookingCount", {
+                            n: activeDayPoint.total,
+                          })
+                        }}
+                      </span>
+                    </div>
 
-            <article class="admin-metric-cell" data-kpi="lost">
-              <div class="admin-metric-cell__top">
-                <span class="admin-metric-cell__label">{{
-                  tr("ad.reports.kpiLost")
-                }}</span>
-                <span
-                  v-if="lostDelta"
-                  class="admin-delta"
-                  :class="`admin-delta--${lostDelta.tone}`"
-                  :title="lostDelta.detail"
-                  data-kpi-delta="lost"
-                  >{{ lostDelta.label }}</span
-                >
+                    <div
+                      class="admin-trend__bars"
+                      :class="{ 'has-active': activeDay !== null }"
+                      role="list"
+                    >
+                      <button
+                        v-for="(point, index) in report.dailyTrend"
+                        :key="point.date"
+                        type="button"
+                        class="admin-trend__col"
+                        :class="{
+                          'is-selected': activeDay === point.date,
+                          'is-pinned': pinnedDay === point.date,
+                        }"
+                        :aria-label="dayDetailText(point)"
+                        :aria-pressed="pinnedDay === point.date"
+                        @mouseenter="hoveredDay = point.date"
+                        @mouseleave="
+                          if (hoveredDay === point.date) hoveredDay = null;
+                        "
+                        @focus="hoveredDay = point.date"
+                        @blur="
+                          if (hoveredDay === point.date) hoveredDay = null;
+                        "
+                        @click="
+                          pinnedDay =
+                            pinnedDay === point.date ? null : point.date
+                        "
+                      >
+                        <span class="admin-trend__track" aria-hidden="true">
+                          <span
+                            v-if="activeDay === point.date"
+                            class="admin-trend__crosshair"
+                          />
+                          <span
+                            class="admin-trend__stack"
+                            :style="{
+                              height:
+                                point.total > 0
+                                  ? barHeightPercent(point.total, maxDailyTotal)
+                                  : '0%',
+                            }"
+                          >
+                            <span
+                              v-if="point.lost > 0"
+                              class="admin-trend__seg admin-trend__seg--lost"
+                              :style="{ flexGrow: point.lost }"
+                            />
+                            <span
+                              v-if="point.active > 0"
+                              class="admin-trend__seg admin-trend__seg--active"
+                              :style="{ flexGrow: point.active }"
+                            />
+                            <span
+                              v-if="point.completed > 0"
+                              class="admin-trend__seg admin-trend__seg--completed"
+                              :style="{ flexGrow: point.completed }"
+                            />
+                          </span>
+                        </span>
+                        <span class="admin-trend__tick">
+                          {{
+                            showAxisTick(index) ? shortAxisDate(point.date) : ""
+                          }}
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <p class="admin-metric-cell__value">{{ lostTotal }}</p>
-              <p class="admin-metric-cell__sub">
-                {{
-                  tr("ad.reports.kpiLostBreakdown", {
-                    cancelled: report.summary.cancelledCount,
-                    noShow: report.summary.noShowCount,
-                  })
-                }}
-              </p>
-            </article>
 
-            <article
-              class="admin-metric-cell admin-metric-cell--value"
-              data-kpi="value"
+              <p class="admin-metric-band__foot" data-report-estimate-note>
+                {{ tr("ad.reports.estimateNote") }}
+              </p>
+            </section>
+
+            <section
+              class="admin-panel"
+              aria-labelledby="report-hours-title"
+              data-report-hours
             >
-              <div class="admin-metric-cell__top">
-                <span class="admin-metric-cell__label">{{
-                  tr("ad.reports.kpiValue")
-                }}</span>
-                <span
-                  v-if="revenueDelta"
-                  class="admin-delta"
-                  :class="`admin-delta--${revenueDelta.tone}`"
-                  :title="revenueDelta.detail"
-                  data-kpi-delta="value"
-                  >{{ revenueDelta.label }}</span
-                >
+              <header class="admin-panel__head admin-report-panel__head">
+                <div class="admin-report-panel__heading">
+                  <div class="admin-report-panel__title-row">
+                    <h2 id="report-hours-title">
+                      {{ tr("ad.reports.hoursTitle") }}
+                    </h2>
+                    <span
+                      v-if="busiestHour"
+                      class="admin-report-pill"
+                      data-report-peak-hour
+                    >
+                      {{
+                        tr("ad.reports.peakSummary", {
+                          hour: busiestHour.hour,
+                          count: busiestHour.count,
+                        })
+                      }}
+                    </span>
+                  </div>
+                  <p>{{ tr("ad.reports.hoursSub") }}</p>
+                </div>
+              </header>
+              <p v-if="!hasPeakHours" class="admin-panel__empty">
+                {{ tr("ad.reports.hoursEmpty") }}
+              </p>
+              <div v-else class="admin-hours-wrap">
+                <div class="admin-hours-guides" aria-hidden="true">
+                  <span class="admin-trend-chart__guide" />
+                  <span class="admin-trend-chart__guide" />
+                </div>
+                <div class="admin-hours-chart" role="list">
+                  <div
+                    v-for="slot in report.peakHours"
+                    :key="slot.hour"
+                    class="admin-hours-chart__col"
+                    role="listitem"
+                    :aria-label="`${slot.hour} WIB: ${tr('ad.reports.bookingCount', { n: slot.count })}`"
+                  >
+                    <span class="admin-hours-chart__count">{{
+                      slot.count > 0 ? slot.count : ""
+                    }}</span>
+                    <span class="admin-hours-chart__track" aria-hidden="true">
+                      <span
+                        class="admin-hours-chart__bar"
+                        :class="{
+                          'admin-hours-chart__bar--peak':
+                            slot.count > 0 && slot.count === maxHourCount,
+                        }"
+                        :style="{
+                          height:
+                            slot.count > 0
+                              ? barHeightPercent(slot.count, maxHourCount)
+                              : '0%',
+                        }"
+                      />
+                    </span>
+                    <span class="admin-hours-chart__label">{{
+                      slot.hour.slice(0, 2)
+                    }}</span>
+                  </div>
+                </div>
               </div>
-              <p class="admin-metric-cell__value admin-price">
-                {{ formatPrice(report.summary.estimatedCompletedRevenueIdr) }}
-              </p>
-              <p class="admin-metric-cell__sub">
-                {{
-                  report.summary.confirmedPipelineIdr > 0
-                    ? tr("ad.reports.kpiValueConfirmed", {
-                        amount: formatPrice(
-                          report.summary.confirmedPipelineIdr,
-                        ),
-                      })
-                    : tr("ad.reports.kpiValueAtSpa")
-                }}
-              </p>
-            </article>
+            </section>
           </div>
 
-          <p class="admin-metric-band__foot" data-report-estimate-note>
-            {{ tr("ad.reports.estimateNote") }}
-          </p>
-        </section>
-
-        <!-- Primary trend visualization with Y-axis guides, crosshair, and floating tooltip -->
-        <section
-          class="admin-panel"
-          aria-labelledby="report-trend-title"
-          data-report-trend
-        >
-          <header class="admin-panel__head admin-report-panel__head">
-            <div class="admin-report-panel__heading">
-              <div class="admin-report-panel__title-row">
-                <h2 id="report-trend-title">
-                  {{ tr("ad.reports.trendTitle") }}
+          <!-- RIGHT INTELLIGENCE RAIL: completion ring + outcomes, top treatments, channels -->
+          <div class="admin-reports-rail">
+            <section
+              class="admin-panel"
+              aria-labelledby="report-outcomes-title"
+              data-report-outcomes
+            >
+              <header class="admin-panel__head">
+                <h2 id="report-outcomes-title">
+                  {{ tr("ad.reports.outcomesTitle") }}
                 </h2>
-                <span
-                  v-if="peakDay"
-                  class="admin-report-pill"
-                  data-report-peak-day
-                >
+                <p v-if="report.summary.totalBookings > 0">
                   {{
-                    tr("ad.reports.peakDaySummary", {
-                      date: formatDay(peakDay.date, language, "short"),
-                      count: peakDay.total,
+                    tr("ad.reports.outcomesShare", {
+                      n: report.summary.totalBookings,
                     })
                   }}
-                </span>
-              </div>
-              <p aria-live="polite" class="admin-trend-readout">
-                {{
-                  activeDayPoint
-                    ? dayDetailText(activeDayPoint)
-                    : report.summary.totalBookings > 0
-                      ? tr("ad.reports.trendHint")
-                      : tr("ad.reports.trendEmpty")
-                }}
-              </p>
-            </div>
-            <ul
-              v-if="report.summary.totalBookings > 0"
-              class="admin-report-legend"
-              role="list"
-            >
-              <li>
-                <span
-                  class="admin-report-swatch admin-report-swatch--completed"
-                  aria-hidden="true"
-                />
-                {{ tr("ad.reports.trendLegendCompleted") }}
-              </li>
-              <li>
-                <span
-                  class="admin-report-swatch admin-report-swatch--active"
-                  aria-hidden="true"
-                />
-                {{ tr("ad.reports.trendLegendActive") }}
-              </li>
-              <li>
-                <span
-                  class="admin-report-swatch admin-report-swatch--lost"
-                  aria-hidden="true"
-                />
-                {{ tr("ad.reports.trendLegendLost") }}
-              </li>
-            </ul>
-          </header>
+                </p>
+              </header>
 
-          <p
-            v-if="report.summary.totalBookings === 0"
-            class="admin-panel__empty"
-          >
-            {{ tr("ad.reports.trendEmpty") }}
-          </p>
-          <div v-else class="admin-trend-chart">
-            <div class="admin-trend-chart__yaxis" aria-hidden="true">
-              <span>{{ maxDailyTotal }}</span>
-              <span>{{ dailyMidTick ?? "" }}</span>
-              <span>0</span>
-            </div>
-            <div class="admin-trend-chart__plot">
-              <div class="admin-trend-chart__guides" aria-hidden="true">
-                <span class="admin-trend-chart__guide" />
-                <span class="admin-trend-chart__guide" />
-                <span
-                  class="admin-trend-chart__guide admin-trend-chart__guide--base"
-                />
+              <div class="admin-health-top">
+                <div class="admin-ring" aria-hidden="true">
+                  <svg viewBox="0 0 64 64" width="64" height="64">
+                    <circle
+                      class="admin-ring__track"
+                      cx="32"
+                      cy="32"
+                      :r="RING_RADIUS"
+                    />
+                    <circle
+                      class="admin-ring__arc"
+                      cx="32"
+                      cy="32"
+                      :r="RING_RADIUS"
+                      :stroke-dasharray="RING_CIRCUMFERENCE"
+                      :stroke-dashoffset="ringOffset"
+                    />
+                  </svg>
+                  <span class="admin-ring__label">{{
+                    report.summary.completionRate !== null
+                      ? `${report.summary.completionRate}%`
+                      : "0%"
+                  }}</span>
+                </div>
+
+                <div class="admin-health-stats">
+                  <article class="admin-health-stat" data-kpi="completed">
+                    <div class="admin-metric-cell__top">
+                      <span class="admin-metric-cell__label">{{
+                        tr("ad.reports.kpiCompleted")
+                      }}</span>
+                      <span
+                        v-if="completedDelta"
+                        class="admin-delta"
+                        :class="`admin-delta--${completedDelta.tone}`"
+                        :title="completedDelta.detail"
+                        data-kpi-delta="completed"
+                        >{{ completedDelta.label }}</span
+                      >
+                    </div>
+                    <p class="admin-health-stat__value">
+                      {{ report.summary.completedCount }}
+                    </p>
+                    <p class="admin-metric-cell__sub">
+                      {{
+                        report.summary.completionRate !== null
+                          ? tr("ad.reports.kpiCompletedRate", {
+                              rate: report.summary.completionRate,
+                            })
+                          : tr("ad.reports.kpiCompletedNone")
+                      }}
+                    </p>
+                  </article>
+
+                  <article class="admin-health-stat" data-kpi="lost">
+                    <div class="admin-metric-cell__top">
+                      <span class="admin-metric-cell__label">{{
+                        tr("ad.reports.kpiLost")
+                      }}</span>
+                      <span
+                        v-if="lostDelta"
+                        class="admin-delta"
+                        :class="`admin-delta--${lostDelta.tone}`"
+                        :title="lostDelta.detail"
+                        data-kpi-delta="lost"
+                        >{{ lostDelta.label }}</span
+                      >
+                    </div>
+                    <p class="admin-health-stat__value">{{ lostTotal }}</p>
+                    <p class="admin-metric-cell__sub">
+                      {{
+                        tr("ad.reports.kpiLostBreakdown", {
+                          cancelled: report.summary.cancelledCount,
+                          noShow: report.summary.noShowCount,
+                        })
+                      }}
+                    </p>
+                  </article>
+                </div>
               </div>
 
               <div
-                v-if="activeDayPoint"
-                class="admin-chart-tooltip"
-                :style="{ left: tooltipLeftPercent }"
+                v-if="outcomeBarSegments.length"
+                class="admin-outcome-summary"
                 aria-hidden="true"
               >
-                <span class="admin-chart-tooltip__date">{{
-                  formatDay(activeDayPoint.date, language, "short")
-                }}</span>
-                <span class="admin-chart-tooltip__count">
-                  {{
-                    tr("ad.reports.bookingCount", { n: activeDayPoint.total })
-                  }}
-                </span>
+                <div class="admin-outcome-bar">
+                  <span
+                    v-for="seg in outcomeBarSegments"
+                    :key="seg.key"
+                    class="admin-outcome-bar__seg"
+                    :class="`admin-outcome-bar__seg--${seg.tone}`"
+                    :style="{ width: seg.width }"
+                  />
+                </div>
               </div>
 
-              <div
-                class="admin-trend__bars"
-                :class="{ 'has-active': activeDay !== null }"
-                role="list"
-              >
-                <button
-                  v-for="(point, index) in report.dailyTrend"
-                  :key="point.date"
-                  type="button"
-                  class="admin-trend__col"
-                  :class="{
-                    'is-selected': activeDay === point.date,
-                    'is-pinned': pinnedDay === point.date,
-                  }"
-                  :aria-label="dayDetailText(point)"
-                  :aria-pressed="pinnedDay === point.date"
-                  @mouseenter="hoveredDay = point.date"
-                  @mouseleave="
-                    if (hoveredDay === point.date) hoveredDay = null;
-                  "
-                  @focus="hoveredDay = point.date"
-                  @blur="if (hoveredDay === point.date) hoveredDay = null;"
-                  @click="
-                    pinnedDay = pinnedDay === point.date ? null : point.date
-                  "
+              <ul class="admin-report-list" role="list">
+                <li
+                  v-for="item in outcomes"
+                  :key="item.key"
+                  class="admin-report-stat-row"
+                  :class="{ 'is-zero': item.count === 0 }"
                 >
-                  <span class="admin-trend__track" aria-hidden="true">
+                  <span class="admin-outcome-label">
                     <span
-                      v-if="activeDay === point.date"
-                      class="admin-trend__crosshair"
+                      class="admin-outcome-dot"
+                      :class="`admin-outcome-dot--${item.dot}`"
+                      aria-hidden="true"
                     />
-                    <span
-                      class="admin-trend__stack"
-                      :style="{
-                        height:
-                          point.total > 0
-                            ? barHeightPercent(point.total, maxDailyTotal)
-                            : '0%',
-                      }"
-                    >
-                      <span
-                        v-if="point.lost > 0"
-                        class="admin-trend__seg admin-trend__seg--lost"
-                        :style="{ flexGrow: point.lost }"
-                      />
-                      <span
-                        v-if="point.active > 0"
-                        class="admin-trend__seg admin-trend__seg--active"
-                        :style="{ flexGrow: point.active }"
-                      />
-                      <span
-                        v-if="point.completed > 0"
-                        class="admin-trend__seg admin-trend__seg--completed"
-                        :style="{ flexGrow: point.completed }"
-                      />
-                    </span>
+                    {{ item.label }}
                   </span>
-                  <span class="admin-trend__tick">
-                    {{ showAxisTick(index) ? shortAxisDate(point.date) : "" }}
-                  </span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </section>
+                  <span class="admin-outcome-count">{{ item.count }}</span>
+                </li>
+              </ul>
+            </section>
 
-        <!-- Asymmetric row 1: ranked treatments ledger + compact outcome health -->
-        <div class="admin-report-asymmetric">
-          <section
-            class="admin-panel"
-            aria-labelledby="report-packages-title"
-            data-report-packages
-          >
-            <header class="admin-panel__head">
-              <h2 id="report-packages-title">
-                {{ tr("ad.reports.packagesTitle") }}
-              </h2>
-              <p>{{ tr("ad.reports.packagesSub") }}</p>
-            </header>
-            <p v-if="!report.topPackages.length" class="admin-panel__empty">
-              {{ tr("ad.reports.packagesEmpty") }}
-            </p>
-            <ol v-else class="admin-report-list">
-              <li
-                v-for="(row, index) in report.topPackages"
-                :key="`${row.slug}-${row.treatmentMode}-${row.durationMinutes}`"
-                class="admin-report-bar-row"
-              >
-                <div class="admin-report-bar-row__top">
-                  <span class="admin-report-rank-cell">
-                    <span class="admin-report-rank" aria-hidden="true">{{
-                      index + 1
-                    }}</span>
-                    <span class="admin-cell-main">
-                      {{ language === "id" ? row.nameId : row.nameEn
-                      }}<span v-if="row.isVip" class="admin-vip">{{
-                        tr("bookings.vip")
+            <section
+              class="admin-panel"
+              aria-labelledby="report-packages-title"
+              data-report-packages
+            >
+              <header class="admin-panel__head">
+                <h2 id="report-packages-title">
+                  {{ tr("ad.reports.packagesTitle") }}
+                </h2>
+                <p>{{ tr("ad.reports.packagesSub") }}</p>
+              </header>
+              <p v-if="!report.topPackages.length" class="admin-panel__empty">
+                {{ tr("ad.reports.packagesEmpty") }}
+              </p>
+              <ol v-else class="admin-report-list">
+                <li
+                  v-for="(row, index) in report.topPackages"
+                  :key="`${row.slug}-${row.treatmentMode}-${row.durationMinutes}`"
+                  class="admin-report-bar-row"
+                >
+                  <div class="admin-report-bar-row__top">
+                    <span class="admin-report-rank-cell">
+                      <span class="admin-report-rank" aria-hidden="true">{{
+                        index + 1
                       }}</span>
-                      <span class="admin-record-secondary">
-                        ·
-                        {{ tr(`bookings.treatmentMode.${row.treatmentMode}`) }}
-                        · {{ row.durationMinutes }} {{ tr("bookings.minutes") }}
+                      <span class="admin-cell-main">
+                        {{ language === "id" ? row.nameId : row.nameEn
+                        }}<span v-if="row.isVip" class="admin-vip">{{
+                          tr("bookings.vip")
+                        }}</span>
+                        <span class="admin-record-secondary">
+                          ·
+                          {{
+                            tr(`bookings.treatmentMode.${row.treatmentMode}`)
+                          }}
+                          · {{ row.durationMinutes }}
+                          {{ tr("bookings.minutes") }}
+                        </span>
                       </span>
                     </span>
-                  </span>
-                  <span class="admin-report-bar-row__metric">
-                    <strong>{{
-                      tr("ad.reports.bookingCount", { n: row.count })
-                    }}</strong>
-                    <span class="admin-record-secondary admin-price">{{
-                      formatPrice(row.estimatedValueIdr)
-                    }}</span>
-                  </span>
-                </div>
-                <div class="admin-report-meter" aria-hidden="true">
-                  <span
-                    class="admin-report-meter__fill"
-                    :style="{
-                      width: meterWidthPercent(row.count, maxPackageCount),
-                    }"
-                  />
-                </div>
-              </li>
-            </ol>
-          </section>
-
-          <section
-            class="admin-panel"
-            aria-labelledby="report-outcomes-title"
-            data-report-outcomes
-          >
-            <header class="admin-panel__head">
-              <h2 id="report-outcomes-title">
-                {{ tr("ad.reports.outcomesTitle") }}
-              </h2>
-              <p v-if="report.summary.totalBookings > 0">
-                {{
-                  tr("ad.reports.outcomesShare", {
-                    n: report.summary.totalBookings,
-                  })
-                }}
-              </p>
-            </header>
-            <div
-              v-if="outcomeBarSegments.length"
-              class="admin-outcome-summary"
-              aria-hidden="true"
-            >
-              <div class="admin-outcome-bar">
-                <span
-                  v-for="seg in outcomeBarSegments"
-                  :key="seg.key"
-                  class="admin-outcome-bar__seg"
-                  :class="`admin-outcome-bar__seg--${seg.tone}`"
-                  :style="{ width: seg.width }"
-                />
-              </div>
-            </div>
-            <ul class="admin-report-list" role="list">
-              <li
-                v-for="item in outcomes"
-                :key="item.key"
-                class="admin-report-stat-row"
-                :class="{ 'is-zero': item.count === 0 }"
-              >
-                <span class="admin-outcome-label">
-                  <span
-                    class="admin-outcome-dot"
-                    :class="`admin-outcome-dot--${item.dot}`"
-                    aria-hidden="true"
-                  />
-                  {{ item.label }}
-                </span>
-                <span class="admin-outcome-count">{{ item.count }}</span>
-              </li>
-            </ul>
-          </section>
-        </div>
-
-        <!-- Asymmetric row 2: peak appointment hours histogram + channel mix -->
-        <div class="admin-report-asymmetric">
-          <section
-            class="admin-panel"
-            aria-labelledby="report-hours-title"
-            data-report-hours
-          >
-            <header class="admin-panel__head admin-report-panel__head">
-              <div class="admin-report-panel__heading">
-                <div class="admin-report-panel__title-row">
-                  <h2 id="report-hours-title">
-                    {{ tr("ad.reports.hoursTitle") }}
-                  </h2>
-                  <span
-                    v-if="busiestHour"
-                    class="admin-report-pill"
-                    data-report-peak-hour
-                  >
-                    {{
-                      tr("ad.reports.peakSummary", {
-                        hour: busiestHour.hour,
-                        count: busiestHour.count,
-                      })
-                    }}
-                  </span>
-                </div>
-                <p>{{ tr("ad.reports.hoursSub") }}</p>
-              </div>
-            </header>
-            <p v-if="!hasPeakHours" class="admin-panel__empty">
-              {{ tr("ad.reports.hoursEmpty") }}
-            </p>
-            <div v-else class="admin-hours-wrap">
-              <div class="admin-hours-guides" aria-hidden="true">
-                <span class="admin-trend-chart__guide" />
-                <span class="admin-trend-chart__guide" />
-              </div>
-              <div class="admin-hours-chart" role="list">
-                <div
-                  v-for="slot in report.peakHours"
-                  :key="slot.hour"
-                  class="admin-hours-chart__col"
-                  role="listitem"
-                  :aria-label="`${slot.hour} WIB: ${tr('ad.reports.bookingCount', { n: slot.count })}`"
-                >
-                  <span class="admin-hours-chart__count">{{
-                    slot.count > 0 ? slot.count : ""
-                  }}</span>
-                  <span class="admin-hours-chart__track" aria-hidden="true">
+                    <span class="admin-report-bar-row__metric">
+                      <strong>{{
+                        tr("ad.reports.bookingCount", { n: row.count })
+                      }}</strong>
+                      <span class="admin-record-secondary admin-price">{{
+                        formatPrice(row.estimatedValueIdr)
+                      }}</span>
+                    </span>
+                  </div>
+                  <div class="admin-report-meter" aria-hidden="true">
                     <span
-                      class="admin-hours-chart__bar"
-                      :class="{
-                        'admin-hours-chart__bar--peak':
-                          slot.count > 0 && slot.count === maxHourCount,
-                      }"
+                      class="admin-report-meter__fill"
                       :style="{
-                        height:
-                          slot.count > 0
-                            ? barHeightPercent(slot.count, maxHourCount)
+                        width: meterWidthPercent(row.count, maxPackageCount),
+                      }"
+                    />
+                  </div>
+                </li>
+              </ol>
+            </section>
+
+            <section
+              class="admin-panel"
+              aria-labelledby="report-channels-title"
+              data-report-channels
+            >
+              <header class="admin-panel__head">
+                <h2 id="report-channels-title">
+                  {{ tr("ad.reports.channelsTitle") }}
+                </h2>
+              </header>
+              <ul class="admin-report-list" role="list">
+                <li
+                  v-for="channel in report.channels"
+                  :key="channel.key"
+                  class="admin-report-bar-row"
+                  :class="{ 'is-zero': channel.count === 0 }"
+                >
+                  <div class="admin-report-bar-row__top">
+                    <span>{{ tr(`ad.reports.channel.${channel.key}`) }}</span>
+                    <span class="admin-report-bar-row__metric">
+                      <strong>{{ channel.count }}</strong>
+                      <span
+                        v-if="channelTotal > 0"
+                        class="admin-record-secondary"
+                      >
+                        {{ Math.round((channel.count / channelTotal) * 100) }}%
+                      </span>
+                    </span>
+                  </div>
+                  <div class="admin-report-meter" aria-hidden="true">
+                    <span
+                      class="admin-report-meter__fill admin-report-meter__fill--soft"
+                      :style="{
+                        width:
+                          channel.count > 0
+                            ? meterWidthPercent(channel.count, channelTotal)
                             : '0%',
                       }"
                     />
-                  </span>
-                  <span class="admin-hours-chart__label">{{
-                    slot.hour.slice(0, 2)
-                  }}</span>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <section
-            class="admin-panel"
-            aria-labelledby="report-channels-title"
-            data-report-channels
-          >
-            <header class="admin-panel__head">
-              <h2 id="report-channels-title">
-                {{ tr("ad.reports.channelsTitle") }}
-              </h2>
-            </header>
-            <ul class="admin-report-list" role="list">
-              <li
-                v-for="channel in report.channels"
-                :key="channel.key"
-                class="admin-report-bar-row"
-                :class="{ 'is-zero': channel.count === 0 }"
-              >
-                <div class="admin-report-bar-row__top">
-                  <span>{{ tr(`ad.reports.channel.${channel.key}`) }}</span>
-                  <span class="admin-report-bar-row__metric">
-                    <strong>{{ channel.count }}</strong>
-                    <span
-                      v-if="channelTotal > 0"
-                      class="admin-record-secondary"
-                    >
-                      {{ Math.round((channel.count / channelTotal) * 100) }}%
-                    </span>
-                  </span>
-                </div>
-                <div class="admin-report-meter" aria-hidden="true">
-                  <span
-                    class="admin-report-meter__fill admin-report-meter__fill--soft"
-                    :style="{
-                      width:
-                        channel.count > 0
-                          ? meterWidthPercent(channel.count, channelTotal)
-                          : '0%',
-                    }"
-                  />
-                </div>
-              </li>
-            </ul>
-          </section>
+                  </div>
+                </li>
+              </ul>
+            </section>
+          </div>
         </div>
       </div>
     </AdminLayout>
