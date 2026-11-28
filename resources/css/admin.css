@@ -920,6 +920,10 @@
   gap: 1rem;
   padding-block: 0.5rem;
 }
+.admin-detail-card dl > .admin-reference-row {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.25rem;
+}
 .admin-detail-card dt {
   color: var(--admin-muted);
   font-size: 0.8125rem;

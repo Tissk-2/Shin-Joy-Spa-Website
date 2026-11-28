@@ -357,7 +357,7 @@ async function copyReference(): Promise<void> {
                   </template>
                 </dd>
               </div>
-              <div>
+              <div class="admin-reference-row">
                 <dt>{{ tr("ad.booking.reference") }}</dt>
                 <dd class="admin-reference">
                   <span class="admin-code" data-booking-reference>{{
