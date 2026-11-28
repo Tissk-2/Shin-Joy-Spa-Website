@@ -197,4 +197,38 @@ describe("admin content editor", () => {
     expect((subId.element as HTMLTextAreaElement).value).toBe("Teks khusus");
     expect(subId.attributes("placeholder")).toBe(translations.id["hero.sub"]);
   });
+
+  // Staff review 2026-11-26: Konten section titles used title case and "Hero" jargon.
+  it("labels content sections in plain sentence case in both languages", async () => {
+    const wrapper = mount(Content, {
+      attachTo: document.body,
+      props: {
+        sections: {
+          hero: ["hero.heading"],
+          about: ["about.title"],
+          contact: ["loc.address"],
+        },
+        values: {},
+        revision: 1,
+      },
+      global: {
+        stubs: { AdminLayout: { template: "<section><slot /></section>" } },
+      },
+    });
+    wrappers.push(wrapper);
+
+    expect(wrapper.findAll("h2").map((heading) => heading.text())).toEqual([
+      "Home page top",
+      "About section",
+      "Contact & location",
+    ]);
+
+    inertia.page.props.locale = "id";
+    await nextTick();
+    expect(wrapper.findAll("h2").map((heading) => heading.text())).toEqual([
+      "Bagian atas beranda",
+      "Bagian tentang",
+      "Kontak & lokasi",
+    ]);
+  });
 });

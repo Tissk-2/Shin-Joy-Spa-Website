@@ -363,6 +363,10 @@ function submit(): void {
                     v-if="member.telegram.state !== 'none'"
                     type="button"
                     class="admin-button"
+                    :class="{
+                      'admin-button--danger':
+                        member.telegram.state === 'linked',
+                    }"
                     data-telegram-revoke
                     :disabled="telegramBusy"
                     @click="askTelegram(member, 'revoke', $event)"

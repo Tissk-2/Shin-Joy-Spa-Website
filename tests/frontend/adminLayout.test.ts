@@ -81,7 +81,7 @@ describe("administrator layout", () => {
     });
 
     expect(wrapper.get('a[href="#main"]').text()).toBe("Skip to content");
-    expect(wrapper.get("aside").text()).toContain("Admin Panel");
+    expect(wrapper.get("aside").text()).toContain("Admin panel");
     expect(wrapper.get("[data-admin-identity]").text()).toContain(
       "Rani Kusuma",
     );
@@ -91,7 +91,8 @@ describe("administrator layout", () => {
     expect(
       wrapper.get('nav a[href="/admin/bookings"]').attributes("aria-current"),
     ).toBe("page");
-    expect(wrapper.get('a[href="/"]').text()).toBe("View Website");
+    expect(wrapper.get('a[href="/"]').text()).toBe("View website");
+    expect(wrapper.get("button[data-admin-logout]").text()).toBe("Log out");
     expect(wrapper.get("h1").text()).toBe("Bookings");
     expect(wrapper.get("header p:last-of-type").text()).toBe(
       "Review and update guest reservations.",
@@ -342,7 +343,7 @@ describe("administrator layout", () => {
     });
     const header = wrapper.get(".admin-page-heading");
 
-    expect(header.text()).not.toContain("Admin Panel");
+    expect(header.text()).not.toContain("Admin panel");
     expect(header.get("h1").text()).toBe("Bookings");
     expect(header.find("[data-page-action]").exists()).toBe(true);
   });

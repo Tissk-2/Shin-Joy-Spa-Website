@@ -299,10 +299,14 @@ const observation = computed(
                       </div>
                     </td>
                     <td class="admin-nowrap">
-                      {{ room.capacity }} {{ tr("ad.rooms.guests") }}
+                      {{ room.capacity }}
+                      {{ tr("ad.rooms.guests", { count: room.capacity }) }}
                     </td>
                     <td class="admin-nowrap">
-                      {{ room.cleaningMinutes }} {{ tr("ad.rooms.minutes") }}
+                      {{ room.cleaningMinutes }}
+                      {{
+                        tr("ad.rooms.minutes", { count: room.cleaningMinutes })
+                      }}
                     </td>
                     <td>
                       <RoomDetails
@@ -343,9 +347,10 @@ const observation = computed(
                   <RoomStatusBadges :room="room" />
                 </div>
                 <p class="admin-booking-list__meta">
-                  {{ room.capacity }} {{ tr("ad.rooms.guests") }} ·
+                  {{ room.capacity }}
+                  {{ tr("ad.rooms.guests", { count: room.capacity }) }} ·
                   {{ tr("ad.rooms.cleaning") }} {{ room.cleaningMinutes }}
-                  {{ tr("ad.rooms.minutes") }}
+                  {{ tr("ad.rooms.minutes", { count: room.cleaningMinutes }) }}
                 </p>
                 <section v-if="room.compatibleVariants.length > 0">
                   <h3 class="admin-room-card__label">

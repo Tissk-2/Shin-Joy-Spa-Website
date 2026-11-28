@@ -127,8 +127,11 @@ describe("admin catalog index", () => {
     const count = wrapper.get(
       '[data-catalog-package="warm-stone"] .catalog-count',
     );
-    expect(count.text()).toMatch(/^2 base options · 1 /);
+    expect(count.text()).toBe("2 base options · 1 extension");
     expect(count.text()).not.toContain("3");
+    expect(
+      wrapper.get('[data-catalog-package="calm-facial"] .catalog-count').text(),
+    ).toBe("1 base option · 0 extensions");
     expect(wrapper.text()).toContain("VIP");
 
     inertia.page.props.locale = "id";

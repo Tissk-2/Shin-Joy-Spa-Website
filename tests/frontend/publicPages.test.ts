@@ -264,7 +264,7 @@ describe("Laravel-owned public pages", () => {
     });
     await administrator.get(".account-toggle").trigger("click");
     expect(administrator.get('a[href="/admin/bookings"]').text()).toBe(
-      "Admin Panel",
+      "Admin panel",
     );
 
     const layout = readFileSync(

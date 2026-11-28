@@ -155,6 +155,22 @@ describe("read-only staff room inventory", () => {
     expect(JSON.stringify(data)).toBe(original);
   });
 
+  // Staff review 2026-11-26: English room rows read "1 guests" for single-guest rooms.
+  it("uses singular English units for one-guest rooms and one-minute cleaning", () => {
+    const data = inventory();
+    data.rooms[0].capacity = 1;
+    data.rooms[0].cleaningMinutes = 1;
+    const wrapper = render(data);
+    const firstRow = wrapper.get('tbody tr[data-room-id="1"]').text();
+    const secondRow = wrapper.get('tbody tr[data-room-id="2"]').text();
+    expect(firstRow).toContain("1 guest");
+    expect(firstRow).not.toContain("1 guests");
+    expect(firstRow).toContain("1 min");
+    expect(firstRow).not.toContain("1 mins");
+    expect(secondRow).toContain("3 guests");
+    expect(secondRow).toContain("0 mins");
+  });
+
   it("filters status independently of blocks", async () => {
     const wrapper = render();
     // The stat row only repeated the map legend (staff review 2026-11-25).

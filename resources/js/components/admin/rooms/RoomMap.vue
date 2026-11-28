@@ -191,6 +191,7 @@ const href = (room: AdminRoom) =>
                     tr("ad.rooms.mapGuestsOf", {
                       guests: room.occupancy.guests,
                       capacity: room.capacity,
+                      count: room.capacity,
                     })
                   }}
                 </span>

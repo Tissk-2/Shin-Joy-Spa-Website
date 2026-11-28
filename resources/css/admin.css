@@ -916,7 +916,7 @@
 }
 .admin-detail-card dl > div {
   display: grid;
-  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  grid-template-columns: minmax(8rem, 0.55fr) minmax(0, 1.45fr);
   gap: 1rem;
   padding-block: 0.5rem;
 }
@@ -1377,7 +1377,7 @@
 }
 .admin-reference .admin-code {
   min-width: 0;
-  word-break: break-all;
+  overflow-wrap: anywhere;
 }
 .admin-icon-button--small {
   width: 36px;

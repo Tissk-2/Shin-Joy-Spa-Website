@@ -145,6 +145,8 @@ describe("admin Today page", () => {
     ]);
     expect(queued[0].text()).toContain("Requested yesterday");
     expect(queued[1].text()).toContain("Requested 2 hours ago");
+    expect(queued[0].text()).toContain("1 guest");
+    expect(queued[0].text()).not.toContain("1 guests");
     expect(queued[0].text()).toContain("Rp 265.000");
     expect(queued[0].get("a").attributes("href")).toBe(
       "/admin/bookings/SJ-OLDEST",
@@ -216,6 +218,12 @@ describe("admin Today page", () => {
     expect(
       mountPage({ pricingUnverified: 0 }).find("[data-pricing-alert]").exists(),
     ).toBe(false);
+    const oneAlert = mountPage({ pricingUnverified: 1 }).get(
+      "[data-pricing-alert]",
+    );
+    expect(oneAlert.text()).toContain(
+      "1 package has unverified pricing, so guests can only book it for 1 person.",
+    );
     const wrapper = mountPage({ pricingUnverified: 2 });
     const alert = wrapper.get("[data-pricing-alert]");
     expect(alert.text()).toContain(

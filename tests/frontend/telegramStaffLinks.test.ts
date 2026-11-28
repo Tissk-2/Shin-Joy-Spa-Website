@@ -224,6 +224,19 @@ it("shows each Telegram state with the right controls", () => {
       wrapper.find(`[data-staff-id='${id}'] [data-telegram-revoke]`).exists(),
     ).toBe(true);
   }
+  // Staff review 2026-11-26: removing an active Telegram link removes access, just like revoking booking permission.
+  expect(
+    wrapper.get("[data-staff-id='13'] [data-telegram-revoke]").classes(),
+  ).toContain("admin-button--danger");
+  expect(
+    wrapper.get("[data-staff-id='14'] [data-telegram-revoke]").classes(),
+  ).toContain("admin-button--danger");
+  expect(
+    wrapper.get("[data-staff-id='11'] [data-telegram-revoke]").classes(),
+  ).not.toContain("admin-button--danger");
+  expect(
+    wrapper.get("[data-staff-id='12'] [data-telegram-revoke]").classes(),
+  ).not.toContain("admin-button--danger");
   expect(
     wrapper.find("[data-staff-id='10'] [data-telegram-revoke]").exists(),
   ).toBe(false);
